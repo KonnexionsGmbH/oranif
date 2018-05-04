@@ -38,6 +38,8 @@ typedef struct {
     ub1 char_semantics;
     ub2 col_size;
     ErlNifBinary col_name;
+    OCIDefine *definehp;
+    void *valuep;
 } col_info;
 
 typedef struct {
@@ -411,6 +413,10 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ub4 counter, col_name_len, col_count, col_width;
     text *col_name;
 
+    // Vars for the define step
+    void *valuep;
+    OCIDefine *definehp = (OCIDefine *) 0;
+
     if(!(argc == 6 &&
         enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
         enif_get_resource(env, argv[1], svchp_resource_type, (void**)&svchp_res) &&
@@ -466,6 +472,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     // if we got a description for the first column, get them all
     while (param_status == OCI_SUCCESS) {
         col_info *column_info = &col_array[counter - 1];
+        column_info->definehp = NULL;
 
         /* Retrieve the datatype attribute */
         status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
@@ -477,6 +484,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_badarg(env);
         }
         column_info->col_type = col_type;
+        printf("Col %d data_type: %d\r\n", counter, col_type);
 
         /* Retrieve the column name attribute and put in a locally stored erlang binary
            Could just have used a text* for this, but convenient for sending back to beam */
@@ -498,6 +506,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_badarg(env);
         }
         memcpy(column_info->col_name.data, col_name, col_name_len);
+        printf("Col %d name: %s\r\n", counter, col_name);
 
         /* Retrieve the length semantics for the column */
         char_semantics = 0;
@@ -512,6 +521,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_badarg(env);
         }
         column_info->char_semantics = char_semantics;
+        printf("Col %d char_semantics: %d\r\n", counter, char_semantics);
 
         /* Retrieve the column width in characters */
         col_width = 0;
@@ -541,6 +551,30 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 }
             column_info->col_size = col_width;
         }
+        printf("Col %d col_width: %d\r\n", counter, col_width);
+        // FIXME: could also retrieve Character set form and id, column scale, column precision
+
+        /* We have what we need to set up the OCIDefine for this column
+           Allocate storage and call DefineByPos */
+        valuep = malloc(column_info->col_size);
+        column_info->valuep = valuep;
+        status = OCIDefineByPos(stmthp_res->stmthp, &definehp, envhp_res->errhp,
+                                counter,
+                                (void *)valuep,
+                                column_info->col_size,
+                                col_type,
+                                (void *) NULL, // FIXME: indp,
+                                (ub2 *) NULL, // FIXME: rlenp,
+                                (ub2 *) NULL, // FIXME rcodep,
+                                OCI_DEFAULT );
+        if (status) {
+                OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
+                checkerr(envhp_res->errhp, status);
+                return enif_make_badarg(env);
+                }
+        printf("Col %d OCIDefineByPos OK\r\n", counter);
+
+
         counter++;
         param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT, envhp_res->errhp,
                                   (dvoid **)&paramd, counter);
@@ -571,7 +605,18 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         checkerr(envhp_res->errhp, status);
         return enif_make_badarg(env);
     } else {
-        return ATOM_OK;
+        ERL_NIF_TERM list = enif_make_list(env, 0);
+        printf("Fetch OK\r\n");
+        for (int i = 0; i < stmthp_res->num_cols; i++) {
+            ERL_NIF_TERM term;
+            col_info *col = &stmthp_res->col_info[i];
+            unsigned char *bin = enif_make_new_binary(env, col->col_size, &term);
+            memcpy(bin, col->valuep, col->col_size);
+            list = enif_make_list_cell(env, term, list);
+        }
+        return enif_make_tuple(env, 2,
+                         ATOM_OK,
+                         list);
     }
 }
 

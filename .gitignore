@@ -5,6 +5,13 @@ deps
 *.plt
 erl_crash.dump
 ebin/*.beam
-rel/example_project
-.concrete/DEV_MODE
+priv
 .rebar
+.rebar3
+_*
+.erlang.cookie
+_build
+rebar.lock
+rebar3.crashdump
+package-lock.json
+

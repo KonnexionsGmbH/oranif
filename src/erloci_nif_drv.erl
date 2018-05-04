@@ -2,10 +2,10 @@
 
 -export([init/0, hello/0, ociEnvCreate/0, ociSpoolHandleCreate/1,
         ociSessionPoolCreate/8, ociAuthHandleCreate/3, ociSessionGet/3,
-        ociStmtHandleCreate/1, ociStmtPrepare/3, ociStmtExecute/5,
+        ociStmtHandleCreate/1, ociStmtPrepare/3, ociStmtExecute/6,
         ociBindByName/6, ociStmtFetch/3]).
 
--export([sql_type/1]).
+-export([sql_type/1, oci_mode/1]).
 
 -on_load(init/0).
 
@@ -87,8 +87,8 @@ ociStmtHandleCreate(_Envhp) ->
 ociStmtPrepare(_Envhp, _Stmthp, _Stmt) ->
      ?NOT_LOADED.
 
--spec ociStmtExecute(reference(), reference(), binary(), pos_integer(), pos_integer()) -> ok | {error, binary()}.
-ociStmtExecute(_Envhp, _Svchp, _Stmthp, _Iters, _RowOff) ->
+-spec ociStmtExecute(reference(), reference(), binary(), pos_integer(), pos_integer(), integer()) -> ok | {error, binary()}.
+ociStmtExecute(_Envhp, _Svchp, _Stmthp, _Iters, _RowOff, _Mode) ->
     ?NOT_LOADED.
 
 -spec ociBindByName(reference(), reference(), binary(), integer(), integer(), binary()) -> ok | {error, binary()}.
@@ -102,6 +102,10 @@ ociStmtFetch(_Envhp, _Stmthp, _NumRows) ->
 not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
 
+%% From oci.h
+oci_mode('OCI_DEFAULT') ->           0;
+oci_mode('OCI_DESCRIBE_ONLY') ->     16#00000010; %  only describe the statement
+oci_mode('OCI_COMMIT_ON_SUCCESS') -> 16#00000020.  % commit, if successful exec
 
 sql_type('SQLT_CHR') ->           1;
 sql_type('SQLT_NUM') ->           2;

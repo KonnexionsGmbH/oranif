@@ -402,7 +402,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     envhp_res *envhp_res;
     svchp_res *svchp_res;
     stmthp_res *stmthp_res;
-    ub4 iters, row_off;
+    ub4 iters, row_off, mode;
 
     // Vars needed if we want to figure out fetch column types
     OCIParam *paramd = (OCIParam *) 0;
@@ -411,18 +411,19 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ub4 counter, col_name_len, col_count, col_width;
     text *col_name;
 
-    if(!(argc == 5 &&
+    if(!(argc == 6 &&
         enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
         enif_get_resource(env, argv[1], svchp_resource_type, (void**)&svchp_res) &&
         enif_get_resource(env, argv[2], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_get_uint(env, argv[3], &iters) &&
-        enif_get_uint(env, argv[4], &row_off) )) {
+        enif_get_uint(env, argv[4], &row_off) &&
+        enif_get_uint(env, argv[5], &mode) )) {
             return enif_make_badarg(env);
         }
     
     int status = OCIStmtExecute (svchp_res->svchp, stmthp_res->stmthp, envhp_res->errhp, iters, row_off,
                                   (OCISnapshot *)0, (OCISnapshot *)0, 
-                                  OCI_DEFAULT);
+                                  mode);
     if (status) {
         // Fixme, might need to do a rollback
         checkerr(envhp_res->errhp, status);
@@ -586,7 +587,7 @@ static ErlNifFunc nif_funcs[] =
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
     {"ociStmtPrepare", 3, ociStmtPrepare},
-    {"ociStmtExecute", 5, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"ociStmtExecute", 6, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociBindByName", 6, ociBindByName},
     {"ociStmtFetch", 3, ociStmtFetch, ERL_NIF_DIRTY_JOB_IO_BOUND}
 };

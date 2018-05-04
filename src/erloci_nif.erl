@@ -17,7 +17,7 @@ test(User, Pass)->
     ok = erloci_nif_drv:ociStmtPrepare(Envhp, Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>),
     {ok, _BindVar} = erloci_nif_drv:ociBindByName(Envhp, Stmthp, <<"A">>, 0, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
     {ok, _BindVar2} = erloci_nif_drv:ociBindByName(Envhp, Stmthp, <<"B">>, 0, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
-    ok = erloci_nif_drv:ociStmtExecute(Envhp, Svchp, Stmthp, 0, 0).
+    ok = erloci_nif_drv:ociStmtExecute(Envhp, Svchp, Stmthp, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT')).
     %% {ok, Rows} = erloci_nif_drv:ociStmtFetch(Envhp, Stmthp, 1).
 
 

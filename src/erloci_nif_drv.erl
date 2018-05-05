@@ -2,8 +2,8 @@
 
 -export([init/0, hello/0, ociEnvCreate/0, ociSpoolHandleCreate/1,
         ociSessionPoolCreate/8, ociAuthHandleCreate/3, ociSessionGet/3,
-        ociStmtHandleCreate/1, ociStmtPrepare/3, ociStmtExecute/6,
-        ociBindByName/6, ociStmtFetch/3]).
+        ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/5,
+        ociBindByName/5, ociStmtFetch/2]).
 
 -export([sql_type/1, oci_mode/1]).
 
@@ -83,20 +83,20 @@ ociSessionGet(_Envhp, _Authhp, _PoolName) ->
 ociStmtHandleCreate(_Envhp) ->
      ?NOT_LOADED.
 
--spec ociStmtPrepare(reference(), reference(), binary()) -> ok | {error, binary()}.
-ociStmtPrepare(_Envhp, _Stmthp, _Stmt) ->
+-spec ociStmtPrepare(reference(), binary()) -> ok | {error, binary()}.
+ociStmtPrepare(_Stmthp, _Stmt) ->
      ?NOT_LOADED.
 
--spec ociStmtExecute(reference(), reference(), binary(), pos_integer(), pos_integer(), integer()) -> ok | {error, binary()}.
-ociStmtExecute(_Envhp, _Svchp, _Stmthp, _Iters, _RowOff, _Mode) ->
+-spec ociStmtExecute(reference(), binary(), pos_integer(), pos_integer(), integer()) -> ok | {error, binary()}.
+ociStmtExecute(_Svchp, _Stmthp, _Iters, _RowOff, _Mode) ->
     ?NOT_LOADED.
 
--spec ociBindByName(reference(), reference(), binary(), integer(), integer(), binary()) -> ok | {error, binary()}.
-ociBindByName(_Envhp, _Stmthp, _BindVarName, _Ind, _SqlType, _BindVarValue) ->
+-spec ociBindByName(reference(), binary(), integer(), integer(), binary()) -> ok | {error, binary()}.
+ociBindByName(_Stmthp, _BindVarName, _Ind, _SqlType, _BindVarValue) ->
     ?NOT_LOADED.
 
--spec ociStmtFetch(reference(), reference(), pos_integer()) -> {ok, [term]} | {error, binary()}.
-ociStmtFetch(_Envhp, _Stmthp, _NumRows) ->
+-spec ociStmtFetch(reference(), pos_integer()) -> {ok, [term]} | {error, binary()}.
+ociStmtFetch(_Stmthp, _NumRows) ->
     ?NOT_LOADED.
 
 not_loaded(Line) ->

@@ -97,21 +97,23 @@ static void checkerr(OCIError *errhp, sword status)
   }
 }
 
-static ERL_NIF_TERM ociEnvCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIEnv *envhp = (OCIEnv *)NULL;
     OCIError *errhp = (OCIError *)NULL;
     text errbuf[OCI_ERROR_MAXMSG_SIZE2];
     sb4 errcode;
-    int status = OCIEnvCreate(&envhp,
+    int status = OCIEnvNlsCreate(&envhp,
                                 OCI_THREADED,
                                 NULL, NULL, NULL, NULL,
                                 (size_t) 0,
-                                (void **)NULL);
+                                (void **)NULL,
+                                (ub2) 0, (ub2) 0);
     switch (status) {
         case OCI_ERROR:
             if (envhp) {
                 (void) OCIErrorGet(envhp, 1, (text *)NULL, &errcode,
-                                errbuf, (ub4)sizeof(errbuf), (ub4) OCI_HTYPE_ERROR);
+                                    errbuf, (ub4)sizeof(errbuf),
+                                    (ub4) OCI_HTYPE_ERROR);
                 (void) printf("Error - %s\r\n", errbuf);
             } else {
                 (void) printf("NULL Handle\r\n");
@@ -143,12 +145,14 @@ static ERL_NIF_TERM ociSpoolHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF
 
     // Retrieve the envhp passed in from Erlang in argv[0]
     envhp_res *res;
-    if(!(argc == 1 && enif_get_resource(env, argv[0], envhp_resource_type, (void**)&res))) {
+    if(!(argc == 1 && enif_get_resource(env, argv[0], envhp_resource_type,
+                                        (void**)&res))) {
         return enif_make_badarg(env);
     }
 
-    int status = OCIHandleAlloc((void *) res->envhp, (void **) &spoolhp, OCI_HTYPE_SPOOL, 
-                        (size_t) 0, (void **) 0);
+    int status = OCIHandleAlloc((void *) res->envhp, (void **) &spoolhp,
+                                OCI_HTYPE_SPOOL, 
+                                (size_t) 0, (void **) 0);
     switch (status) {
         case OCI_SUCCESS: {
             spoolhp_res *res2 = (spoolhp_res *)enif_alloc_resource(spoolhp_resource_type, sizeof(spoolhp_res));
@@ -173,8 +177,8 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF
     ErlNifBinary bin = {0};
     ERL_NIF_TERM term;
 
-    // Retrieve the envhp and spoolhp passed in from Erlang in argv[0] and argv[1] along with the
-    // other parameters
+    // Retrieve the envhp and spoolhp passed in from Erlang in argv[0] and
+    // argv[1] along with the other parameters
     envhp_res *envhp_res;
     spoolhp_res *spoolhp_res;
     ErlNifBinary database, username, password;
@@ -191,8 +195,10 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF
             return enif_make_badarg(env);
         }
 
-    // Create the session pool. returns the name as a string we can pass back to Erlang to refer to the pool in future calls
-    int status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp, spoolhp_res->spoolhp, (OraText **)&poolName, 
+    // Create the session pool. returns the name as a string we can pass back
+    // to Erlang to refer to the pool in future calls
+    int status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
+                     spoolhp_res->spoolhp, (OraText **)&poolName, 
                      (ub4 *)&poolNameLen,
                      database.data, (ub4) database.size,
                      sessMin, sessMax, sessIncr,
@@ -282,15 +288,17 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         enif_inspect_binary(env, argv[2], &poolName) )) {
             return enif_make_badarg(env);
         }
-    int status = OCISessionGet(envhp_res->envhp, envhp_res->errhp, &svchp, authhp_res->authhp,
-               (OraText *) poolName.data, (ub4) poolName.size, NULL, 
-               0, NULL, NULL, NULL, OCI_SESSGET_SPOOL);
+    int status = OCISessionGet(envhp_res->envhp, envhp_res->errhp, &svchp,
+                authhp_res->authhp,
+                (OraText *) poolName.data, (ub4) poolName.size, NULL, 
+                0, NULL, NULL, NULL, OCI_SESSGET_SPOOL);
     if (status) {
         checkerr(envhp_res->errhp, status);
         return enif_make_badarg(env);
     }
 
-    svchp_res *res = (svchp_res *)enif_alloc_resource(svchp_resource_type, sizeof(svchp_res));
+    svchp_res *res = (svchp_res *)enif_alloc_resource(svchp_resource_type,
+                                                      sizeof(svchp_res));
     if(!res) return enif_make_badarg(env);
 
     res->svchp = svchp;
@@ -311,7 +319,8 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
             return enif_make_badarg(env);
         }
     // Create the enif resource to hold the handle
-    stmthp_res *res = (stmthp_res *)enif_alloc_resource(stmthp_resource_type, sizeof(stmthp_res));
+    stmthp_res *res = (stmthp_res *)enif_alloc_resource(stmthp_resource_type,
+                                                        sizeof(stmthp_res));
     if(!res) return enif_make_badarg(env);
 
     int status =  OCIHandleAlloc(envhp_res->envhp,
@@ -355,6 +364,14 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_badarg(env);
         }
     
+    /*
+    Calling OCIStmtPrepare after it's been used implicitly 
+    frees any existing bind and define handles.
+    We also allocated memory associated with these bind and
+    define handles to hold our in and out buffers, so
+    here seems like the right place to free anything we hold
+    against this stmthp.
+    */ 
     int status = OCIStmtPrepare (stmthp_res->stmthp, stmthp_res->errhp,
                                  (OraText *) statement.data, (ub4) statement.size,
                                   OCI_NTV_SYNTAX, OCI_DEFAULT);
@@ -380,7 +397,12 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         enif_inspect_binary(env, argv[4], &value))) {
             return enif_make_badarg(env);
         }
-            
+    
+    /*
+    The name and value binaries we inspected might not live long enough to
+    provide their contents, so copy their contents into new buffers and store
+    pointers to them in our stmthp_res
+    */
     int status = OCIBindByName(stmthp_res->stmthp, &bindhp, stmthp_res->errhp,
                                 (OraText *) name.data, (sword) name.size, // Bind name
                                 (void *) value.data, (sword) value.size, // Bind value
@@ -435,9 +457,10 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return enif_make_badarg(env);
         }
     
-    int status = OCIStmtExecute (svchp_res->svchp, stmthp_res->stmthp, stmthp_res->errhp, iters, row_off,
-                                  (OCISnapshot *)0, (OCISnapshot *)0, 
-                                  mode);
+    int status = OCIStmtExecute (svchp_res->svchp, stmthp_res->stmthp,
+                                 stmthp_res->errhp, iters, row_off,
+                                 (OCISnapshot *)0, (OCISnapshot *)0, 
+                                 mode);
     if (status) {
         // Fixme, might need to do a rollback
         checkerr(stmthp_res->errhp, status);
@@ -474,7 +497,8 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     // Maybe some rows to fetch, setup to receive them and retrieve the first column
     counter = 1;    
-    int param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT, stmthp_res->errhp,
+    int param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
+                            stmthp_res->errhp,
                             (dvoid **)&paramd, counter);
 
     // if we got a description for the first column, get them all
@@ -494,11 +518,13 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         column_info->col_type = col_type;
         printf("Col %d data_type: %d\r\n", counter, col_type);
 
-        /* Retrieve the column name attribute and put in a locally stored erlang binary
-           Could just have used a text* for this, but convenient for sending back to beam */
+        /* Retrieve the column name attribute and put in a locally stored
+           erlang binary. Could just have used a text* for this, but convenient
+           for sending back to beam */
         col_name_len = 0;
         status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
-                            (dvoid**) &col_name, (ub4 *) &col_name_len, (ub4) OCI_ATTR_NAME,
+                            (dvoid**) &col_name, (ub4 *) &col_name_len,
+                            (ub4) OCI_ATTR_NAME,
                             (OCIError *) stmthp_res->errhp );
         
         if (status) {
@@ -519,11 +545,12 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         /* Retrieve the length semantics for the column */
         char_semantics = 0;
         status = OCIAttrGet((void*) paramd, (ub4) OCI_DTYPE_PARAM,
-                            (void*) &char_semantics,(ub4 *) 0, (ub4) OCI_ATTR_CHAR_USED,
+                            (void*) &char_semantics,(ub4 *) 0,
+                            (ub4) OCI_ATTR_CHAR_USED,
                             (OCIError *) stmthp_res->errhp);
         if (status) {
-            /* Explicitly free the paramd descriptor. It's not hooked to anything
-               that will be garbage collected by Erlang. */
+            /* Explicitly free the paramd descriptor. It's not hooked to
+               anything that will be garbage collected by Erlang. */
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
             checkerr(stmthp_res->errhp, status);
             return enif_make_badarg(env);
@@ -535,11 +562,11 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         col_width = 0;
         if (char_semantics) {
             status = OCIAttrGet((void*) paramd, (ub4) OCI_DTYPE_PARAM,
-                                (void*) &col_width, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_SIZE,
+                                (void*) &col_width, (ub4 *) 0,
+                                (ub4) OCI_ATTR_CHAR_SIZE,
                                 (OCIError *) stmthp_res->errhp);
             if (status) {
-                /* Explicitly free the paramd descriptor. It's not hooked to anything
-                   that will be garbage collected by Erlang. */
+                /* Explicitly free the paramd descriptor. */
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
                 checkerr(stmthp_res->errhp, status);
                 return enif_make_badarg(env);
@@ -548,11 +575,11 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         } else {
             /* Retrieve the column width in bytes */
             status = OCIAttrGet((void*) paramd, (ub4) OCI_DTYPE_PARAM,
-                                (void*) &col_width,(ub4 *) 0, (ub4) OCI_ATTR_DATA_SIZE,
+                                (void*) &col_width,(ub4 *) 0,
+                                (ub4) OCI_ATTR_DATA_SIZE,
                                 (OCIError *) stmthp_res->errhp);
             if (status) {
-                /* Explicitly free the paramd descriptor. It's not hooked to anything
-                   that will be garbage collected by Erlang. */
+                /* Explicitly free the paramd descriptor. */
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
                 checkerr(stmthp_res->errhp, status);
                 return enif_make_badarg(env);
@@ -560,13 +587,15 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             column_info->col_size = col_width;
         }
         printf("Col %d col_width: %d\r\n", counter, col_width);
-        // FIXME: could also retrieve Character set form and id, column scale, column precision
+        // FIXME: could also retrieve Character set form and id,
+        // column scale, column precision
 
         /* We have what we need to set up the OCIDefine for this column
            Allocate storage and call DefineByPos */
         valuep = malloc(column_info->col_size);
         column_info->valuep = valuep;
-        status = OCIDefineByPos(stmthp_res->stmthp, &definehp, stmthp_res->errhp,
+        status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
+                                stmthp_res->errhp,
                                 counter,
                                 (void *)valuep,
                                 column_info->col_size,
@@ -584,8 +613,9 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 
         counter++;
-        param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT, stmthp_res->errhp,
-                                  (dvoid **)&paramd, counter);
+        param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
+                                    stmthp_res->errhp,
+                                    (dvoid **)&paramd, counter);
     }
     stmthp_res->col_info_retrieved = 1;
     return ATOM_OK;
@@ -631,7 +661,7 @@ static ErlNifFunc nif_funcs[] =
 {
     // All functions that execure server round trips MUST be marked as IO_BOUND
     // Knowledge from: https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
-    {"ociEnvCreate", 0, ociEnvCreate},
+    {"ociEnvNlsCreate", 0, ociEnvNlsCreate},
     {"ociSpoolHandleCreate", 1, ociSpoolHandleCreate},
     {"ociSessionPoolCreate", 8, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},

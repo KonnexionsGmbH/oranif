@@ -5,7 +5,7 @@
 %% Basic set of test calls to verify progress during dev
 -spec test_column_types(binary(), binary()) -> {ok, [binary()]}.
 test_column_types(User, Pass) ->
-        Envhp = erloci_nif_drv:ociEnvCreate(),
+        Envhp = erloci_nif_drv:ociEnvNlsCreate(),
         Spoolhp = erloci_nif_drv:ociSpoolHandleCreate(Envhp),
         {ok, SpoolName} = erloci_nif_drv:ociSessionPoolCreate(Envhp, Spoolhp,
         %    <<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))">>,
@@ -21,7 +21,7 @@ test_column_types(User, Pass) ->
 
 -spec test_select(binary(), binary()) -> {ok, [binary()]}.
 test_select(User, Pass) ->
-    Envhp = erloci_nif_drv:ociEnvCreate(),
+    Envhp = erloci_nif_drv:ociEnvNlsCreate(),
     Spoolhp = erloci_nif_drv:ociSpoolHandleCreate(Envhp),
     {ok, Spool} = erloci_nif_drv:ociSessionPoolCreate(Envhp, Spoolhp,
     %    <<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))">>,

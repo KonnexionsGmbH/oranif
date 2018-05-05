@@ -1,6 +1,6 @@
 -module(erloci_nif_drv).
 
--export([init/0, hello/0, ociEnvCreate/0, ociSpoolHandleCreate/1,
+-export([init/0, hello/0, ociEnvNlsCreate/0, ociSpoolHandleCreate/1,
         ociSessionPoolCreate/8, ociAuthHandleCreate/3, ociSessionGet/3,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/5,
         ociBindByName/5, ociStmtFetch/2]).
@@ -34,8 +34,8 @@ hello() ->
 %% One of these is sufficient for the whole system
 %% returns {ok, Envhp}
 %%--------------------------------------------------------------------
--spec ociEnvCreate() -> {ok, reference()} | {error, binary()}.
-ociEnvCreate() ->
+-spec ociEnvNlsCreate() -> {ok, reference()} | {error, binary()}.
+ociEnvNlsCreate() ->
     ?NOT_LOADED.
 
 %%--------------------------------------------------------------------

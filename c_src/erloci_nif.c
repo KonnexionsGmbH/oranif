@@ -11,6 +11,7 @@ static ErlNifResourceType *stmthp_resource_type;
 static ErlNifResourceType *bindhp_resource_type;
 
 static ERL_NIF_TERM ATOM_OK;
+static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_ENOMEM;
 
 typedef struct {
@@ -55,45 +56,58 @@ typedef struct {
     size_t value_sz;
 } bindhp_res;
 
-static void checkerr(OCIError *errhp, sword status)
-{
-  text errbuf[512];
-  sb4 errcode;
+static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
+    text errbuf[OCI_ERROR_MAXMSG_SIZE2];
+    size_t msg_sz;
+    unsigned char *buf;
+    sb4 errcode;
+    ERL_NIF_TERM err_bin;
 
-  if (status == OCI_SUCCESS) return;
+    if (status == OCI_SUCCESS) return ATOM_OK;
 
-  switch (status)
-  {
-  case OCI_SUCCESS_WITH_INFO:
-    printf("Error - OCI_SUCCESS_WITH_INFO\r\n");
-    OCIErrorGet ((void  *) errhp, (ub4) 1, (text *) NULL, &errcode,
+    switch (status) {
+    case OCI_SUCCESS_WITH_INFO:
+        OCIErrorGet ((void  *) errhp, (ub4) 1, (text *) NULL, &errcode,
             errbuf, (ub4) sizeof(errbuf), (ub4) OCI_HTYPE_ERROR);
-    printf("Error - %s\n", errbuf);
-    break;
-  case OCI_NEED_DATA:
-    printf("Error - OCI_NEED_DATA\r\n");
-    break;
+        msg_sz = strnlen((const char *)errbuf, OCI_ERROR_MAXMSG_SIZE2);
+        buf = enif_make_new_binary(env, msg_sz, &err_bin);
+        memcpy(buf, errbuf, msg_sz);
+        return enif_make_tuple2(env, ATOM_ERROR,
+                enif_make_tuple2(env, enif_make_int(env, errcode), err_bin));
+    case OCI_NEED_DATA: {
+        static char *msg = "Error - OCI_NEED_DATA";
+        buf = enif_make_new_binary(env, sizeof(*msg), &err_bin);
+        memcpy(buf, msg, sizeof(*msg));
+        return enif_make_tuple2(env, ATOM_OK, err_bin);
+    }
   case OCI_NO_DATA:
     printf("Error - OCI_NO_DATA\r\n");
     break;
   case OCI_ERROR:
     OCIErrorGet ((void  *) errhp, (ub4) 1, (text *) NULL, &errcode,
             errbuf, (ub4) sizeof(errbuf), (ub4) OCI_HTYPE_ERROR);
-    printf("Error - %s\n", errbuf);
-    break;
-  case OCI_INVALID_HANDLE:
-    printf("Error - OCI_INVALID_HANDLE\r\n");
-    break;
+    msg_sz = strnlen((const char *)errbuf, OCI_ERROR_MAXMSG_SIZE2);
+    buf = enif_make_new_binary(env, msg_sz, &err_bin);
+    memcpy(buf, errbuf, msg_sz);
+    return enif_make_tuple2(env, ATOM_ERROR,
+                enif_make_tuple2(env, enif_make_int(env, errcode), err_bin));
+  case OCI_INVALID_HANDLE: {
+    static char *msg = "Error - OCI_INVALID_HANDLE";
+    buf = enif_make_new_binary(env, sizeof(*msg), &err_bin);
+    memcpy(buf, msg, sizeof(*msg));
+    return enif_make_tuple2(env, ATOM_ERROR, err_bin);
+  }
   case OCI_STILL_EXECUTING:
     printf("Error - OCI_STILL_EXECUTING\r\n");
-    break;
+    return ATOM_ERROR;
   case OCI_CONTINUE:
     printf("Error - OCI_CONTINUE\r\n");
-    break;
+    return ATOM_ERROR;
   default:
     printf("Error - %d\r\n", status);
-    break;
+    return ATOM_ERROR;
   }
+  return ATOM_ERROR;
 }
 
 static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -220,8 +234,7 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF
         }
         default: {
             printf("Session Pool Failed\r\n");
-            checkerr(envhp_res->errhp, status);
-            return enif_make_badarg(env);
+            return reterr(env, envhp_res->errhp, status);
         }
     }
 }
@@ -242,24 +255,21 @@ static ERL_NIF_TERM ociAuthHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
                             (dvoid **)&authhp, (ub4) OCI_HTYPE_AUTHINFO,
                             (size_t) 0, (dvoid **) 0);
     if (status) {
-        checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, envhp_res->errhp, status);
     }
 
     status = OCIAttrSet((dvoid *) authhp,(ub4) OCI_HTYPE_AUTHINFO, 
                        (OraText *) username.data, (ub4) username.size,
                         (ub4) OCI_ATTR_USERNAME, envhp_res->errhp);
     if (status) {
-        checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, envhp_res->errhp, status);
     }
 
     status = OCIAttrSet((dvoid *) authhp,(ub4) OCI_HTYPE_AUTHINFO, 
            (OraText *) password.data, (ub4) password.size,
            (ub4) OCI_ATTR_PASSWORD, envhp_res->errhp);
     if (status) {
-        checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, envhp_res->errhp, status);
     }
 
     // Create the enif resource to hold the handle
@@ -292,8 +302,7 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                 (OraText *) poolName.data, (ub4) poolName.size, NULL, 
                 0, NULL, NULL, NULL, OCI_SESSGET_SPOOL);
     if (status) {
-        checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, envhp_res->errhp, status);
     }
 
     svchp_res *res = (svchp_res *)enif_alloc_resource(svchp_resource_type,
@@ -326,7 +335,6 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
                             (dvoid **)&stmthp, (ub4) OCI_HTYPE_STMT,
                             (size_t) 0, (dvoid **) 0);
     if (status) {
-        checkerr(envhp_res->errhp, status);
         return enif_raise_exception(env, ATOM_ENOMEM);
     }
 
@@ -337,7 +345,6 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
     status = OCIHandleAlloc (envhp_res->envhp, (void  **)&errhp,
                             OCI_HTYPE_ERROR, 0, (void  **) 0);
     if (status) {
-        checkerr(envhp_res->errhp, status);
         enif_raise_exception(env, ATOM_ENOMEM);
     }
 
@@ -385,8 +392,7 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                  (OraText *) statement.data, (ub4) statement.size,
                                   OCI_NTV_SYNTAX, OCI_DEFAULT);
     if (status) {
-        checkerr(stmthp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, stmthp_res->errhp, status);;
     } else {
         return ATOM_OK;
     }
@@ -476,8 +482,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                 OCI_DEFAULT); // mode
 
     if (status) {
-        checkerr(stmthp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, stmthp_res->errhp, status);
     }
 
     return enif_make_tuple(env, 2,
@@ -522,8 +527,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                  mode);
     if (status) {
         // Fixme, might need to do a rollback
-        checkerr(stmthp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, stmthp_res->errhp, status);
     }
 
     if (stmthp_res->col_info_retrieved) {
@@ -540,8 +544,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                         (dvoid *)&col_count, (ub4 *)0,
                         OCI_ATTR_PARAM_COUNT, stmthp_res->errhp);
     if (status) {
-        checkerr(stmthp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, stmthp_res->errhp, status);
     }
 
     if (col_count == 0) {
@@ -574,8 +577,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 (OCIError *) stmthp_res->errhp  );
         if (status) {
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-            checkerr(stmthp_res->errhp, status);
-            return enif_make_badarg(env);
+            return reterr(env, stmthp_res->errhp, status);
         }
         column_info->col_type = col_type;
         printf("Col %d data_type: %d\r\n", counter, col_type);
@@ -593,8 +595,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             /* Explicitly free the paramd descriptor. It's not hooked to anything
                that will be garbage collected by Erlang. */
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-            checkerr(stmthp_res->errhp, status);
-            return enif_make_badarg(env);
+            return reterr(env, stmthp_res->errhp, status);
         }
         if (!enif_alloc_binary(col_name_len, &column_info->col_name)) {
             // binary creation failed. out of memory?
@@ -614,8 +615,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             /* Explicitly free the paramd descriptor. It's not hooked to
                anything that will be garbage collected by Erlang. */
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-            checkerr(stmthp_res->errhp, status);
-            return enif_make_badarg(env);
+            return reterr(env, stmthp_res->errhp, status);
         }
         column_info->char_semantics = char_semantics;
         printf("Col %d char_semantics: %d\r\n", counter, char_semantics);
@@ -630,8 +630,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             if (status) {
                 /* Explicitly free the paramd descriptor. */
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-                checkerr(stmthp_res->errhp, status);
-                return enif_make_badarg(env);
+                return reterr(env, stmthp_res->errhp, status);
                 }
             column_info->col_size = col_width;
         } else {
@@ -643,8 +642,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             if (status) {
                 /* Explicitly free the paramd descriptor. */
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-                checkerr(stmthp_res->errhp, status);
-                return enif_make_badarg(env);
+                return reterr(env, stmthp_res->errhp, status);
                 }
             column_info->col_size = col_width;
         }
@@ -668,8 +666,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                 OCI_DEFAULT );
         if (status) {
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-                checkerr(stmthp_res->errhp, status);
-                return enif_make_badarg(env);
+                return reterr(env, stmthp_res->errhp, status);
                 }
         printf("Col %d OCIDefineByPos OK\r\n", counter);
 
@@ -705,8 +702,7 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                                 (sb4) 0,             // fetchOffset
                                 OCI_DEFAULT);
     if (status) {
-        checkerr(stmthp_res->errhp, status);
-        return enif_make_badarg(env);
+        return reterr(env, stmthp_res->errhp, status);
     } else {
         ERL_NIF_TERM list = enif_make_list(env, 0);
         printf("Fetch OK\r\n");
@@ -809,7 +805,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     bindhp_resource_type = enif_open_resource_type(env, NULL, "bindhp",
         bindhp_res_dtor, ERL_NIF_RT_CREATE, NULL);
 
-    ATOM_OK = enif_make_atom(env, "ok");    
+    ATOM_OK = enif_make_atom(env, "ok");
+    ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
     return 0;
 }

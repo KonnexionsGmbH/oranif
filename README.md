@@ -24,3 +24,10 @@ Open Questions
 - Should we pass bind handles back to Erlang or leave them inside the driver owned by the statement?
 - If we keep the bind handles maybe makes sense to also open up the OCIDefine API and drive it from Erlang.
   Now we have a huge ociStmtExecute function that does all the OCIDefine stuff in the driver
+
+## Development
+### Windows
+```bat
+INSTANT_CLIENT_INCLUDE_PATH=path_to_instant_client_installation\sdk\include
+INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation\sdk\lib\msvc
+```

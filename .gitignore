@@ -15,3 +15,8 @@ rebar.lock
 rebar3.crashdump
 package-lock.json
 
+# windows build temp files
+*.pdb
+
+# for vim users
+*.swp

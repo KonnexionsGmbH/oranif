@@ -11,9 +11,7 @@ static ErlNifResourceType *stmthp_resource_type;
 static ErlNifResourceType *bindhp_resource_type;
 
 static ERL_NIF_TERM ATOM_OK;
-static ERL_NIF_TERM ATOM_TRUE;
-static ERL_NIF_TERM ATOM_FALSE;
-static ERL_NIF_TERM ATOM_UNDEFINED;
+static ERL_NIF_TERM ATOM_ENOMEM;
 
 typedef struct {
     OCIEnv *envhp;
@@ -43,18 +41,19 @@ typedef struct {
 } col_info;
 
 typedef struct {
-    OCIStmt *stmthp;
-    OCIError *errhp;
-    int col_info_retrieved;
-    int num_cols;
-    col_info *col_info;
+    OCIStmt *stmthp;        // statement handle
+    OCIError *errhp;        // per statement error handle
+    int col_info_retrieved; // Set on first call to execute
+    int num_cols;           // number of define columns for select
+    col_info *col_info;     // array of *col_info for define data
 } stmthp_res;
 
 typedef struct {
     OCIBind *bindhp;
+    ErlNifBinary name;
+    ErlNifBinary value;
+    size_t value_sz;
 } bindhp_res;
-
-
 
 static void checkerr(OCIError *errhp, sword status)
 {
@@ -321,14 +320,14 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
     // Create the enif resource to hold the handle
     stmthp_res *res = (stmthp_res *)enif_alloc_resource(stmthp_resource_type,
                                                         sizeof(stmthp_res));
-    if(!res) return enif_make_badarg(env);
+    if(!res) return enif_raise_exception(env, ATOM_ENOMEM);
 
     int status =  OCIHandleAlloc(envhp_res->envhp,
                             (dvoid **)&stmthp, (ub4) OCI_HTYPE_STMT,
                             (size_t) 0, (dvoid **) 0);
     if (status) {
         checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        return enif_raise_exception(env, ATOM_ENOMEM);
     }
 
     /* allocate a per statement error handle to avoid multiple 
@@ -339,27 +338,37 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
                             OCI_HTYPE_ERROR, 0, (void  **) 0);
     if (status) {
         checkerr(envhp_res->errhp, status);
-        return enif_make_badarg(env);
+        enif_raise_exception(env, ATOM_ENOMEM);
     }
 
     res->stmthp = stmthp;
     res->errhp = errhp;
+
+    // Initialise Define column data
     res->col_info_retrieved = 0;
     res->col_info = NULL;
     res->num_cols = 0;
+
+    ERL_NIF_TERM bind_map = enif_make_new_map(env);
+
     ERL_NIF_TERM nif_res = enif_make_resource(env, res);
     enif_release_resource(res);
+
     return enif_make_tuple(env, 2,
                          ATOM_OK,
-                         nif_res);
+                         enif_make_tuple(env, 2, nif_res, bind_map));
 }
 
 static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    const ERL_NIF_TERM *stmt_tuple;
+    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
     ErlNifBinary statement;
 
     if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
+        stmt_tuple_arity == 2 &&
+        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_inspect_binary(env, argv[1], &statement))) {
             return enif_make_badarg(env);
         }
@@ -384,55 +393,102 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 }
 
 static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    OCIBind *bindhp = (OCIBind *)NULL;
+    bindhp_res *bindhp_resource;
+    const ERL_NIF_TERM *stmt_tuple;
+    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
-    int dty, ind;
+    int dty, ind, status;
     ErlNifBinary name, value;
 
     if(!(argc == 5 &&
-        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
+        stmt_tuple_arity == 2 &&
+        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_is_map(env, stmt_tuple[1]) &&
         enif_inspect_binary(env, argv[1], &name) &&
         enif_get_int(env, argv[2], &ind) &&
         enif_get_int(env, argv[3], &dty) &&
         enif_inspect_binary(env, argv[4], &value))) {
             return enif_make_badarg(env);
         }
-    
-    /*
-    The name and value binaries we inspected might not live long enough to
-    provide their contents, so copy their contents into new buffers and store
-    pointers to them in our stmthp_res
-    */
-    int status = OCIBindByName(stmthp_res->stmthp, &bindhp, stmthp_res->errhp,
-                                (OraText *) name.data, (sword) name.size, // Bind name
-                                (void *) value.data, (sword) value.size, // Bind value
-                                (sb2) dty,           // Oracle DataType
-                                (void *) &ind, // Indicator variable
-                                (ub2*) NULL,    // address of actual length
-                                (ub2*) NULL,    // address of return code
-                                0,             // max array length for PLSQL indexed tables
-                                (ub4*) NULL,    // current array length for PLSQL indexed tables
-                                OCI_DEFAULT); // mode
+
+    ERL_NIF_TERM return_map = stmt_tuple[1];
+    ERL_NIF_TERM current_value;
+    if(enif_get_map_value(env, stmt_tuple[1], argv[1], &current_value)) {
+        if (!enif_get_resource(env, current_value, bindhp_resource_type, (void**)&bindhp_resource)) {
+            return enif_make_badarg(env);
+        }
+
+        // See if we can re-use the value memory
+        if (bindhp_resource->value.size >= value.size) {
+            memcpy(bindhp_resource->value.data, value.data, value.size);
+            bindhp_resource->value_sz = value.size;
+            // Nothing else to do - the existing OCIBind will use the new value
+            return enif_make_tuple(env, 2,
+                         ATOM_OK,
+                         enif_make_tuple(env, 2, stmt_tuple[0], return_map));
+        } else {
+            ErlNifBinary new;
+            if(!enif_alloc_binary(value.size, &new)) {
+                enif_raise_exception(env, ATOM_ENOMEM);
+            }
+            memcpy(new.data, value.data, value.size);
+            enif_release_binary(&bindhp_resource->value);
+            bindhp_resource->value = new;
+            bindhp_resource->value_sz = value.size;
+        }
+    } else {
+        // No existing bind for this name
+        // Create the managed pointer / resource
+        bindhp_resource = (bindhp_res *) enif_alloc_resource(bindhp_resource_type, sizeof(bindhp_res));
+        if(!bindhp_resource) return enif_make_badarg(env);
+        bindhp_resource->bindhp = NULL; // Ask the OCIBindByName call to allocate this
+
+        // Make copy of the name for oci use
+        if (!enif_alloc_binary(name.size, &bindhp_resource->name)) {
+            enif_raise_exception(env, ATOM_ENOMEM);
+        }
+        memcpy(bindhp_resource->name.data, name.data, name.size);
+
+        // Make copy of the value
+        if (!enif_alloc_binary(value.size, &bindhp_resource->value)) {
+            enif_raise_exception(env, ATOM_ENOMEM);
+        }
+        memcpy(bindhp_resource->value.data, value.data, value.size);
+        bindhp_resource->value_sz = value.size;
+        
+        // Put this new handle in the map
+        ERL_NIF_TERM nif_res = enif_make_resource(env, bindhp_resource);
+        enif_release_resource(bindhp_resource);
+        enif_make_map_put(env, stmt_tuple[1], argv[1], nif_res, &return_map);
+    }
+
+    status = OCIBindByName(stmthp_res->stmthp, &bindhp_resource->bindhp,
+                stmthp_res->errhp,
+                (OraText *) bindhp_resource->name.data, (sword) bindhp_resource->name.size, // Bind name
+                (void *) bindhp_resource->value.data, (sword) bindhp_resource->value_sz, // Bind value
+                (sb2) dty,           // Oracle DataType
+                (void *) &ind, // Indicator variable
+                (ub2*) NULL,    // address of actual length
+                (ub2*) NULL,    // address of return code
+                0,             // max array length for PLSQL indexed tables
+                (ub4*) NULL,    // current array length for PLSQL indexed tables
+                OCI_DEFAULT); // mode
 
     if (status) {
         checkerr(stmthp_res->errhp, status);
         return enif_make_badarg(env);
     }
 
-    // Create the enif resource to hold the handle
-    bindhp_res *res = (bindhp_res *)enif_alloc_resource(bindhp_resource_type, sizeof(bindhp_res));
-    if(!res) return enif_make_badarg(env);
-
-    res->bindhp = bindhp;
-    ERL_NIF_TERM nif_res = enif_make_resource(env, res);
-    enif_release_resource(res);
     return enif_make_tuple(env, 2,
                          ATOM_OK,
-                         nif_res);
+                         enif_make_tuple(env, 2, stmt_tuple[0], return_map));
 
 }
 
 static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    const ERL_NIF_TERM *stmt_tuple;
+    int stmt_tuple_arity;
     svchp_res *svchp_res;
     stmthp_res *stmthp_res;
     ub4 iters, row_off, mode;
@@ -450,7 +506,10 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     if(!(argc == 5 &&
         enif_get_resource(env, argv[0], svchp_resource_type, (void**)&svchp_res) &&
-        enif_get_resource(env, argv[1], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_get_tuple(env, argv[1], &stmt_tuple_arity, &stmt_tuple) &&
+        stmt_tuple_arity == 2 &&
+        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_is_map(env, stmt_tuple[1]) &&
         enif_get_uint(env, argv[2], &iters) &&
         enif_get_uint(env, argv[3], &row_off) &&
         enif_get_uint(env, argv[4], &mode) )) {
@@ -492,7 +551,10 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
     // Keep column info around for future execs of the same statement
     stmthp_res->num_cols = col_count;
-    col_info *col_array = malloc(col_count * sizeof(*col_array));
+    col_info *col_array = enif_alloc(col_count * sizeof(*col_array));
+    if (col_array == NULL) {
+        return enif_raise_exception(env, ATOM_ENOMEM);
+    }
     stmthp_res->col_info = col_array;
 
     // Maybe some rows to fetch, setup to receive them and retrieve the first column
@@ -623,11 +685,16 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 
 static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    const ERL_NIF_TERM *stmt_tuple;
+    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
     ub4 nrows;
     
     if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
+        stmt_tuple_arity == 2 &&
+        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_is_map(env, stmt_tuple[1]) &&
         enif_get_uint(env, argv[1], &nrows) )) {
             return enif_make_badarg(env);
         }
@@ -715,9 +782,10 @@ static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
 }
 
 static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
-  envhp_res *res = (envhp_res*)resource;
-  if(res->envhp) {
-    // Clear up the OCIEnv
+  bindhp_res *res = (bindhp_res*)resource;
+  if(res->bindhp) {
+    // Clear up the Statement Handle
+    // and column descriptions
   }
   printf("bindhp_res_ called\r\n");
 }
@@ -742,9 +810,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
         bindhp_res_dtor, ERL_NIF_RT_CREATE, NULL);
 
     ATOM_OK = enif_make_atom(env, "ok");    
-    ATOM_TRUE = enif_make_atom(env, "true");
-    ATOM_FALSE = enif_make_atom(env, "false");
-    ATOM_UNDEFINED = enif_make_atom(env, "undefined");
+    ATOM_ENOMEM = enif_make_atom(env, "enomem");
     return 0;
 }
 

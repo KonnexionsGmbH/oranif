@@ -24,6 +24,9 @@ typedef struct {
 
 typedef struct {
     OCISPool *spoolhp;
+    OCIError *errhp;
+    OraText *poolName;
+    ub4 poolNameLen;
 } spoolhp_res;
 
 typedef struct {
@@ -32,6 +35,7 @@ typedef struct {
 
 typedef struct {
     OCISvcCtx *svchp;
+    OCIError *errhp;
 } svchp_res;
 
 // struct to keep the definitions of Define columns around
@@ -70,8 +74,6 @@ static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
     unsigned char *buf;
     sb4 errcode;
     ERL_NIF_TERM err_bin;
-
-    if (status == OCI_SUCCESS) return ATOM_OK;
 
     switch (status) {
     case OCI_SUCCESS_WITH_INFO:
@@ -206,85 +208,65 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
 }
 
-static ERL_NIF_TERM ociSpoolHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    OCISPool *spoolhp = (OCISPool *)NULL;
-
-    // Retrieve the envhp passed in from Erlang in argv[0]
-    envhp_res *res;
-    if(!(argc == 1 && enif_get_resource(env, argv[0], envhp_resource_type,
-                                        (void**)&res))) {
-        return enif_make_badarg(env);
-    }
-
-    int status = OCIHandleAlloc((void *) res->envhp, (void **) &spoolhp,
-                                OCI_HTYPE_SPOOL, 
-                                (size_t) 0, (void **) 0);
-    switch (status) {
-        case OCI_SUCCESS: {
-            spoolhp_res *res2 = (spoolhp_res *)enif_alloc_resource(spoolhp_resource_type, sizeof(spoolhp_res));
-            if(!res2) return enif_make_badarg(env);
-            res2->spoolhp = spoolhp;
-
-            ERL_NIF_TERM nif_res = enif_make_resource(env, res2);
-            enif_release_resource(res2);
-            return nif_res;
-        }
-        default: {
-            return enif_make_badarg(env);
-        }
-    }
-}
-
 static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    char *poolName = NULL;
+    OCISPool *spoolhp = (OCISPool *)NULL;
+    OCIError *errhp = (OCIError *)NULL;
+    spoolhp_res *sphp_res;
+    ERL_NIF_TERM nif_res;
+    OraText *poolName;
     ub4 poolNameLen;
-    ErlNifBinary bin = {0};
-    ERL_NIF_TERM term;
 
-    // Retrieve the envhp and spoolhp passed in from Erlang in argv[0] and
-    // argv[1] along with the other parameters
+    // Retrieve the envhp passed in from Erlang in argv[0] along with the other parameters
     envhp_res *envhp_res;
-    spoolhp_res *spoolhp_res;
     ErlNifBinary database, username, password;
     ub4 sessMin, sessMax, sessIncr;
-    if(!(argc == 8 &&
+    if(!(argc == 7 &&
         enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
-        enif_get_resource(env, argv[1], spoolhp_resource_type, (void**)&spoolhp_res) &&
-        enif_inspect_binary(env, argv[2], &database) &&
-        enif_get_uint(env, argv[3], &sessMin) &&
-        enif_get_uint(env, argv[4], &sessMax) &&
-        enif_get_uint(env, argv[5], &sessIncr) &&
-        enif_inspect_binary(env, argv[6], &username) &&
-        enif_inspect_binary(env, argv[7], &password) )) {
+        enif_inspect_binary(env, argv[1], &database) &&
+        enif_get_uint(env, argv[2], &sessMin) &&
+        enif_get_uint(env, argv[3], &sessMax) &&
+        enif_get_uint(env, argv[4], &sessIncr) &&
+        enif_inspect_binary(env, argv[5], &username) &&
+        enif_inspect_binary(env, argv[6], &password) )) {
             return enif_make_badarg(env);
         }
 
-    // Create the session pool. returns the name as a string we can pass back
-    // to Erlang to refer to the pool in future calls
-    int status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
-                     spoolhp_res->spoolhp, (OraText **)&poolName, 
+    // Create the session pool handle
+    int status = OCIHandleAlloc((void *) envhp_res->envhp, (void **) &spoolhp,
+                                OCI_HTYPE_SPOOL,
+                                (size_t) 0, (void **) 0);
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
+    }
+    sphp_res = (spoolhp_res *)enif_alloc_resource(spoolhp_resource_type, sizeof(spoolhp_res));
+    if(!sphp_res) return enif_raise_exception(env, ATOM_ENOMEM);
+    sphp_res->spoolhp = spoolhp;
+
+    // Create a private errhp for use in destructor mainly
+    status = OCIHandleAlloc (envhp_res->envhp, (void  **)&errhp,
+                            OCI_HTYPE_ERROR, 0, (void  **) 0);
+    if (status) {
+        return enif_raise_exception(env, ATOM_ENOMEM);
+    }
+    sphp_res->errhp = errhp;
+
+    // Create a session pool
+    status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
+                     spoolhp, (OraText **)&poolName, 
                      (ub4 *)&poolNameLen,
                      database.data, (ub4) database.size,
                      sessMin, sessMax, sessIncr,
                      (OraText *) username.data, (ub4) username.size,
                      (OraText *) password.data, (ub4) password.size,
                      OCI_SPC_HOMOGENEOUS);
-    switch (status) {
-        case OCI_SUCCESS: {
-            bin.size = poolNameLen;
-            bin.data = (unsigned char *)poolName;
-            term = enif_make_binary(env, &bin);
-            if (! term) {
-                return enif_make_badarg(env);
-            }
-            return enif_make_tuple(env, 2,
-                         ATOM_OK,
-                         term);
-        }
-        default: {
-            return reterr(env, envhp_res->errhp, status);
-        }
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
     }
+    sphp_res->poolName = poolName;
+    sphp_res->poolNameLen = poolNameLen;
+    nif_res = enif_make_resource(env, sphp_res);
+    enif_release_resource(sphp_res);
+    return enif_make_tuple2(env, ATOM_OK, nif_res);
 }
 
 static ERL_NIF_TERM ociAuthHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -335,19 +317,20 @@ static ERL_NIF_TERM ociAuthHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
 
 static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCISvcCtx *svchp = (OCISvcCtx *)NULL;
+    OCIError *errhp = (OCIError *)NULL;
     envhp_res *envhp_res;
     authhp_res *authhp_res;
-    ErlNifBinary poolName;
+    spoolhp_res *spoolhp_res;
 
     if(!(argc == 3 &&
         enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
         enif_get_resource(env, argv[1], authhp_resource_type, (void**)&authhp_res) &&
-        enif_inspect_binary(env, argv[2], &poolName) )) {
+        enif_get_resource(env, argv[2], spoolhp_resource_type, (void**)&spoolhp_res))) {
             return enif_make_badarg(env);
         }
-    int status = OCISessionGet(envhp_res->envhp, envhp_res->errhp, &svchp,
+    int status = OCISessionGet(envhp_res->envhp, spoolhp_res->errhp, &svchp,
                 authhp_res->authhp,
-                (OraText *) poolName.data, (ub4) poolName.size, NULL, 
+                spoolhp_res->poolName, spoolhp_res->poolNameLen, NULL, 
                 0, NULL, NULL, NULL, OCI_SESSGET_SPOOL);
     if (status) {
         return reterr(env, envhp_res->errhp, status);
@@ -355,15 +338,23 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     svchp_res *res = (svchp_res *)enif_alloc_resource(svchp_resource_type,
                                                       sizeof(svchp_res));
-    if(!res) return enif_make_badarg(env);
+    if(!res) return enif_raise_exception(env, ATOM_ENOMEM);
 
     res->svchp = svchp;
+
+    // Create a private errhp. Used in GC
+    status = OCIHandleAlloc (envhp_res->envhp, (void  **)&errhp,
+                            OCI_HTYPE_ERROR, 0, (void  **) 0);
+    if (status) {
+        return enif_raise_exception(env, ATOM_ENOMEM);
+    }
+    res->errhp = errhp;
+
     ERL_NIF_TERM nif_res = enif_make_resource(env, res);
     enif_release_resource(res);
     return enif_make_tuple(env, 2,
                          ATOM_OK,
                          nif_res);
-
 }
 
 static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -419,7 +410,7 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         enif_inspect_binary(env, argv[1], &statement))) {
             return enif_make_badarg(env);
         }
-    
+
     /*
     Calling OCIStmtPrepare after it's been used implicitly 
     frees any existing bind and define handles.
@@ -793,8 +784,7 @@ static ErlNifFunc nif_funcs[] =
     // All functions that execure server round trips MUST be marked as IO_BOUND
     // Knowledge from: https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
     {"ociEnvNlsCreate", 0, ociEnvNlsCreate},
-    {"ociSpoolHandleCreate", 1, ociSpoolHandleCreate},
-    {"ociSessionPoolCreate", 8, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
@@ -815,15 +805,19 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
   spoolhp_res *res = (spoolhp_res*)resource;
-  // printf("spoolhp_res_ called\r\n");
+  //printf("spoolhp_res_ called\r\n");
   if(res->spoolhp) {
-    OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL );
+    OCISessionPoolDestroy(res->spoolhp, 
+                            res->errhp,
+                            OCI_SPD_FORCE );
+    OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
+    OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
   }
 }
 
 static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
     authhp_res *res = (authhp_res*)resource;
-    // printf("authhp_res_ called\r\n");
+    //printf("authhp_res_ called\r\n");
     if(res->authhp) {
         OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
     }
@@ -831,17 +825,16 @@ static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
   svchp_res *res = (svchp_res*)resource;
-  // printf("svchp_res_ called\r\n");
+  //printf("svchp_res_ called\r\n");
   if(res->svchp) {
-      // The docs say this will even commit outstanding transactions
-      // Do we really want this to happen during garbage collection?
-      /*
-      OCISessionRelease(res->svchp,
-                        (OCIError *) NULL, // FIXME: access to an errhp?
+        // The docs say this will even commit outstanding transactions
+        // Do we really want this to happen during garbage collection?
+        OCISessionRelease(res->svchp,
+                        res->errhp,
                         (OraText *) NULL,
                         (ub4) 0,
-                        OCI_DEFAULT );
-                        */
+                        OCI_SESSRLS_DROPSESS ); // Instant drop as GC'd
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
     }
 }
 

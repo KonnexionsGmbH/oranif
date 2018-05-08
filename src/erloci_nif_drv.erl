@@ -1,7 +1,7 @@
 -module(erloci_nif_drv).
 
--export([init/0, ociEnvNlsCreate/0, ociSpoolHandleCreate/1,
-        ociSessionPoolCreate/8, ociAuthHandleCreate/3, ociSessionGet/3,
+-export([init/0, ociEnvNlsCreate/0,
+        ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/5, ociStmtFetch/2]).
 
@@ -36,16 +36,6 @@ ociEnvNlsCreate() ->
     ?NOT_LOADED.
 
 %%--------------------------------------------------------------------
-%% Create an Session Pool handle
-%% Required as an argument to ociSessionPoolCreate
-%% returns {ok, Spoolhp}
-%%--------------------------------------------------------------------
--spec ociSpoolHandleCreate(Envhp :: reference()) -> {ok, Spoolhp :: reference()}
-                                                    | {error, binary()}.
-ociSpoolHandleCreate(_Envhp) ->
-     ?NOT_LOADED.
-
-%%--------------------------------------------------------------------
 %% Create an Auth Handle based on supplied username / password
 %% Used as an argument to ociSessionGet
 %% returns {ok, Authhp}
@@ -65,15 +55,14 @@ ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
 %% returns {ok, PoolName}
 %%--------------------------------------------------------------------
 -spec ociSessionPoolCreate(Envhp :: reference(),
-                           Spoolhp :: reference(),
                            DataBase :: binary(),
                            SessMin :: pos_integer(),
                            SessMax :: pos_integer(),
                            SessInc :: pos_integer(),
                            UserName :: binary(),
-                           Password :: binary()) -> {ok, Poolname :: binary()}
+                           Password :: binary()) -> {ok, Spoolhp :: reference()}
                                                     | {error, binary()}.
-ociSessionPoolCreate(_Envhp, _Spoolhp, _DataBase, _SessMin,
+ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
  ?NOT_LOADED.
 
@@ -83,9 +72,9 @@ ociSessionPoolCreate(_Envhp, _Spoolhp, _DataBase, _SessMin,
 %%--------------------------------------------------------------------
 -spec ociSessionGet(Envhp :: reference(),
                     Authhp :: reference(),
-                    PoolName :: binary()) -> {ok, Svchp :: reference()}
+                    Spoolhp :: reference()) -> {ok, Svchp :: reference()}
                                              | {error, binary()}.
-ociSessionGet(_Envhp, _Authhp, _PoolName) ->
+ociSessionGet(_Envhp, _Authhp, _Spoolhp) ->
      ?NOT_LOADED.
 
 %%--------------------------------------------------------------------

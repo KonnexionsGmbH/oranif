@@ -12,6 +12,7 @@ static ErlNifResourceType *bindhp_resource_type;
 
 static ERL_NIF_TERM ATOM_OK;
 static ERL_NIF_TERM ATOM_ERROR;
+static ERL_NIF_TERM ATOM_NULL;
 static ERL_NIF_TERM ATOM_ENOMEM;
 
 typedef struct {
@@ -38,7 +39,8 @@ typedef struct {
     ub2 col_size;
     ErlNifBinary col_name;
     OCIDefine *definehp;
-    void *valuep;
+    ub2 ind;                // OUT - fetched NULL? indicator placed here
+    void *valuep;           // OUT - value here
 } col_info;
 
 typedef struct {
@@ -601,10 +603,9 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         if (!enif_alloc_binary(col_name_len, &column_info->col_name)) {
             // binary creation failed. out of memory?
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
-            return enif_make_badarg(env);
+            return enif_raise_exception(env, ATOM_ENOMEM);
         }
         memcpy(column_info->col_name.data, col_name, col_name_len);
-        printf("Col %d name: %s\r\n", counter, col_name);
 
         /* Retrieve the length semantics for the column */
         char_semantics = 0;
@@ -619,7 +620,6 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return reterr(env, stmthp_res->errhp, status);
         }
         column_info->char_semantics = char_semantics;
-        printf("Col %d char_semantics: %d\r\n", counter, char_semantics);
 
         /* Retrieve the column width in characters */
         col_width = 0;
@@ -653,7 +653,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         /* We have what we need to set up the OCIDefine for this column
            Allocate storage and call DefineByPos */
-        valuep = malloc(column_info->col_size);
+        valuep = enif_alloc(column_info->col_size);
         column_info->valuep = valuep;
         status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
                                 stmthp_res->errhp,
@@ -661,7 +661,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                 (void *)valuep,
                                 column_info->col_size,
                                 col_type,
-                                (void *) NULL, // FIXME: indp,
+                                (void *) &column_info->ind,
                                 (ub2 *) NULL, // FIXME: rlenp,
                                 (ub2 *) NULL, // FIXME rcodep,
                                 OCI_DEFAULT );
@@ -701,17 +701,19 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         return reterr(env, stmthp_res->errhp, status);
     } else {
         ERL_NIF_TERM list = enif_make_list(env, 0);
-        printf("Fetch OK\r\n");
         for (int i = 0; i < stmthp_res->num_cols; i++) {
             ERL_NIF_TERM term;
             col_info *col = &stmthp_res->col_info[i];
-            unsigned char *bin = enif_make_new_binary(env, col->col_size, &term);
-            memcpy(bin, col->valuep, col->col_size);
-            list = enif_make_list_cell(env, term, list);
+            if (col->ind == (ub2) -1) {
+                // returned value is NULL
+                list = enif_make_list_cell(env, ATOM_NULL, list);
+            } else {
+                unsigned char *bin = enif_make_new_binary(env, col->col_size, &term);
+                memcpy(bin, col->valuep, col->col_size);
+                list = enif_make_list_cell(env, term, list);
+            }
         }
-        return enif_make_tuple(env, 2,
-                         ATOM_OK,
-                         list);
+        return enif_make_tuple2(env, ATOM_OK, list);
     }
 }
 
@@ -803,6 +805,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
 
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_ERROR = enif_make_atom(env, "error");
+    ATOM_NULL = enif_make_atom(env, "NULL");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
     return 0;
 }

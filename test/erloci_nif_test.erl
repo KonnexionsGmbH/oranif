@@ -68,8 +68,8 @@ db_test_() ->
          fun missing_bind_error/1,
          %fun named_session/1,
          %%fun drop_create/1,
-         %fun bad_sql_connection_reuse/1,
-         fun insert_select_update/1
+         fun bad_sql_connection_reuse/1,
+         fun insert_select_update/1,
          %fun auto_rollback/1,
          %fun commit_rollback/1,
          %fun asc_desc/1,
@@ -85,8 +85,20 @@ db_test_() ->
          %fun check_session_without_ping/1,
          %fun check_session_with_ping/1,
          %fun urowid/1
+        fun select_null/1
         ]}
       }}.
+
+select_null(#{envhp := Envhp, svchp := Svchp}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|            select_bind                      |"),
+    ?ELog("+---------------------------------------------+"),
+    {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
+    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    {ok, Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1),
+    ?ELog("ROWS: ~p", [Rows]).
+
 
 select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     ?ELog("+---------------------------------------------+"),
@@ -97,7 +109,7 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, BindVars1} = erloci_nif_drv:ociBindByName(Stmthp, #{}, <<"A">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
     {ok, BindVars2} = erloci_nif_drv:ociBindByName(Stmthp, BindVars1, <<"B">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
     ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
-    ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, _Rows}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
@@ -113,6 +125,19 @@ missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
     ?assertMatch({error, {1008, _}}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))).
+
+bad_sql_connection_reuse(#{envhp := Envhp, svchp := Svchp}) ->
+        ?ELog("+---------------------------------------------+"),
+        ?ELog("|           bad_sql_connection_reuse          |"),
+        ?ELog("+---------------------------------------------+"),
+        {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
+        BadSelect = <<"select 'abc from dual">>,
+        ?assertMatch({error, {1756, _}}, erloci_nif_drv:ociStmtPrepare(Stmthp, BadSelect)),
+        GoodSelect = <<"select 'abc' from dual">>,
+        ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, GoodSelect)).
+        %%?assertMatch({cols, [{<<"'ABC'">>,'SQLT_AFC',_,0,0}]}, SelStmt:exec_stmt()),
+        %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
+        %%?assertEqual(ok, SelStmt:close()).
 
 insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     ?ELog("+---------------------------------------------+"),

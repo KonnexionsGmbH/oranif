@@ -226,11 +226,9 @@ static ERL_NIF_TERM ociSpoolHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF
 
             ERL_NIF_TERM nif_res = enif_make_resource(env, res2);
             enif_release_resource(res2);
-            printf("Session Pool Handle Created %p\r\n", res2->spoolhp);
             return nif_res;
         }
         default: {
-            printf("Session Pool Handle Failed\r\n");
             return enif_make_badarg(env);
         }
     }
@@ -276,16 +274,13 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF
             bin.data = (unsigned char *)poolName;
             term = enif_make_binary(env, &bin);
             if (! term) {
-                printf("Binary failed\r\n");
                 return enif_make_badarg(env);
             }
-            printf("Session Pool Created\r\n");
             return enif_make_tuple(env, 2,
                          ATOM_OK,
                          term);
         }
         default: {
-            printf("Session Pool Failed\r\n");
             return reterr(env, envhp_res->errhp, status);
         }
     }
@@ -637,7 +632,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return reterr(env, stmthp_res->errhp, status);
         }
         column_info->col_type = col_type;
-        printf("Col %d data_type: %d\r\n", counter, col_type);
+        // printf("Col %d data_type: %d\r\n", counter, col_type);
 
         /* Retrieve the column name attribute and put in a locally stored
            erlang binary. Could just have used a text* for this, but convenient
@@ -701,7 +696,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 }
             column_info->col_size = col_width;
         }
-        printf("Col %d col_width: %d\r\n", counter, col_width);
+        // printf("Col %d col_width: %d\r\n", counter, col_width);
 
         /* Retrieve the column scale */
         status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
@@ -743,7 +738,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
                 return reterr(env, stmthp_res->errhp, status);
                 }
-        printf("Col %d OCIDefineByPos OK\r\n", counter);
+        // printf("Col %d OCIDefineByPos OK\r\n", counter);
 
 
         counter++;
@@ -810,7 +805,7 @@ static ErlNifFunc nif_funcs[] =
 
 static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
     envhp_res *res = (envhp_res*)resource;
-    printf("envhp_res_dtor called\r\n");
+    // printf("envhp_res_dtor called\r\n");
     if(res->envhp) {
         // Clear up the OCIEnv
     }
@@ -818,7 +813,7 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
   envhp_res *res = (envhp_res*)resource;
-  printf("spoolhp_res_ called\r\n");
+  // printf("spoolhp_res_ called\r\n");
   if(res->envhp) {
     // Clear up the OCIEnv
   }
@@ -826,7 +821,7 @@ static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
     envhp_res *res = (envhp_res*)resource;
-    printf("authhp_res_ called\r\n");
+    //printf("authhp_res_ called\r\n");
     if(res->envhp) {
         // Clear up the OCIEnv
     }
@@ -837,7 +832,7 @@ static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
   if(res->envhp) {
     // Clear up the OCIEnv
   }
-  printf("svchp_res_ called\r\n");
+  // printf("svchp_res_ called\r\n");
 }
 
 static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
@@ -847,7 +842,7 @@ static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
     // Release error handle
     // and column descriptions
   }
-  printf("stmthp_res_ called\r\n");
+  // printf("stmthp_res_ called\r\n");
 }
 
 static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
@@ -856,7 +851,7 @@ static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
     // Clear up the Statement Handle
     // and column descriptions
   }
-  printf("bindhp_res_ called\r\n");
+  // printf("bindhp_res_ called\r\n");
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {

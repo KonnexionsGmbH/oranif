@@ -39,7 +39,7 @@ db_test_() ->
                Conf = ?CONN_CONF,
                application:start(erloci),
                #{tns := Tns, user := User, password := Pass,
-                 logging := Logging, lang := Lang} = Conf,
+                 logging := _Logging, lang := _Lang} = Conf,
                Envhp = erloci_nif_drv:ociEnvNlsCreate(),
                Spoolhp = erloci_nif_drv:ociSpoolHandleCreate(Envhp),
                {ok, SpoolName} = erloci_nif_drv:ociSessionPoolCreate(Envhp, Spoolhp,
@@ -54,7 +54,7 @@ db_test_() ->
                   svchp => Svchp,
                   conf => Conf}
        end,
-       fun(#{envhp := Envhp} = State) ->
+       fun(#{}) ->
                %DropStmt = OciSession:prep_sql(?DROP),
                %DropStmt:exec_stmt(),
                %DropStmt:close(),
@@ -90,46 +90,32 @@ db_test_() ->
       }}.
 
 select_null(#{envhp := Envhp, svchp := Svchp}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|            select_bind                      |"),
-    ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
     ?assertMatch({ok, _}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
-    {ok, Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1),
-    ?ELog("ROWS: ~p", [Rows]).
-
+    ?assertMatch({ok, _}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 select_bind(#{envhp := Envhp, svchp := Svchp}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|            select_bind                      |"),
-    ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
     {ok, BindVars1} = erloci_nif_drv:ociBindByName(Stmthp, #{}, <<"A">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
     {ok, BindVars2} = erloci_nif_drv:ociBindByName(Stmthp, BindVars1, <<"B">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
     ?assertMatch({ok, #{cols := [{<<"DUMMY">>,1,1,0,0}]}}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
-    ?assertMatch({ok, _Rows}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, [<<"X">>]}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|            column_types                     |"),
-    ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
     ?assertMatch({ok, _}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
-    ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, _}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
     ?assertMatch({error, {1008, _}}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))).
 
-bad_sql_connection_reuse(#{envhp := Envhp, svchp := Svchp}) ->
-        ?ELog("+---------------------------------------------+"),
-        ?ELog("|           bad_sql_connection_reuse          |"),
-        ?ELog("+---------------------------------------------+"),
+bad_sql_connection_reuse(#{envhp := Envhp}) ->
         {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
         BadSelect = <<"select 'abc from dual">>,
         ?assertMatch({error, {1756, _}}, erloci_nif_drv:ociStmtPrepare(Stmthp, BadSelect)),
@@ -139,15 +125,11 @@ bad_sql_connection_reuse(#{envhp := Envhp, svchp := Svchp}) ->
         %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
         %%?assertEqual(ok, SelStmt:close()).
 
-insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|            insert_select_update             |"),
-    ?ELog("+---------------------------------------------+"),
-    RowCount = 6,
+insert_select_update(#{} = Sess) ->
+    _RowCount = 6,
     flush_table(Sess).
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->
-    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ok = erloci_nif_drv:ociStmtPrepare(Stmthp, ?DROP),
     case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT')) of

@@ -56,6 +56,7 @@ typedef struct {
     col_info *col_info;     // array of *col_info for define data
 } stmthp_res;
 
+// One of these is created for each bind variable. They end up stored in a map
 typedef struct {
     OCIBind *bindhp;
     ErlNifBinary name;
@@ -807,51 +808,64 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
     envhp_res *res = (envhp_res*)resource;
     // printf("envhp_res_dtor called\r\n");
     if(res->envhp) {
-        // Clear up the OCIEnv
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        OCIHandleFree(res->envhp, OCI_HTYPE_ENV );
     }
 }
 
 static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
-  envhp_res *res = (envhp_res*)resource;
+  spoolhp_res *res = (spoolhp_res*)resource;
   // printf("spoolhp_res_ called\r\n");
-  if(res->envhp) {
-    // Clear up the OCIEnv
+  if(res->spoolhp) {
+    OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL );
   }
 }
 
 static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
-    envhp_res *res = (envhp_res*)resource;
-    //printf("authhp_res_ called\r\n");
-    if(res->envhp) {
-        // Clear up the OCIEnv
+    authhp_res *res = (authhp_res*)resource;
+    // printf("authhp_res_ called\r\n");
+    if(res->authhp) {
+        OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
     }
 }
 
 static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
-  envhp_res *res = (envhp_res*)resource;
-  if(res->envhp) {
-    // Clear up the OCIEnv
-  }
+  svchp_res *res = (svchp_res*)resource;
   // printf("svchp_res_ called\r\n");
+  if(res->svchp) {
+      // The docs say this will even commit outstanding transactions
+      // Do we really want this to happen during garbage collection?
+      /*
+      OCISessionRelease(res->svchp,
+                        (OCIError *) NULL, // FIXME: access to an errhp?
+                        (OraText *) NULL,
+                        (ub4) 0,
+                        OCI_DEFAULT );
+                        */
+    }
 }
 
 static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
-  stmthp_res *res = (stmthp_res*)resource;
+    stmthp_res *res = (stmthp_res*)resource;
+    // printf("stmthp_res_ called\r\n");
+    if (res->col_info) {
+        free_col_info(res->col_info, res->num_cols);
+        res->col_info = NULL;
+        res->num_cols = 0;
+    }
   if(res->stmthp) {
-    // Clear up the Statement Handle
-    // Release error handle
-    // and column descriptions
+    OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+    OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
   }
-  // printf("stmthp_res_ called\r\n");
 }
 
 static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
-  bindhp_res *res = (bindhp_res*)resource;
-  if(res->bindhp) {
-    // Clear up the Statement Handle
-    // and column descriptions
-  }
-  // printf("bindhp_res_ called\r\n");
+    bindhp_res *res = (bindhp_res*)resource;
+    // printf("bindhp_res_ called\r\n");
+    // OCI will free the bind handle when the stmthp is released
+    // so here we just need to free the name and value binaries
+    enif_release_binary(&res->name);
+    enif_release_binary(&res->value);
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {

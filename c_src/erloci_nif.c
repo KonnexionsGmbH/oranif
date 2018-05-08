@@ -13,6 +13,8 @@ static ErlNifResourceType *bindhp_resource_type;
 static ERL_NIF_TERM ATOM_OK;
 static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_NULL;
+static ERL_NIF_TERM ATOM_COLS;
+static ERL_NIF_TERM ATOM_ROWIDS;
 static ERL_NIF_TERM ATOM_ENOMEM;
 
 typedef struct {
@@ -37,6 +39,8 @@ typedef struct {
     ub4 col_type;
     ub1 char_semantics;
     ub2 col_size;
+    ub1 col_scale;
+    ub2 col_precision;
     ErlNifBinary col_name;
     OCIDefine *definehp;
     ub2 ind;                // OUT - fetched NULL? indicator placed here
@@ -46,6 +50,7 @@ typedef struct {
 typedef struct {
     OCIStmt *stmthp;        // statement handle
     OCIError *errhp;        // per statement error handle
+    ub2 stmt_type;          // Retrieved statement type (e.g. OCI_SELECT)
     int col_info_retrieved; // Set on first call to execute
     int num_cols;           // number of define columns for select
     col_info *col_info;     // array of *col_info for define data
@@ -110,6 +115,39 @@ static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
     return ATOM_ERROR;
   }
   return ATOM_ERROR;
+}
+
+static ERL_NIF_TERM execute_result_map(ErlNifEnv* env, stmthp_res *stmthp) {
+    ERL_NIF_TERM map;
+    map = enif_make_new_map(env);
+    if (stmthp->stmt_type == OCI_STMT_SELECT) {
+        // return collected column info
+        ERL_NIF_TERM list = enif_make_list(env, 0);
+        ERL_NIF_TERM new_map;
+        for (int i = 0; i < stmthp->num_cols; i++) {
+            col_info *col = &stmthp->col_info[i];
+            ERL_NIF_TERM name;
+            text *buf = enif_make_new_binary(env, col->col_name.size, &name);
+            memcpy(buf, col->col_name.data, col->col_name.size);
+            ERL_NIF_TERM term = enif_make_tuple5(
+                env,
+                name,
+                enif_make_int(env, col->col_type),
+                enif_make_int(env, col->col_size),
+                enif_make_int(env, col->col_precision),
+                enif_make_int(env, col->col_scale));
+            list = enif_make_list_cell(env, term, list);
+        }
+        enif_make_map_put(env, map, ATOM_COLS, list, &new_map);
+        return new_map;
+    } else if (stmthp->stmt_type == OCI_STMT_INSERT
+               || stmthp->stmt_type == OCI_STMT_UPDATE
+               || stmthp->stmt_type == OCI_STMT_DELETE) {
+        // Return any updated row_ids
+        return map;
+    } else {
+        return map;
+    }
 }
 
 /* If we re-prepare an existing stmt handle we must manually
@@ -533,16 +571,30 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return reterr(env, stmthp_res->errhp, status);
     }
 
-    if (stmthp_res->col_info_retrieved) {
-        // Column info already populated by a previous call to OCIStmtExecute
-        return ATOM_OK;
-    }
-
+    
     /* After a successful execute it seems convenient to check
        immediately whether this statement could supply any 
        output rows and if so setting up any OCIDefines needed. */
+    
+    // Retrieve the statement type
+    status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
+                        &stmthp_res->stmt_type, (ub4 *)0,
+                        OCI_ATTR_STMT_TYPE, stmthp_res->errhp);
+    if (status) {
+        return reterr(env, stmthp_res->errhp, status);
+    }
 
-    // Retrieve the column count
+    if (stmthp_res->stmt_type != OCI_STMT_SELECT && stmthp_res->col_info_retrieved) {
+        // Column info already populated by a previous call to OCIStmtExecute
+        return enif_make_tuple2(env, ATOM_OK,
+                                execute_result_map(env, stmthp_res));
+    }
+
+
+    if (stmthp_res->stmt_type != OCI_STMT_SELECT) {
+        return ATOM_OK;
+    }
+    // Retrieve the column count 
     status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
                         (dvoid *)&col_count, (ub4 *)0,
                         OCI_ATTR_PARAM_COUNT, stmthp_res->errhp);
@@ -563,7 +615,9 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     }
     stmthp_res->col_info = col_array;
 
-    // Maybe some rows to fetch, setup to receive them and retrieve the first column
+    /* Maybe some rows to fetch, setup to receive them and retrieve OCIDefine
+     info for the first column
+     */
     counter = 1;    
     int param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
                             stmthp_res->errhp,
@@ -648,6 +702,26 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             column_info->col_size = col_width;
         }
         printf("Col %d col_width: %d\r\n", counter, col_width);
+
+        /* Retrieve the column scale */
+        status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
+                (dvoid*) &column_info->col_scale, (ub4 *) 0, (ub4) OCI_ATTR_SCALE,
+                (OCIError *) stmthp_res->errhp  );
+        if (status) {
+            OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
+            return reterr(env, stmthp_res->errhp, status);
+        }
+
+        /* Retrieve the column precision */
+        status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
+                (dvoid*) &column_info->col_precision, (ub4 *) 0, (ub4) OCI_ATTR_SCALE,
+                (OCIError *) stmthp_res->errhp  );
+        if (status) {
+            OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
+            return reterr(env, stmthp_res->errhp, status);
+        }
+
+
         // FIXME: could also retrieve Character set form and id,
         // column scale, column precision
 
@@ -678,7 +752,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                     (dvoid **)&paramd, counter);
     }
     stmthp_res->col_info_retrieved = 1;
-    return ATOM_OK;
+    return enif_make_tuple2(env, ATOM_OK, execute_result_map(env, stmthp_res));
 }
 
 
@@ -770,6 +844,7 @@ static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
   stmthp_res *res = (stmthp_res*)resource;
   if(res->stmthp) {
     // Clear up the Statement Handle
+    // Release error handle
     // and column descriptions
   }
   printf("stmthp_res_ called\r\n");
@@ -806,6 +881,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_NULL = enif_make_atom(env, "NULL");
+    ATOM_COLS = enif_make_atom(env, "cols");
+    ATOM_ROWIDS = enif_make_atom(env, "rowids");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
     return 0;
 }

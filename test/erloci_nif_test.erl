@@ -95,7 +95,7 @@ select_null(#{envhp := Envhp, svchp := Svchp}) ->
     ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
-    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    ?assertMatch({ok, _}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
     {ok, Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1),
     ?ELog("ROWS: ~p", [Rows]).
 
@@ -108,7 +108,7 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
     {ok, BindVars1} = erloci_nif_drv:ociBindByName(Stmthp, #{}, <<"A">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
     {ok, BindVars2} = erloci_nif_drv:ociBindByName(Stmthp, BindVars1, <<"B">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
-    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    ?assertMatch({ok, #{cols := [{<<"DUMMY">>,1,1,0,0}]}}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
     ?assertMatch({ok, _Rows}, erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 
@@ -118,7 +118,7 @@ column_types(#{envhp := Envhp, svchp := Svchp}) ->
     ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
-    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    ?assertMatch({ok, _}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
     ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->

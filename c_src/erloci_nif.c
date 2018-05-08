@@ -110,6 +110,18 @@ static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
   return ATOM_ERROR;
 }
 
+/* If we re-prepare an existing stmt handle we must manually
+   reset the retrieved col info from previous executions.
+   Also needed by the GC callbacks when our stmt resource is
+   destroyed
+*/
+static void free_col_info(col_info *col_info, int num_cols) {
+    for (int i = 0; i < num_cols; i++) {
+        enif_release_binary(&col_info[i].col_name);
+    }
+    enif_free(col_info);
+}
+
 static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIEnv *envhp = (OCIEnv *)NULL;
     OCIError *errhp = (OCIError *)NULL;
@@ -356,26 +368,18 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
     res->col_info = NULL;
     res->num_cols = 0;
 
-    ERL_NIF_TERM bind_map = enif_make_new_map(env);
-
     ERL_NIF_TERM nif_res = enif_make_resource(env, res);
     enif_release_resource(res);
 
-    return enif_make_tuple(env, 2,
-                         ATOM_OK,
-                         enif_make_tuple(env, 2, nif_res, bind_map));
+    return enif_make_tuple2(env, ATOM_OK, nif_res);
 }
 
 static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    const ERL_NIF_TERM *stmt_tuple;
-    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
     ErlNifBinary statement;
 
     if(!(argc == 2 &&
-        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
-        stmt_tuple_arity == 2 &&
-        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_inspect_binary(env, argv[1], &statement))) {
             return enif_make_badarg(env);
         }
@@ -383,16 +387,27 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     /*
     Calling OCIStmtPrepare after it's been used implicitly 
     frees any existing bind and define handles.
-    We also allocated memory associated with these bind and
-    define handles to hold our in and out buffers, so
+    We also allocated memory associated with the
+    define handles to hold column names, so
     here seems like the right place to free anything we hold
     against this stmthp.
-    */ 
+    */
+   if (stmthp_res->col_info_retrieved && stmthp_res->num_cols) {
+        if (stmthp_res->col_info) {
+            free_col_info(stmthp_res->col_info, stmthp_res->num_cols);
+        } else {
+            printf("DRIVER ERROR: col_info NULL but cols retrieved");
+        }
+    }
+    stmthp_res->col_info_retrieved = 0;
+    stmthp_res->col_info = NULL;
+    stmthp_res->num_cols = 0;
+
     int status = OCIStmtPrepare (stmthp_res->stmthp, stmthp_res->errhp,
                                  (OraText *) statement.data, (ub4) statement.size,
                                   OCI_NTV_SYNTAX, OCI_DEFAULT);
     if (status) {
-        return reterr(env, stmthp_res->errhp, status);;
+        return reterr(env, stmthp_res->errhp, status);
     } else {
         return ATOM_OK;
     }
@@ -400,27 +415,23 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     bindhp_res *bindhp_resource;
-    const ERL_NIF_TERM *stmt_tuple;
-    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
     int dty, ind, status;
     ErlNifBinary name, value;
 
-    if(!(argc == 5 &&
-        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
-        stmt_tuple_arity == 2 &&
-        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
-        enif_is_map(env, stmt_tuple[1]) &&
-        enif_inspect_binary(env, argv[1], &name) &&
-        enif_get_int(env, argv[2], &ind) &&
-        enif_get_int(env, argv[3], &dty) &&
-        enif_inspect_binary(env, argv[4], &value))) {
+    if(!(argc == 6 &&
+        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_is_map(env, argv[1]) &&
+        enif_inspect_binary(env, argv[2], &name) &&
+        enif_get_int(env, argv[3], &ind) &&
+        enif_get_int(env, argv[4], &dty) &&
+        enif_inspect_binary(env, argv[5], &value))) {
             return enif_make_badarg(env);
         }
 
-    ERL_NIF_TERM return_map = stmt_tuple[1];
+    ERL_NIF_TERM return_map = argv[1];
     ERL_NIF_TERM current_value;
-    if(enif_get_map_value(env, stmt_tuple[1], argv[1], &current_value)) {
+    if(enif_get_map_value(env, argv[1], argv[2], &current_value)) {
         if (!enif_get_resource(env, current_value, bindhp_resource_type, (void**)&bindhp_resource)) {
             return enif_make_badarg(env);
         }
@@ -430,9 +441,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
             memcpy(bindhp_resource->value.data, value.data, value.size);
             bindhp_resource->value_sz = value.size;
             // Nothing else to do - the existing OCIBind will use the new value
-            return enif_make_tuple(env, 2,
-                         ATOM_OK,
-                         enif_make_tuple(env, 2, stmt_tuple[0], return_map));
+            return enif_make_tuple2(env, ATOM_OK, return_map);
         } else {
             ErlNifBinary new;
             if(!enif_alloc_binary(value.size, &new)) {
@@ -466,7 +475,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         // Put this new handle in the map
         ERL_NIF_TERM nif_res = enif_make_resource(env, bindhp_resource);
         enif_release_resource(bindhp_resource);
-        enif_make_map_put(env, stmt_tuple[1], argv[1], nif_res, &return_map);
+        enif_make_map_put(env, argv[1], argv[2], nif_res, &return_map);
     }
 
     status = OCIBindByName(stmthp_res->stmthp, &bindhp_resource->bindhp,
@@ -484,16 +493,10 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (status) {
         return reterr(env, stmthp_res->errhp, status);
     }
-
-    return enif_make_tuple(env, 2,
-                         ATOM_OK,
-                         enif_make_tuple(env, 2, stmt_tuple[0], return_map));
-
+    return enif_make_tuple2(env, ATOM_OK, return_map);
 }
 
 static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    const ERL_NIF_TERM *stmt_tuple;
-    int stmt_tuple_arity;
     svchp_res *svchp_res;
     stmthp_res *stmthp_res;
     ub4 iters, row_off, mode;
@@ -509,15 +512,13 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     void *valuep;
     OCIDefine *definehp = (OCIDefine *) 0;
 
-    if(!(argc == 5 &&
+    if(!(argc == 6 &&
         enif_get_resource(env, argv[0], svchp_resource_type, (void**)&svchp_res) &&
-        enif_get_tuple(env, argv[1], &stmt_tuple_arity, &stmt_tuple) &&
-        stmt_tuple_arity == 2 &&
-        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
-        enif_is_map(env, stmt_tuple[1]) &&
-        enif_get_uint(env, argv[2], &iters) &&
-        enif_get_uint(env, argv[3], &row_off) &&
-        enif_get_uint(env, argv[4], &mode) )) {
+        enif_get_resource(env, argv[1], stmthp_resource_type, (void**)&stmthp_res) &&
+        enif_is_map(env, argv[2]) &&
+        enif_get_uint(env, argv[3], &iters) &&
+        enif_get_uint(env, argv[4], &row_off) &&
+        enif_get_uint(env, argv[5], &mode) )) {
             return enif_make_badarg(env);
         }
     
@@ -682,16 +683,11 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 
 static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    const ERL_NIF_TERM *stmt_tuple;
-    int stmt_tuple_arity;
     stmthp_res *stmthp_res;
     ub4 nrows;
     
     if(!(argc == 2 &&
-        enif_get_tuple(env, argv[0], &stmt_tuple_arity, &stmt_tuple) &&
-        stmt_tuple_arity == 2 &&
-        enif_get_resource(env, stmt_tuple[0], stmthp_resource_type, (void**)&stmthp_res) &&
-        enif_is_map(env, stmt_tuple[1]) &&
+        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_get_uint(env, argv[1], &nrows) )) {
             return enif_make_badarg(env);
         }
@@ -731,8 +727,8 @@ static ErlNifFunc nif_funcs[] =
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
     {"ociStmtPrepare", 2, ociStmtPrepare},
-    {"ociStmtExecute", 5, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
-    {"ociBindByName", 5, ociBindByName},
+    {"ociStmtExecute", 6, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"ociBindByName", 6, ociBindByName},
     {"ociStmtFetch", 2, ociStmtFetch, ERL_NIF_DIRTY_JOB_IO_BOUND}
 };
 

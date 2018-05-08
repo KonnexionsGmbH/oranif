@@ -3,6 +3,31 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("test_common.hrl").
 
+-define(TESTTABLE, "erloci_nif_simple_test_1").
+
+
+-define(DROP,   <<"drop table "?TESTTABLE>>).
+-define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
+                  "publisher varchar2(30))">>).
+-define(INSERT, <<"insert into "?TESTTABLE
+                " (pkey,publisher) values ("
+                ":pkey"
+                ", :publisher)">>).
+-define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE
+                           ".* from "?TESTTABLE>>).
+-define(SELECT_ROWID_ASC, <<"select rowid from "?TESTTABLE" order by pkey">>).
+-define(SELECT_ROWID_DESC, <<"select rowid from "?TESTTABLE
+                           " order by pkey desc">>).
+-define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
+                 , {<<":publisher">>, 'SQLT_CHR'}
+                 ]).
+-define(UPDATE, <<"update "?TESTTABLE" set "
+                "pkey = :pkey"
+                ", publisher = :publisher"
+                " where "?TESTTABLE".rowid = :pri_rowid1">>).
+-define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
+                        , {<<":publisher">>, 'SQLT_CHR'}
+                        ]).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -39,11 +64,12 @@ db_test_() ->
        end,
        {with,
         [fun select_bind/1,
-        fun column_types/1
+         fun column_types/1,
+         fun missing_bind_error/1,
          %fun named_session/1,
          %%fun drop_create/1,
          %fun bad_sql_connection_reuse/1,
-         %fun insert_select_update/1,
+         fun insert_select_update/1
          %fun auto_rollback/1,
          %fun commit_rollback/1,
          %fun asc_desc/1,
@@ -68,10 +94,10 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
-    {ok, Stmthp1} = erloci_nif_drv:ociBindByName(Stmthp, <<"A">>, 0, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
-    {ok, Stmthp2} = erloci_nif_drv:ociBindByName(Stmthp1, <<"B">>, 0, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
-    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
-    ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp2, 1)).
+    {ok, BindVars1} = erloci_nif_drv:ociBindByName(Stmthp, #{}, <<"A">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"X">>),
+    {ok, BindVars2} = erloci_nif_drv:ociBindByName(Stmthp, BindVars1, <<"B">>, erloci_nif_drv:sql_type('SQLT_CHR'), <<"Y">>),
+    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
 
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
@@ -80,5 +106,29 @@ column_types(#{envhp := Envhp, svchp := Svchp}) ->
     ?ELog("+---------------------------------------------+"),
     {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
-    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
+    ?assertMatch(ok, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))),
     ?assertMatch({ok, _}, {ok, _Rows} = erloci_nif_drv:ociStmtFetch(Stmthp, 1)).
+
+missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
+    {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif_drv:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
+    ?assertMatch({error, {1008, _}}, erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT'))).
+
+insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|            insert_select_update             |"),
+    ?ELog("+---------------------------------------------+"),
+    RowCount = 6,
+    flush_table(Sess).
+
+flush_table(#{envhp := Envhp, svchp := Svchp}) ->
+    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
+    {ok, Stmthp} = erloci_nif_drv:ociStmtHandleCreate(Envhp),
+    ok = erloci_nif_drv:ociStmtPrepare(Stmthp, ?DROP),
+    case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, erloci_nif_drv:oci_mode('OCI_DEFAULT')) of
+        {ok, _} -> ok;
+        {error,{942,_}} -> ok;
+        Else -> exit(Else)
+    end,
+    ok = erloci_nif_drv:ociStmtPrepare(Stmthp, ?CREATE).
+

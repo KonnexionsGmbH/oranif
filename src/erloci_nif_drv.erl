@@ -2,7 +2,7 @@
 
 -export([init/0, ociEnvNlsCreate/0, ociSpoolHandleCreate/1,
         ociSessionPoolCreate/8, ociAuthHandleCreate/3, ociSessionGet/3,
-        ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/5,
+        ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/5, ociStmtFetch/2]).
 
 -export([sql_type/1, oci_mode/1]).
@@ -91,33 +91,50 @@ ociSessionGet(_Envhp, _Authhp, _PoolName) ->
 %%--------------------------------------------------------------------
 %% Create a statement Handle. Can be re-used for multiple statements.
 %%--------------------------------------------------------------------
--spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: {reference(), map()}}
+-spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
                                                    | {error, binary()}.
 ociStmtHandleCreate(_Envhp) ->
      ?NOT_LOADED.
 
--spec ociStmtPrepare(Stmthp :: {reference(), map()},
+-spec ociStmtPrepare(Stmthp :: reference(),
                      Stmt :: binary()) -> ok | {error, binary()}.
 ociStmtPrepare(_Stmthp, _Stmt) ->
      ?NOT_LOADED.
 
 %% 
 -spec ociStmtExecute(Svchp :: reference(),
-                     Stmthp :: {reference(), map()},
+                     Stmthp :: reference(),
+                     BindVars :: map(),
                      Iters :: pos_integer(),
                      RowOff :: pos_integer(),
                      Mode :: integer()) -> ok | {error, binary()}.
-ociStmtExecute(_Svchp, _Stmthp, _Iters, _RowOff, _Mode) ->
+ociStmtExecute(_Svchp, _Stmthp, _BindVars, _Iters, _RowOff, _Mode) ->
     ?NOT_LOADED.
 
-%% 
--spec ociBindByName(Stmthp :: {reference(), map()},
+-spec ociBindByName(Stmthp :: reference(),
+                    BindVars :: map(),
+                    BindVarName :: binary(),
+                    SqlType :: integer(),
+                    BindVarValue :: binary() | 'NULL') ->
+                                        {ok, BindVars2 :: map()}
+                                        | {error, binary()}.
+ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) ->
+    case BindVarValue of
+        'NULL' ->
+            ociBindByName(Stmthp, BindVars, BindVarName, -1, SqlType, <<>>);
+        _ ->
+            ociBindByName(Stmthp, BindVars, BindVarName, 0, SqlType, BindVarValue)
+    end.
+
+%% Bind named placeholder to value low level interface to nif
+-spec ociBindByName(Stmthp :: reference(),
+                    BindVars :: map(),
                     BindVarName :: binary(),
                     Ind :: integer(),
                     SqlType :: integer(),
-                    BindVarValue :: binary()) -> {ok, Stmthp :: {reference(), map()}}
+                    BindVarValue :: binary()) -> {ok, Bindvars2 :: map()}
                                                  | {error, binary()}.
-ociBindByName(_Stmthp, _BindVarName, _Ind, _SqlType, _BindVarValue) ->
+ociBindByName(_Stmthp, _BindVars, _BindVarName, _Ind, _SqlType, _BindVarValue) ->
     ?NOT_LOADED.
 
 -spec ociStmtFetch(Stmthp :: {reference(), map()},

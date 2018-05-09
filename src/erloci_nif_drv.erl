@@ -1,11 +1,14 @@
 -module(erloci_nif_drv).
+%% Low level API to the nif
 
 -export([init/0, ociEnvNlsCreate/0,
         ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/6, ociStmtFetch/2]).
 
--export([sql_type_to_int/1, int_to_sql_type/1, oci_mode/1]).
+-export([sql_type_to_int/1, int_to_sql_type/1,
+        stmt_type_to_int/1, int_to_stmt_type/1,
+        oci_mode/1]).
 
 -on_load(init/0).
 
@@ -95,6 +98,34 @@ not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
 
 %% From oci.h
+%%--------------------------- OCI Statement Types -----------------------------
+
+stmt_type_to_int('unknowN') -> 0;      % Unknown statement
+stmt_type_to_int('select')  -> 1;      % select statement
+stmt_type_to_int('update')  -> 2;      % update statement
+stmt_type_to_int('delete')  -> 3;      % delete statement
+stmt_type_to_int('insert')  -> 4;      % Insert Statement
+stmt_type_to_int('create')  -> 5;      % create statement
+stmt_type_to_int('drop')    -> 6;      % drop statement
+stmt_type_to_int('alter')   -> 7;      % alter statement
+stmt_type_to_int('begin')   -> 8;      % begin ... (pl/sql statement)
+stmt_type_to_int('declare') -> 9;      % declare .. (pl/sql statement)
+stmt_type_to_int('call')    -> 10.     % corresponds to kpu call
+
+int_to_stmt_type(0) -> 'unknown';   % Unknown statement
+int_to_stmt_type(1) -> 'select';    % select statement
+int_to_stmt_type(2) -> 'update';    % update statement
+int_to_stmt_type(3) -> 'delete';    % delete statement
+int_to_stmt_type(4) -> 'insert';    % Insert Statement
+int_to_stmt_type(5) -> 'create';    % create statement
+int_to_stmt_type(6) -> 'drop';      % drop statement
+int_to_stmt_type(7) -> 'alter';     % alter statement
+int_to_stmt_type(8) -> 'begin';     % begin ... (pl/sql statement)
+int_to_stmt_type(9) -> 'declare';   % declare .. (pl/sql statement)
+int_to_stmt_type(10) -> 'call'.     % corresponds to kpu call
+
+%---------------------------------------------------------------------------*/
+
 oci_mode('OCI_DEFAULT') ->           0;
 oci_mode('OCI_DESCRIBE_ONLY') ->     16#00000010; %  only describe the statement
 oci_mode('OCI_COMMIT_ON_SUCCESS') -> 16#00000020.  % commit, if successful exec

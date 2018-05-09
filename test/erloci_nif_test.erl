@@ -88,37 +88,37 @@ db_test_() ->
       }}.
 
 select_null(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok,  erloci_nif:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
-    ?assertMatch({ok, _},  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
+    ?assertMatch({ok, #{statement := select}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
     ?assertMatch({ok, _},  erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 select_bind(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok,  erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
-    {ok, BindVars1} =  erloci_nif:ociBindByName(Stmthp, #{}, <<"A">>,  'SQLT_CHR', <<"X">>),
-    {ok, BindVars2} =  erloci_nif:ociBindByName(Stmthp, BindVars1, <<"B">>,  'SQLT_CHR', <<"Y">>),
-    ?assertMatch({ok, #{cols := [{<<"DUMMY">>,1,1,0,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
-    ?assertMatch({ok, [<<"X">>]},  erloci_nif:ociStmtFetch(Stmthp, 1)).
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
+    {ok, BindVars1} = erloci_nif:ociBindByName(Stmthp, #{}, <<"A">>,  'SQLT_CHR', <<"X">>),
+    {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"B">>,  'SQLT_CHR', <<"Y">>),
+    ?assertMatch({ok, #{statement := select, cols := [{<<"DUMMY">>,1,1,0,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
+    ?assertMatch({ok, [<<"X">>]}, erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok,  erloci_nif:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
-    ?assertMatch({ok, _},  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
-    ?assertMatch({ok, _},  erloci_nif:ociStmtFetch(Stmthp, 1)).
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
+    ?assertMatch({ok, _}, erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
+    ?assertMatch({ok, _}, erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok,  erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
     ?assertMatch({error, {1008, _}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')).
 
 bad_sql_connection_reuse(#{envhp := Envhp}) ->
-        {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
+        {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
         BadSelect = <<"select 'abc from dual">>,
         ?assertMatch({error, {1756, _}},  erloci_nif:ociStmtPrepare(Stmthp, BadSelect)),
         GoodSelect = <<"select 'abc' from dual">>,
-        ?assertMatch(ok,  erloci_nif:ociStmtPrepare(Stmthp, GoodSelect)).
+        ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, GoodSelect)).
         %%?assertMatch({cols, [{<<"'ABC'">>,'SQLT_AFC',_,0,0}]}, SelStmt:exec_stmt()),
         %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
         %%?assertEqual(ok, SelStmt:close()).
@@ -128,12 +128,13 @@ insert_select_update(#{} = Sess) ->
     flush_table(Sess).
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} =  erloci_nif:ociStmtHandleCreate(Envhp),
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ok =  erloci_nif:ociStmtPrepare(Stmthp, ?DROP),
     case  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0,  'OCI_DEFAULT') of
-        {ok, _} -> ok;
+        {ok, #{statement := drop}} -> ok;
         {error,{942,_}} -> ok;
         Else -> exit(Else)
     end,
-    ok =  erloci_nif:ociStmtPrepare(Stmthp, ?CREATE).
+    ok =  erloci_nif:ociStmtPrepare(Stmthp, ?CREATE),
+    {ok, #{statement := create}} = erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, 'OCI_DEFAULT').
 

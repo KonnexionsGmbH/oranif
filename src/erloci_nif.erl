@@ -80,7 +80,12 @@ ociStmtPrepare(Stmthp, Stmt) ->
     Mode :: atom()) -> ok | {error, binary()}.
 ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, Mode) ->
     ModeInt = erloci_nif_drv:oci_mode(Mode),
-    erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt).
+    case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt) of
+        {ok, #{statement := Stmt} = Map} ->
+            {ok, maps:put(statement, erloci_nif_drv:int_to_stmt_type(Stmt), Map)};
+        Else ->
+            Else
+    end.
 
 -spec ociBindByName(Stmthp :: reference(),
    BindVars :: map(),

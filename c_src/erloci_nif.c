@@ -16,6 +16,7 @@ static ERL_NIF_TERM ATOM_NULL;
 static ERL_NIF_TERM ATOM_COLS;
 static ERL_NIF_TERM ATOM_ROWIDS;
 static ERL_NIF_TERM ATOM_ENOMEM;
+static ERL_NIF_TERM ATOM_STATEMENT;
 
 typedef struct {
     OCIEnv *envhp;
@@ -121,7 +122,7 @@ static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
 }
 
 static ERL_NIF_TERM execute_result_map(ErlNifEnv* env, stmthp_res *stmthp) {
-    ERL_NIF_TERM map;
+    ERL_NIF_TERM map, result_map;
     map = enif_make_new_map(env);
     if (stmthp->stmt_type == OCI_STMT_SELECT) {
         // return collected column info
@@ -142,14 +143,20 @@ static ERL_NIF_TERM execute_result_map(ErlNifEnv* env, stmthp_res *stmthp) {
             list = enif_make_list_cell(env, term, list);
         }
         enif_make_map_put(env, map, ATOM_COLS, list, &new_map);
-        return new_map;
+        enif_make_map_put(env, new_map, ATOM_STATEMENT,
+                          enif_make_int(env, stmthp->stmt_type), &result_map);
+        return result_map;
     } else if (stmthp->stmt_type == OCI_STMT_INSERT
                || stmthp->stmt_type == OCI_STMT_UPDATE
                || stmthp->stmt_type == OCI_STMT_DELETE) {
         // Return any updated row_ids
-        return map;
+        enif_make_map_put(env, map, ATOM_STATEMENT,
+                          enif_make_int(env, stmthp->stmt_type), &result_map);
+        return result_map;
     } else {
-        return map;
+        enif_make_map_put(env, map, ATOM_STATEMENT,
+                          enif_make_int(env, stmthp->stmt_type), &result_map);
+        return result_map;
     }
 }
 
@@ -558,11 +565,10 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return reterr(env, stmthp_res->errhp, status);
     }
 
-    
     /* After a successful execute it seems convenient to check
        immediately whether this statement could supply any 
        output rows and if so setting up any OCIDefines needed. */
-    
+
     // Retrieve the statement type
     status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
                         &stmthp_res->stmt_type, (ub4 *)0,
@@ -571,16 +577,17 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return reterr(env, stmthp_res->errhp, status);
     }
 
-    if (stmthp_res->stmt_type != OCI_STMT_SELECT && stmthp_res->col_info_retrieved) {
+    if (stmthp_res->stmt_type == OCI_STMT_SELECT && stmthp_res->col_info_retrieved) {
         // Column info already populated by a previous call to OCIStmtExecute
         return enif_make_tuple2(env, ATOM_OK,
                                 execute_result_map(env, stmthp_res));
     }
 
-
     if (stmthp_res->stmt_type != OCI_STMT_SELECT) {
-        return ATOM_OK;
+        return enif_make_tuple2(env, ATOM_OK,
+                                execute_result_map(env, stmthp_res));
     }
+    // From here on it's SELECT only
     // Retrieve the column count 
     status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
                         (dvoid *)&col_count, (ub4 *)0,
@@ -884,6 +891,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     ATOM_COLS = enif_make_atom(env, "cols");
     ATOM_ROWIDS = enif_make_atom(env, "rowids");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
+    ATOM_STATEMENT = enif_make_atom(env, "statement");
     return 0;
 }
 

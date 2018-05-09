@@ -3,9 +3,9 @@
 -export([init/0, ociEnvNlsCreate/0,
         ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
-        ociBindByName/5, ociStmtFetch/2]).
+        ociBindByName/6, ociStmtFetch/2]).
 
--export([sql_type/1, oci_mode/1]).
+-export([sql_type_to_int/1, int_to_sql_type/1, oci_mode/1]).
 
 -on_load(init/0).
 
@@ -26,20 +26,10 @@ init() ->
         Error ->               Error
     end.
 
-%%--------------------------------------------------------------------
-%% Create an OCI Env
-%% One of these is sufficient for the whole system
-%% returns {ok, Envhp}
-%%--------------------------------------------------------------------
 -spec ociEnvNlsCreate() -> {ok, Envhp :: reference()} | {error, binary()}.
 ociEnvNlsCreate() ->
     ?NOT_LOADED.
 
-%%--------------------------------------------------------------------
-%% Create an Auth Handle based on supplied username / password
-%% Used as an argument to ociSessionGet
-%% returns {ok, Authhp}
-%%--------------------------------------------------------------------
 -spec ociAuthHandleCreate(Envhp :: reference(),
                           UserName :: binary(),
                           Password :: binary()) -> {ok, Authhp :: reference()}
@@ -47,13 +37,6 @@ ociEnvNlsCreate() ->
 ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
      ?NOT_LOADED.
 
-%%--------------------------------------------------------------------
-%% Create a session pool. All operations to the database must use one
-%% of the connections to this pool.
-%% Username and Password here are used for all sessions in this pool 
-%% (i.e. the pool uses OCI_SPC_HOMOGENEOUS)
-%% returns {ok, PoolName}
-%%--------------------------------------------------------------------
 -spec ociSessionPoolCreate(Envhp :: reference(),
                            DataBase :: binary(),
                            SessMin :: pos_integer(),
@@ -66,10 +49,6 @@ ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
  ?NOT_LOADED.
 
-%%--------------------------------------------------------------------
-%% Fetch a session from the session pool.
-%% Returns {ok, Svchp :: reference()}
-%%--------------------------------------------------------------------
 -spec ociSessionGet(Envhp :: reference(),
                     Authhp :: reference(),
                     Spoolhp :: reference()) -> {ok, Svchp :: reference()}
@@ -77,9 +56,6 @@ ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
 ociSessionGet(_Envhp, _Authhp, _Spoolhp) ->
      ?NOT_LOADED.
 
-%%--------------------------------------------------------------------
-%% Create a statement Handle. Can be re-used for multiple statements.
-%%--------------------------------------------------------------------
 -spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
                                                    | {error, binary()}.
 ociStmtHandleCreate(_Envhp) ->
@@ -90,7 +66,6 @@ ociStmtHandleCreate(_Envhp) ->
 ociStmtPrepare(_Stmthp, _Stmt) ->
      ?NOT_LOADED.
 
-%% 
 -spec ociStmtExecute(Svchp :: reference(),
                      Stmthp :: reference(),
                      BindVars :: map(),
@@ -100,22 +75,6 @@ ociStmtPrepare(_Stmthp, _Stmt) ->
 ociStmtExecute(_Svchp, _Stmthp, _BindVars, _Iters, _RowOff, _Mode) ->
     ?NOT_LOADED.
 
--spec ociBindByName(Stmthp :: reference(),
-                    BindVars :: map(),
-                    BindVarName :: binary(),
-                    SqlType :: integer(),
-                    BindVarValue :: binary() | 'NULL') ->
-                                        {ok, BindVars2 :: map()}
-                                        | {error, binary()}.
-ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) ->
-    case BindVarValue of
-        'NULL' ->
-            ociBindByName(Stmthp, BindVars, BindVarName, -1, SqlType, <<>>);
-        _ ->
-            ociBindByName(Stmthp, BindVars, BindVarName, 0, SqlType, BindVarValue)
-    end.
-
-%% Bind named placeholder to value low level interface to nif
 -spec ociBindByName(Stmthp :: reference(),
                     BindVars :: map(),
                     BindVarName :: binary(),
@@ -140,64 +99,122 @@ oci_mode('OCI_DEFAULT') ->           0;
 oci_mode('OCI_DESCRIBE_ONLY') ->     16#00000010; %  only describe the statement
 oci_mode('OCI_COMMIT_ON_SUCCESS') -> 16#00000020.  % commit, if successful exec
 
-sql_type('SQLT_CHR') ->           1;
-sql_type('SQLT_NUM') ->           2;
-sql_type('SQLT_INT') ->           3;
-sql_type('SQLT_FLT') ->           4;
-sql_type('SQLT_STR') ->           5;
-sql_type('SQLT_VNU') ->           6;
-sql_type('SQLT_PDN') ->           7;
-sql_type('SQLT_LNG') ->           8;
-sql_type('SQLT_VCS') ->           9;
-sql_type('SQLT_NON') ->           10;
-sql_type('SQLT_RID') ->           11;
-sql_type('SQLT_DAT') ->           12;
-sql_type('SQLT_VBI') ->           15;
-sql_type('SQLT_BFLOAT') ->        21;
-sql_type('SQLT_BDOUBLE') ->       22;
-sql_type('SQLT_BIN') ->           23;
-sql_type('SQLT_LBI') ->           24;
-sql_type('SQLT_UIN') ->           68;
-sql_type('SQLT_SLS') ->           91;
-sql_type('SQLT_LVC') ->           94;
-sql_type('SQLT_LVB') ->           95;
-sql_type('SQLT_AFC') ->           96;
-sql_type('SQLT_AVC') ->           97;
-sql_type('SQLT_IBFLOAT') ->       100;
-sql_type('SQLT_IBDOUBLE') ->      101;
-sql_type('SQLT_CUR') ->           102;
-sql_type('SQLT_RDD') ->           104;
-sql_type('SQLT_LAB') ->           105;
-sql_type('SQLT_OSL') ->           106;
+sql_type_to_int('SQLT_CHR') ->           1;
+sql_type_to_int('SQLT_NUM') ->           2;
+sql_type_to_int('SQLT_INT') ->           3;
+sql_type_to_int('SQLT_FLT') ->           4;
+sql_type_to_int('SQLT_STR') ->           5;
+sql_type_to_int('SQLT_VNU') ->           6;
+sql_type_to_int('SQLT_PDN') ->           7;
+sql_type_to_int('SQLT_LNG') ->           8;
+sql_type_to_int('SQLT_VCS') ->           9;
+sql_type_to_int('SQLT_NON') ->           10;
+sql_type_to_int('SQLT_RID') ->           11;
+sql_type_to_int('SQLT_DAT') ->           12;
+sql_type_to_int('SQLT_VBI') ->           15;
+sql_type_to_int('SQLT_BFLOAT') ->        21;
+sql_type_to_int('SQLT_BDOUBLE') ->       22;
+sql_type_to_int('SQLT_BIN') ->           23;
+sql_type_to_int('SQLT_LBI') ->           24;
+sql_type_to_int('SQLT_UIN') ->           68;
+sql_type_to_int('SQLT_SLS') ->           91;
+sql_type_to_int('SQLT_LVC') ->           94;
+sql_type_to_int('SQLT_LVB') ->           95;
+sql_type_to_int('SQLT_AFC') ->           96;
+sql_type_to_int('SQLT_AVC') ->           97;
+sql_type_to_int('SQLT_IBFLOAT') ->       100;
+sql_type_to_int('SQLT_IBDOUBLE') ->      101;
+sql_type_to_int('SQLT_CUR') ->           102;
+sql_type_to_int('SQLT_RDD') ->           104;
+sql_type_to_int('SQLT_LAB') ->           105;
+sql_type_to_int('SQLT_OSL') ->           106;
 
-sql_type('SQLT_NTY') ->           108;
-sql_type('SQLT_REF') ->           110;
-sql_type('SQLT_CLOB') ->          112;
-sql_type('SQLT_BLOB') ->          113;
-sql_type('SQLT_BFILEE') ->        114;
-sql_type('SQLT_CFILEE') ->        115;
-sql_type('SQLT_RSET') ->          116;
-sql_type('SQLT_NCO') ->           122;
-sql_type('SQLT_VST') ->           155;
-sql_type('SQLT_ODT') ->           156;
+sql_type_to_int('SQLT_NTY') ->           108;
+sql_type_to_int('SQLT_REF') ->           110;
+sql_type_to_int('SQLT_CLOB') ->          112;
+sql_type_to_int('SQLT_BLOB') ->          113;
+sql_type_to_int('SQLT_BFILEE') ->        114;
+sql_type_to_int('SQLT_CFILEE') ->        115;
+sql_type_to_int('SQLT_RSET') ->          116;
+sql_type_to_int('SQLT_NCO') ->           122;
+sql_type_to_int('SQLT_VST') ->           155;
+sql_type_to_int('SQLT_ODT') ->           156;
 
-sql_type('SQLT_DATE') ->          184;
-sql_type('SQLT_TIME') ->          185;
-sql_type('SQLT_TIME_TZ') ->       186;
-sql_type('SQLT_TIMESTAMP') ->     187;
-sql_type('SQLT_TIMESTAMP_TZ') ->  188;
-sql_type('SQLT_INTERVAL_YM') ->   189;
-sql_type('SQLT_INTERVAL_DS') ->   190;
-sql_type('SQLT_TIMESTAMP_LTZ') -> 232;
+sql_type_to_int('SQLT_DATE') ->          184;
+sql_type_to_int('SQLT_TIME') ->          185;
+sql_type_to_int('SQLT_TIME_TZ') ->       186;
+sql_type_to_int('SQLT_TIMESTAMP') ->     187;
+sql_type_to_int('SQLT_TIMESTAMP_TZ') ->  188;
+sql_type_to_int('SQLT_INTERVAL_YM') ->   189;
+sql_type_to_int('SQLT_INTERVAL_DS') ->   190;
+sql_type_to_int('SQLT_TIMESTAMP_LTZ') -> 232;
 
-sql_type('SQLT_PNTY') ->          241;
+sql_type_to_int('SQLT_PNTY') ->          241;
 
 %% some pl/sql specific types
-sql_type('SQLT_REC') ->           250;  % pl/sql 'record' (or %rowtype)
-sql_type('SQLT_TAB') ->           251;  % pl/sql 'indexed table'
-sql_type('SQLT_BOL') ->           252;  % pl/sql 'boolean'
+sql_type_to_int('SQLT_REC') ->           250;  % pl/sql 'record' (or %rowtype)
+sql_type_to_int('SQLT_TAB') ->           251;  % pl/sql 'indexed table'
+sql_type_to_int('SQLT_BOL') ->           252;  % pl/sql 'boolean'
 
 
-sql_type('SQLT_FILE') ->          sql_type('SQLT_BFILEE');
-sql_type('SQLT_CFILE') ->         sql_type('SQLT_CFILEE');
-sql_type('SQLT_BFILE') ->         sql_type('SQLT_BFILEE').
+sql_type_to_int('SQLT_FILE') ->          sql_type_to_int('SQLT_BFILEE');
+sql_type_to_int('SQLT_CFILE') ->         sql_type_to_int('SQLT_CFILEE');
+sql_type_to_int('SQLT_BFILE') ->         sql_type_to_int('SQLT_BFILEE').
+
+%% Convert internal SQL type code to atom
+int_to_sql_type(1) ->   'SQLT_CHR';
+int_to_sql_type(2) ->   'SQLT_NUM';
+int_to_sql_type(3) ->   'SQLT_INT';
+int_to_sql_type(4) ->   'SQLT_FLT';
+int_to_sql_type(5) ->   'SQLT_STR';
+int_to_sql_type(6) ->   'SQLT_VNU';
+int_to_sql_type(7) ->   'SQLT_PDN';
+int_to_sql_type(8) ->   'SQLT_LNG';
+int_to_sql_type(9) ->   'SQLT_VCS';
+int_to_sql_type(10) ->   'SQLT_NON';
+int_to_sql_type(11) ->   'SQLT_RID';
+int_to_sql_type(12) ->   'SQLT_DAT';
+int_to_sql_type(15) ->   'SQLT_VBI';
+int_to_sql_type(21) -> 'SQLT_BFLOAT';
+int_to_sql_type(22) -> 'SQLT_BDOUBLE';
+int_to_sql_type(23) ->  'SQLT_BIN';
+int_to_sql_type(24) ->  'SQLT_LBI';
+int_to_sql_type(68) ->  'SQLT_UIN';
+int_to_sql_type(91) ->  'SQLT_SLS';
+int_to_sql_type(94) ->  'SQLT_LVC';
+int_to_sql_type(95) ->  'SQLT_LVB';
+int_to_sql_type(96) ->  'SQLT_AFC';
+int_to_sql_type(97) ->  'SQLT_AVC';
+int_to_sql_type(100) -> 'SQLT_IBFLOAT';
+int_to_sql_type(101) -> 'SQLT_IBDOUBLE';
+int_to_sql_type(102) -> 'SQLT_CUR';
+int_to_sql_type(104) -> 'SQLT_RDD';
+int_to_sql_type(105) -> 'SQLT_LAB';
+int_to_sql_type(106) -> 'SQLT_OSL';
+
+int_to_sql_type(108) -> 'SQLT_NTY';
+int_to_sql_type(110) -> 'SQLT_REF';
+int_to_sql_type(112) -> 'SQLT_CLOB';
+int_to_sql_type(113) -> 'SQLT_BLOB';
+int_to_sql_type(114) -> 'SQLT_BFILEE';
+int_to_sql_type(115) -> 'SQLT_CFILEE';
+int_to_sql_type(116) -> 'SQLT_RSET';
+int_to_sql_type(122) -> 'SQLT_NCO';
+int_to_sql_type(155) -> 'SQLT_VST';
+int_to_sql_type(156) -> 'SQLT_ODT';
+
+int_to_sql_type(184) -> 'SQLT_DATE';
+int_to_sql_type(185) -> 'SQLT_TIME';
+int_to_sql_type(186) -> 'SQLT_TIME_TZ';
+int_to_sql_type(187) -> 'SQLT_TIMESTAMP';
+int_to_sql_type(188) -> 'SQLT_TIMESTAMP_TZ';
+int_to_sql_type(189) -> 'SQLT_INTERVAL_YM';
+int_to_sql_type(190) -> 'SQLT_INTERVAL_DS';
+int_to_sql_type(232) -> 'SQLT_TIMESTAMP_LTZ';
+
+int_to_sql_type(241) -> 'SQLT_PNTY';
+
+%% some pl/sql specific types
+int_to_sql_type(250) -> 'SQLT_REC';             % pl/sql 'record' (or %rowtype)
+int_to_sql_type(251) -> 'SQLT_TAB';             % pl/sql 'indexed table'
+int_to_sql_type(252) -> 'SQLT_BOL'.             % pl/sql 'boolean'

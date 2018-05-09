@@ -742,7 +742,6 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return enif_make_tuple2(env, ATOM_OK, execute_result_map(env, stmthp_res));
 }
 
-
 static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stmthp_res *stmthp_res;
     ub4 nrows;
@@ -778,7 +777,6 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 }
 
-
 static ErlNifFunc nif_funcs[] =
 {
     // All functions that execure server round trips MUST be marked as IO_BOUND
@@ -804,15 +802,15 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
 }
 
 static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
-  spoolhp_res *res = (spoolhp_res*)resource;
-  //printf("spoolhp_res_ called\r\n");
-  if(res->spoolhp) {
-    OCISessionPoolDestroy(res->spoolhp, 
+    spoolhp_res *res = (spoolhp_res*)resource;
+    //printf("spoolhp_res_ called\r\n");
+    if(res->spoolhp) {
+        OCISessionPoolDestroy(res->spoolhp, 
                             res->errhp,
                             OCI_SPD_FORCE );
-    OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
-    OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
-  }
+        OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+    }
 }
 
 static void authhp_res_dtor(ErlNifEnv *env, void *resource) {

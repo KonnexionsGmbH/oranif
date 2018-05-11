@@ -137,10 +137,10 @@ bad_sql_connection_reuse(#{envhp := Envhp}) ->
         BadSelect = <<"select 'abc from dual">>,
         ?assertMatch({error, {1756, _}},  erloci_nif:ociStmtPrepare(Stmthp, BadSelect)),
         GoodSelect = <<"select 'abc' from dual">>,
-        ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, GoodSelect)).
+        ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, GoodSelect)),
         %%?assertMatch({cols, [{<<"'ABC'">>,'SQLT_AFC',_,0,0}]}, SelStmt:exec_stmt()),
         %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
-        %%?assertEqual(ok, SelStmt:close()).
+        ?assertEqual(ok, erloci_nif:ociStmtHandleFree(Stmthp)).
 
 insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     _RowCount = 6,

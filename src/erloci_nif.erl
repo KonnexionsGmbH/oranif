@@ -7,6 +7,7 @@
         ociSessionPoolCreate/7, ociAuthHandleCreate/3,
         ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
+        ociStmtHandleFree/1,
         ociBindByName/5, ociStmtFetch/2]).
 
 -export([parse_lang/1]).
@@ -124,6 +125,13 @@ ociSessionRelease(Svchp) ->
                                                    | {error, binary()}.
 ociStmtHandleCreate(Envhp) ->
     erloci_nif_drv:ociStmtHandleCreate(Envhp).
+
+%%--------------------------------------------------------------------
+%% Free a statement handle.
+%%--------------------------------------------------------------------
+-spec ociStmtHandleFree(Stmthp :: reference()) -> ok.
+ociStmtHandleFree(Stmthp) ->
+    erloci_nif_drv:ociStmtHandleFree(Stmthp).
 
 -spec ociStmtPrepare(Stmthp :: reference(),
                     Stmt :: binary()) -> ok | {error, binary()}.

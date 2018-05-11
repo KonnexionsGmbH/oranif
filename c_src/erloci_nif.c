@@ -80,6 +80,87 @@ typedef struct {
     size_t value_sz;
 } bindhp_res;
 
+static void free_col_info(col_info *col_info, int num_cols) {
+    /* If we re-prepare an existing stmt handle we must manually
+    reset the retrieved col info from previous executions.
+    Also needed by the GC callbacks when our stmt resource is
+    destroyed
+    */
+    for (int i = 0; i < num_cols; i++) {
+        enif_release_binary(&col_info[i].col_name);
+    }
+    enif_free(col_info);
+}
+
+static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
+    envhp_res *res = (envhp_res*)resource;
+    // printf("envhp_res_dtor called\r\n");
+    if(res->envhp) {
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        OCIHandleFree(res->envhp, OCI_HTYPE_ENV );
+    }
+}
+
+static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
+    spoolhp_res *res = (spoolhp_res*)resource;
+    //printf("spoolhp_res_ called\r\n");
+    if(res->spoolhp) {
+        OCISessionPoolDestroy(res->spoolhp, 
+                            res->errhp,
+                            OCI_SPD_FORCE );
+        OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+    }
+}
+
+static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
+    authhp_res *res = (authhp_res*)resource;
+    //printf("authhp_res_ called\r\n");
+    if(res->authhp) {
+        OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
+    }
+}
+
+static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
+  svchp_res *res = (svchp_res*)resource;
+  //printf("svchp_res_ called\r\n");
+  if(res->svchp) {
+        // The docs say this will even commit outstanding transactions
+        // Do we really want this to happen during garbage collection?
+        OCISessionRelease(res->svchp,
+                        res->errhp,
+                        (OraText *) NULL,
+                        (ub4) 0,
+                        OCI_SESSRLS_DROPSESS ); // Instant drop as GC'd
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+    }
+}
+
+static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
+    stmthp_res *res = (stmthp_res*)resource;
+    // printf("stmthp_res_ called\r\n");
+    if (res->col_info) {
+        free_col_info(res->col_info, res->num_cols);
+        res->col_info = NULL;
+        res->num_cols = 0;
+    }
+  if(res->stmthp) {
+        OCIDescriptorFree(res->rowidhp, OCI_DTYPE_ROWID);
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
+        res->stmthp = NULL;
+  }
+}
+
+static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
+    bindhp_res *res = (bindhp_res*)resource;
+    // printf("bindhp_res_ called\r\n");
+    // OCI will free the bind handle when the stmthp is released
+    // so here we just need to free the name and value binaries
+    enif_release_binary(&res->name);
+    enif_release_binary(&res->value);
+}
+
 static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
     text errbuf[OCI_ERROR_MAXMSG_SIZE2];
     size_t msg_sz;
@@ -170,19 +251,6 @@ static ERL_NIF_TERM execute_result_map(ErlNifEnv* env, stmthp_res *stmthp) {
         return result_map;
     }
 }
-
-/* If we re-prepare an existing stmt handle we must manually
-   reset the retrieved col info from previous executions.
-   Also needed by the GC callbacks when our stmt resource is
-   destroyed
-*/
-static void free_col_info(col_info *col_info, int num_cols) {
-    for (int i = 0; i < num_cols; i++) {
-        enif_release_binary(&col_info[i].col_name);
-    }
-    enif_free(col_info);
-}
-
 
 static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIEnv *envhp = (OCIEnv *)NULL;
@@ -601,8 +669,6 @@ static ERL_NIF_TERM ociSessionRelease(ErlNifEnv* env, int argc, const ERL_NIF_TE
     return ATOM_OK;
 }
 
-
-
 static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIStmt *stmthp = (OCIStmt *)NULL;
     OCIRowid *rowidhp = (OCIRowid *)NULL;
@@ -687,14 +753,25 @@ static ERL_NIF_TERM ociStmtPrepare(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     stmthp_res->col_info = NULL;
     stmthp_res->num_cols = 0;
 
-    int status = OCIStmtPrepare (stmthp_res->stmthp, stmthp_res->errhp,
-                                 (OraText *) statement.data, (ub4) statement.size,
-                                  OCI_NTV_SYNTAX, OCI_DEFAULT);
+    int status = OCIStmtPrepare(stmthp_res->stmthp, stmthp_res->errhp,
+                                (OraText *) statement.data, (ub4) statement.size,
+                                OCI_NTV_SYNTAX, OCI_DEFAULT);
     if (status) {
         return reterr(env, stmthp_res->errhp, status);
     } else {
         return ATOM_OK;
     }
+}
+
+static ERL_NIF_TERM ociStmtHandleFree(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    stmthp_res *res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&res) )) {
+            return enif_make_badarg(env);
+        }
+    stmthp_res_dtor(env, res);
+    return ATOM_OK;
 }
 
 static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -1080,78 +1157,12 @@ static ErlNifFunc nif_funcs[] =
     {"ociSessionRelease", 1, ociSessionRelease, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
     {"ociStmtPrepare", 2, ociStmtPrepare},
+    {"ociStmtHandleFree", 1, ociStmtHandleFree},
     {"ociStmtExecute", 6, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociBindByName", 6, ociBindByName},
     {"ociStmtFetch", 2, ociStmtFetch, ERL_NIF_DIRTY_JOB_IO_BOUND}
 };
 
-static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
-    envhp_res *res = (envhp_res*)resource;
-    // printf("envhp_res_dtor called\r\n");
-    if(res->envhp) {
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
-        OCIHandleFree(res->envhp, OCI_HTYPE_ENV );
-    }
-}
-
-static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
-    spoolhp_res *res = (spoolhp_res*)resource;
-    //printf("spoolhp_res_ called\r\n");
-    if(res->spoolhp) {
-        OCISessionPoolDestroy(res->spoolhp, 
-                            res->errhp,
-                            OCI_SPD_FORCE );
-        OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
-    }
-}
-
-static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
-    authhp_res *res = (authhp_res*)resource;
-    //printf("authhp_res_ called\r\n");
-    if(res->authhp) {
-        OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
-    }
-}
-
-static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
-  svchp_res *res = (svchp_res*)resource;
-  //printf("svchp_res_ called\r\n");
-  if(res->svchp) {
-        // The docs say this will even commit outstanding transactions
-        // Do we really want this to happen during garbage collection?
-        OCISessionRelease(res->svchp,
-                        res->errhp,
-                        (OraText *) NULL,
-                        (ub4) 0,
-                        OCI_SESSRLS_DROPSESS ); // Instant drop as GC'd
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
-    }
-}
-
-static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
-    stmthp_res *res = (stmthp_res*)resource;
-    // printf("stmthp_res_ called\r\n");
-    if (res->col_info) {
-        free_col_info(res->col_info, res->num_cols);
-        res->col_info = NULL;
-        res->num_cols = 0;
-    }
-  if(res->stmthp) {
-        OCIDescriptorFree(res->rowidhp, OCI_DTYPE_ROWID);
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
-        OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
-  }
-}
-
-static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
-    bindhp_res *res = (bindhp_res*)resource;
-    // printf("bindhp_res_ called\r\n");
-    // OCI will free the bind handle when the stmthp is released
-    // so here we just need to free the name and value binaries
-    enif_release_binary(&res->name);
-    enif_release_binary(&res->value);
-}
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     envhp_resource_type = enif_open_resource_type(env, NULL, "envhp",

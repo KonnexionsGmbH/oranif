@@ -7,6 +7,7 @@
         ociSessionPoolCreate/7, ociAuthHandleCreate/3,
         ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
+        ociStmtHandleFree/1,
         ociBindByName/6, ociStmtFetch/2]).
 
 -on_load(init/0).
@@ -114,6 +115,10 @@ ociSessionRelease(_Svchp) ->
                                                    | {error, binary()}.
 ociStmtHandleCreate(_Envhp) ->
      ?NOT_LOADED.
+
+-spec ociStmtHandleFree(Stmthp :: reference()) -> ok.
+ociStmtHandleFree(_Stmthp) ->
+    ?NOT_LOADED.
 
 -spec ociStmtPrepare(Stmthp :: reference(),
                      Stmt :: binary()) -> ok | {error, binary()}.

@@ -18,6 +18,16 @@ static ERL_NIF_TERM ATOM_ROWIDS;
 static ERL_NIF_TERM ATOM_ENOMEM;
 static ERL_NIF_TERM ATOM_STATEMENT;
 
+#define C_TYPE_MIN 0
+#define C_TYPE_TEXT 0
+#define C_TYPE_UB1 1
+#define C_TYPE_UB2 2
+#define C_TYPE_UB4 3
+#define C_TYPE_SB1 4
+#define C_TYPE_SB2 5
+#define C_TYPE_SB4 6
+#define C_TYPE_MAX 6
+
 typedef struct {
     OCIEnv *envhp;
     OCIError *errhp;
@@ -54,6 +64,7 @@ typedef struct {
 
 typedef struct {
     OCIStmt *stmthp;        // statement handle
+    OCIRowid *rowidhp;      // Row ID handle for retrieving row ids
     OCIError *errhp;        // per statement error handle
     ub2 stmt_type;          // Retrieved statement type (e.g. OCI_SELECT)
     int col_info_retrieved; // Set on first call to execute
@@ -172,17 +183,26 @@ static void free_col_info(col_info *col_info, int num_cols) {
     enif_free(col_info);
 }
 
+
 static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIEnv *envhp = (OCIEnv *)NULL;
     OCIError *errhp = (OCIError *)NULL;
+    ub4 charset, ncharset;
     text errbuf[OCI_ERROR_MAXMSG_SIZE2];
     sb4 errcode;
+
+    if(!(argc == 2 &&
+        enif_get_uint(env, argv[0], &charset) &&
+        enif_get_uint(env, argv[1], &ncharset) )) {
+            return enif_make_badarg(env);
+        }
+
     int status = OCIEnvNlsCreate(&envhp,
                                 OCI_THREADED,
                                 NULL, NULL, NULL, NULL,
                                 (size_t) 0,
                                 (void **)NULL,
-                                (ub2) 0, (ub2) 0);
+                                (ub2) charset, (ub2) ncharset);
     switch (status) {
         case OCI_ERROR:
             if (envhp) {
@@ -213,6 +233,208 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             return nif_res;
         }
     }
+}
+
+static ERL_NIF_TERM ociNlsGetInfo(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    envhp_res *envhp_res;
+    ub4 item;
+    text buf[OCI_NLS_MAXBUFSZ];
+    ERL_NIF_TERM binary;
+
+    if(!(argc == 2 &&
+        enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
+        enif_get_uint(env, argv[1], &item) )) {
+            return enif_make_badarg(env);
+        }
+    int status = OCINlsGetInfo(envhp_res->envhp, envhp_res->errhp, buf,
+                                OCI_NLS_MAXBUFSZ, (ub2) item);
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
+    }
+    size_t size = strnlen((const char *)buf, OCI_NLS_MAXBUFSZ);
+    unsigned char *bin_buf = enif_make_new_binary(env, size, &binary);
+    memcpy(bin_buf, buf, size);
+    return enif_make_tuple2(env, ATOM_OK, binary);
+}
+
+static ERL_NIF_TERM ociNlsCharSetIdToName(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    envhp_res *envhp_res;
+    ub4 charset_id;
+    text buf[OCI_NLS_MAXBUFSZ];
+    ERL_NIF_TERM binary;
+
+    if(!(argc == 2 &&
+        enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
+        enif_get_uint(env, argv[1], &charset_id) )) {
+            return enif_make_badarg(env);
+        }
+    int status = OCINlsCharSetIdToName(envhp_res->envhp, buf,
+                                       OCI_NLS_MAXBUFSZ, (ub2) charset_id);
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
+    }
+    size_t size = strnlen((const char *)buf, OCI_NLS_MAXBUFSZ);
+    unsigned char *bin_buf = enif_make_new_binary(env, size, &binary);
+    memcpy(bin_buf, buf, size);
+    return enif_make_tuple2(env, ATOM_OK, binary);
+}
+
+static ERL_NIF_TERM ociNlsCharSetNameToId(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    envhp_res *envhp_res;
+    ErlNifBinary name;
+
+    if(!(argc == 2 &&
+        enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
+        enif_inspect_binary(env, argv[1], &name) )) {
+            return enif_make_badarg(env);
+        }
+    ub2 charset_id = OCINlsCharSetNameToId(envhp_res->envhp, name.data);
+    return enif_make_tuple2(env, ATOM_OK, enif_make_int(env, charset_id));
+}
+
+static ERL_NIF_TERM ociCharsetAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    envhp_res *envhp_res;
+    ub2 charset, ncharset;
+
+    int status;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) )) {
+            return enif_make_badarg(env);
+        }
+    status = OCIAttrGet(envhp_res->envhp, OCI_HTYPE_ENV, &charset, (ub4 *)0,
+                        OCI_ATTR_ENV_CHARSET_ID, envhp_res->errhp);
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
+    }
+
+    status = OCIAttrGet(envhp_res->envhp, OCI_HTYPE_ENV, &ncharset, (ub4 *)0,
+                        OCI_ATTR_ENV_NCHARSET_ID, envhp_res->errhp);
+    if (status) {
+        return reterr(env, envhp_res->errhp, status);
+    }
+    
+    return enif_make_tuple2(env, ATOM_OK,
+                            enif_make_tuple2(env, enif_make_int(env, charset),
+                                                  enif_make_int(env, ncharset)));
+}
+
+/* Generic getting of attrs. Only supports handle types we explicitly manage
+   and values of types we explicitly suppor */
+static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ub4 handle_type, data_type, attr_type;
+    ERL_NIF_TERM bin_value; // value when it's text
+    // ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
+    // sb4 int_value;        // value when it's signed
+    ub4 size = 100;         // size of output value
+    void *handlep;
+    OCIError *errorhp;
+    text attributep[100];
+    //void *attributep = NULL;     // void * to output value
+
+    if(!(argc == 4 &&
+        enif_get_uint(env, argv[1], &handle_type) &&
+        enif_get_uint(env, argv[2], &data_type) &&
+        data_type >= C_TYPE_MIN &&
+        data_type <= C_TYPE_MAX &&
+        enif_get_uint(env, argv[3], &attr_type) )) {
+            return enif_make_badarg(env);
+        }
+
+    switch (handle_type) {
+    case OCI_HTYPE_ENV: {
+        envhp_res *envhp_res;
+        if(!enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res)) {
+            return enif_make_badarg(env);
+        }
+        handlep = envhp_res->envhp;
+        errorhp = envhp_res->errhp;
+        break;
+        }
+    }
+    printf("Calling OCIAttrGet\r\n");
+    int status = OCIAttrGet(handlep, handle_type, attributep, &size, attr_type,
+                            errorhp);
+
+    printf("Called OCIAttrGet %d\r\n", size);
+    if (status) {
+        return reterr(env, errorhp, status);
+    }
+    unsigned char *bin_buf = enif_make_new_binary(env, size, &bin_value);
+    if (size > 100) {
+        printf("Trunated OCIAttrGet %d\r\n", size);
+        size = 100;
+    }
+    // printf("Called OCIAttrGet %s\r\n",(text *)attributep);
+    memcpy(bin_buf, attributep, size);
+    printf("Called OCIAttrGet memcpy\r\n");
+    return enif_make_tuple2(env, ATOM_OK, bin_value);
+}
+/* Generic setting of attrs. Only supports handle types we explicitly manage
+   and values of types we explicitly support */
+static ERL_NIF_TERM ociAttrSet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ub4 handle_type, data_type, attr_type;
+    ErlNifBinary bin_value; // value when it's text
+    ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
+    sb4 int_value;        // value when it's signed
+    ub4 size = 0;         // size of input value - can use 0 except for binaries
+    void *handlep;
+    OCIError *errorhp;
+    void *attributep;     // void * to value
+
+    if(!(argc == 5 &&
+        enif_get_uint(env, argv[1], &handle_type) &&
+        enif_get_uint(env, argv[2], &data_type) &&
+        data_type >= C_TYPE_MIN &&
+        data_type <= C_TYPE_MAX &&
+        enif_get_uint(env, argv[4], &attr_type) )) {
+            return enif_make_badarg(env);
+        }
+    switch (data_type) {
+    case C_TYPE_TEXT:
+        if (!enif_inspect_binary(env, argv[3], &bin_value)) {
+            return enif_make_badarg(env);
+        }
+        attributep = (void *)bin_value.data;
+        size = bin_value.size;
+        break;
+    case C_TYPE_SB1:
+    case C_TYPE_SB2:
+    case C_TYPE_SB4:
+        if(!enif_get_int(env, argv[3], &int_value)) {
+            return enif_make_badarg(env);
+        }
+        attributep = (void *)&int_value;
+        break;
+    case C_TYPE_UB1:
+    case C_TYPE_UB2:
+    case C_TYPE_UB4:
+        if(!enif_get_uint(env, argv[3], &uint_value)) {
+            return enif_make_badarg(env);
+        }
+        attributep = (void *)&uint_value;
+        break;
+    }
+
+    switch (handle_type) {
+    case OCI_HTYPE_ENV: {
+        envhp_res *envhp_res;
+        if(!enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res)) {
+            return enif_make_badarg(env);
+        }
+        handlep = envhp_res->envhp;
+        errorhp = envhp_res->errhp;
+        break;
+        }
+    }
+    
+    int status = OCIAttrSet (handlep, handle_type,
+                            attributep, size, attr_type,
+                            errorhp );
+    if (status) {
+        return reterr(env, errorhp, status);
+    }
+    return ATOM_OK;
 }
 
 static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -366,6 +588,7 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIStmt *stmthp = (OCIStmt *)NULL;
+    OCIRowid *rowidhp = (OCIRowid *)NULL;
     OCIError *errhp = (OCIError *)NULL;
     envhp_res *envhp_res;
     if(!(argc == 1 &&
@@ -384,17 +607,27 @@ static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_
         return enif_raise_exception(env, ATOM_ENOMEM);
     }
 
+    status = OCIDescriptorAlloc(envhp_res->envhp, (void**)&rowidhp,
+                                    OCI_DTYPE_ROWID, (size_t) 0, (void **)NULL);
+    if (status) {
+        OCIHandleFree(stmthp, OCI_HTYPE_STMT);
+        return enif_raise_exception(env, ATOM_ENOMEM);
+    }
+    
     /* allocate a per statement error handle to avoid multiple 
        statements having to use the global one.
        The docs suggest one error handle per thread, but we
        don't have control over erlang thread pools */
-    status = OCIHandleAlloc (envhp_res->envhp, (void  **)&errhp,
+    status = OCIHandleAlloc(envhp_res->envhp, (void  **)&errhp,
                             OCI_HTYPE_ERROR, 0, (void  **) 0);
     if (status) {
+        OCIHandleFree(stmthp, OCI_HTYPE_STMT);
+        OCIDescriptorFree(rowidhp, OCI_DTYPE_ROWID);
         enif_raise_exception(env, ATOM_ENOMEM);
     }
 
     res->stmthp = stmthp;
+    res->rowidhp = rowidhp;
     res->errhp = errhp;
 
     // Initialise Define column data
@@ -581,6 +814,35 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         // Column info already populated by a previous call to OCIStmtExecute
         return enif_make_tuple2(env, ATOM_OK,
                                 execute_result_map(env, stmthp_res));
+    }
+
+    if (stmthp_res->stmt_type == OCI_STMT_INSERT
+        || stmthp_res->stmt_type == OCI_STMT_UPDATE
+        || stmthp_res->stmt_type == OCI_STMT_DELETE) {
+        // Retrieve the row count
+        ub4 rc = 0;
+        status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT, &rc, 0,
+                    OCI_ATTR_ROW_COUNT, stmthp_res->errhp);
+        if (status) {
+            return reterr(env, stmthp_res->errhp, status);
+        }
+
+        if (rc > 0) {
+            status = OCIAttrGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
+                                stmthp_res->rowidhp, 0, OCI_ATTR_ROWID, stmthp_res->errhp);
+            if (status) {
+                return reterr(env, stmthp_res->errhp, status);
+            }
+            printf("ROW COUNT %d\r\n", rc);
+
+            OraText *rowID = NULL;
+            ub2 size = 0;
+            ERL_NIF_TERM row_id_bin;
+            OCIRowidToChar(stmthp_res->rowidhp, rowID, &size, stmthp_res->errhp);
+            unsigned char *buf = enif_make_new_binary(env, size, &row_id_bin);
+            OCIRowidToChar(stmthp_res->rowidhp, buf, &size, stmthp_res->errhp);
+            printf("ROWD STR %.*s\r\n", size, buf);
+        }
     }
 
     if (stmthp_res->stmt_type != OCI_STMT_SELECT) {
@@ -788,7 +1050,13 @@ static ErlNifFunc nif_funcs[] =
 {
     // All functions that execure server round trips MUST be marked as IO_BOUND
     // Knowledge from: https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
-    {"ociEnvNlsCreate", 0, ociEnvNlsCreate},
+    {"ociEnvNlsCreate", 2, ociEnvNlsCreate},
+    {"ociNlsGetInfo", 2, ociNlsGetInfo},
+    {"ociNlsCharSetIdToName", 2, ociNlsCharSetIdToName},
+    {"ociNlsCharSetNameToId_ll", 2, ociNlsCharSetNameToId},
+    {"ociCharsetAttrGet", 1, ociCharsetAttrGet},
+    {"ociAttrSet", 5, ociAttrSet},
+    {"ociAttrGet", 4, ociAttrGet},
     {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
@@ -852,8 +1120,9 @@ static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
         res->num_cols = 0;
     }
   if(res->stmthp) {
-    OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
-    OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
+        OCIDescriptorFree(res->rowidhp, OCI_DTYPE_ROWID);
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
   }
 }
 

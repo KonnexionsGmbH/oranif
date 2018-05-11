@@ -39,8 +39,17 @@ db_test_() ->
                Conf = ?CONN_CONF,
                application:start(erloci),
                #{tns := Tns, user := User, password := Pass,
-                 logging := _Logging, lang := _Lang} = Conf,
-               Envhp =  erloci_nif:ociEnvNlsCreate(),
+                 logging := _Logging, lang := Lang} = Conf,
+                 {Language, Country, Charset} = erloci_nif:parse_lang(Lang),
+               E1 =  erloci_nif:ociEnvNlsCreate(0,0),
+               {ok, CharsetId} = erloci_nif_drv:ociNlsCharSetNameToId(E1, Charset),
+               Envhp =  erloci_nif:ociEnvNlsCreate(CharsetId,CharsetId),
+               % ok = erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', ub2, CharsetId, 'OCI_ATTR_ENV_CHARSET_ID'),
+               ok = erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Language,'OCI_ATTR_ENV_NLS_LANGUAGE'),
+               ok = erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Country,'OCI_ATTR_ENV_NLS_TERRITORY'),
+               {ok,<<"SWITZERLAND">>} = erloci_nif:ociAttrGet(Envhp, 'OCI_HTYPE_ENV', text,'OCI_ATTR_ENV_NLS_TERRITORY'),
+
+
                {ok, Spoolhp} =  erloci_nif:ociSessionPoolCreate(Envhp,
                    Tns,
                    2, 10, 1, User, Pass),
@@ -61,7 +70,9 @@ db_test_() ->
                application:stop(erloci_nif)
        end,
        {with,
-        [fun select_bind/1,
+        [fun nls_get_info/1,
+         fun set_binary_attr/1,
+         fun select_bind/1,
          fun column_types/1,
          fun missing_bind_error/1,
          %fun named_session/1,
@@ -87,6 +98,14 @@ db_test_() ->
         ]}
       }}.
 
+nls_get_info(#{envhp := Envhp}) ->
+    ?assertMatch({ok, <<"montag">>}, erloci_nif:ociNlsGetInfo(Envhp, 'OCI_NLS_DAYNAME1')),
+    ?assertMatch({ok, #{charset := {873,<<"AL32UTF8">>},
+                        ncharset := {873,<<"AL32UTF8">>}}}, erloci_nif:ociCharsetAttrGet(Envhp)).
+
+set_binary_attr(#{envhp := Envhp}) ->
+    ?assertMatch(ok, erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, <<"GERMAN">>,'OCI_ATTR_ENV_NLS_LANGUAGE')).
+
 select_null(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
@@ -100,7 +119,6 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"B">>,  'SQLT_CHR', <<"Y">>),
     ?assertMatch({ok, #{statement := select, cols := [{<<"DUMMY">>,1,1,0,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
     ?assertMatch({ok, [<<"X">>]}, erloci_nif:ociStmtFetch(Stmthp, 1)).
-
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
@@ -123,9 +141,17 @@ bad_sql_connection_reuse(#{envhp := Envhp}) ->
         %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
         %%?assertEqual(ok, SelStmt:close()).
 
-insert_select_update(#{} = Sess) ->
+insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     _RowCount = 6,
-    flush_table(Sess).
+    flush_table(Sess),
+
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ok =  erloci_nif:ociStmtPrepare(Stmthp, ?INSERT),
+    {ok, BindVars1} = erloci_nif:ociBindByName(Stmthp, #{}, <<"pkey">>,  'SQLT_INT', <<"1">>),
+    {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"publisher">>, 'SQLT_CHR',
+                         unicode:characters_to_binary(["_püèr_",integer_to_list(1),"_"])),
+    ?assertMatch({ok, _}, erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 1, 0, 'OCI_DEFAULT')).
+
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),

@@ -2,19 +2,68 @@
 
 %% External API to OCI Driver
 
--export([ociEnvNlsCreate/0,
+-export([ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
+        ociAttrSet/5, ociAttrGet/4,
         ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/5, ociStmtFetch/2]).
+
+-export([parse_lang/1]).
 
 %%--------------------------------------------------------------------
 %% Create an OCI Env
 %% One of these is sufficient for the whole system
 %% returns {ok, Envhp}
 %%--------------------------------------------------------------------
--spec ociEnvNlsCreate() -> {ok, Envhp :: reference()} | {error, binary()}.
-ociEnvNlsCreate() ->
-    erloci_nif_drv:ociEnvNlsCreate().
+-spec ociEnvNlsCreate(ClientCharset :: integer(),
+                     NationalCharset :: integer()) -> {ok, Envhp :: reference()}
+                                                     | {error, binary()}.
+ociEnvNlsCreate(ClientCharset, NationalCharset) ->
+    erloci_nif_drv:ociEnvNlsCreate(ClientCharset, NationalCharset).
+
+-spec ociNlsGetInfo(Envhp :: reference(),
+                    Item :: atom()) -> {ok, Info :: binary()}
+                                          | {error, binary()}.
+ociNlsGetInfo(Envhp, Item) ->
+    ItemId = erloci_nif_int:nls_info_to_int(Item),
+    erloci_nif_drv:ociNlsGetInfo(Envhp, ItemId).
+
+-spec ociCharsetAttrGet(Envhp :: reference()) ->
+    {ok, {Charset :: integer(), NCharset :: integer()}}
+    | {error, binary()}.
+ociCharsetAttrGet(Envhp) ->
+    case erloci_nif_drv:ociCharsetAttrGet(Envhp) of
+        {ok, {CharsetId, NCharsetId}} ->
+            {ok, Name} = erloci_nif_drv:ociNlsCharSetIdToName(Envhp, CharsetId),
+            {ok, NName} = erloci_nif_drv:ociNlsCharSetIdToName(Envhp, NCharsetId),
+            {ok, #{charset => {CharsetId, Name},
+                   ncharset => {NCharsetId, NName}}};
+        Err ->
+            Err
+    end.
+
+-spec ociAttrSet(Handle :: reference(),
+                HandleType :: atom(),
+                CDataType :: atom(),
+                Value :: integer() | binary(),
+                AttrType :: atom()) ->
+                    ok | {error, binary()}.
+ociAttrSet(Handle, HandleType, CDataTpe, Value, AttrType) ->
+    HandleTypeInt = erloci_nif_int:handle_type_to_int(HandleType),
+    CDataTypeInt = erloci_nif_int:c_type(CDataTpe),
+    AttrTypeInt = erloci_nif_int:attr_name_to_int(AttrType),
+    erloci_nif_drv:ociAttrSet(Handle, HandleTypeInt, CDataTypeInt, Value, AttrTypeInt).
+
+-spec ociAttrGet(Handle :: reference(),
+                HandleType :: atom(),
+                CDataTpe :: atom(),
+                AttrType :: atom()) ->
+        {ok, Value :: integer() | binary()} | {error, binary()}.
+ociAttrGet(Handle, HandleType, CDataTpe, AttrType) ->
+    HandleTypeInt = erloci_nif_int:handle_type_to_int(HandleType),
+    CDataTypeInt = erloci_nif_int:c_type(CDataTpe),
+    AttrTypeInt = erloci_nif_int:attr_name_to_int(AttrType),
+erloci_nif_drv:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
 
 %%--------------------------------------------------------------------
 %% Create an Auth Handle based on supplied username / password
@@ -73,34 +122,34 @@ ociStmtPrepare(Stmthp, Stmt) ->
         erloci_nif_drv:ociStmtPrepare(Stmthp, Stmt).
 %%
 -spec ociStmtExecute(Svchp :: reference(),
-    Stmthp :: reference(),
-    BindVars :: map(),
-    Iters :: pos_integer(),
-    RowOff :: pos_integer(),
-    Mode :: atom()) -> ok | {error, binary()}.
+                    Stmthp :: reference(),
+                    BindVars :: map(),
+                    Iters :: pos_integer(),
+                    RowOff :: pos_integer(),
+                    Mode :: atom()) -> ok | {error, binary()}.
 ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, Mode) ->
-    ModeInt = erloci_nif_drv:oci_mode(Mode),
+    ModeInt = erloci_nif_int:oci_mode(Mode),
     case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt) of
         {ok, #{statement := Stmt} = Map} ->
-            {ok, maps:put(statement, erloci_nif_drv:int_to_stmt_type(Stmt), Map)};
+            {ok, maps:put(statement, erloci_nif_int:int_to_stmt_type(Stmt), Map)};
         Else ->
             Else
     end.
 
 -spec ociBindByName(Stmthp :: reference(),
-   BindVars :: map(),
-   BindVarName :: binary(),
-   SqlType :: atom(),
-   BindVarValue :: binary() | 'NULL') ->
-                       {ok, BindVars2 :: map()}
-                       | {error, binary()}.
+                    BindVars :: map(),
+                    BindVarName :: binary(),
+                    SqlType :: atom(),
+                    BindVarValue :: binary() | 'NULL') ->
+                                        {ok, BindVars2 :: map()}
+                                        | {error, binary()}.
 ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) when
-        is_reference(Stmthp),
-        is_map(BindVars),
-        is_binary(BindVarName),
-        is_atom(SqlType),
-        is_binary(BindVarValue) ->
-    IntType = erloci_nif_drv:sql_type_to_int(SqlType),
+                                                    is_reference(Stmthp),
+                                                    is_map(BindVars),
+                                                    is_binary(BindVarName),
+                                                    is_atom(SqlType),
+                                                    is_binary(BindVarValue) ->
+    IntType = erloci_nif_int:sql_type_to_int(SqlType),
     case BindVarValue of
         'NULL' ->
             erloci_nif_drv:ociBindByName(Stmthp, BindVars, BindVarName, -1, IntType, <<>>);
@@ -113,3 +162,20 @@ ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) when
                                | {error, binary()}.
 ociStmtFetch(Stmthp, NumRows) ->
         erloci_nif_drv:ociStmtFetch(Stmthp, NumRows).
+
+parse_lang(Lang) when is_list(Lang) ->
+    case string:tokens(Lang, "._") of
+        [Language, Country, Charset] ->
+            {list_to_binary(Language),
+                list_to_binary(Country),
+                list_to_binary(Charset)};
+        Else ->
+            Else
+    end;
+parse_lang(Lang) when is_binary(Lang) ->
+    case binary:split(Lang, [<<".">>, <<"_">>], [global]) of
+        [Language, Country, Charset] ->
+            {Language, Country, Charset};
+        Else ->
+                Else
+    end.

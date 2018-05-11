@@ -61,10 +61,11 @@ db_test_() ->
                   svchp => Svchp,
                   conf => Conf}
        end,
-       fun(#{}) ->
+       fun(#{envhp := _Envhp, svchp := Svchp}) ->
                %DropStmt = OciSession:prep_sql(?DROP),
                %DropStmt:exec_stmt(),
                %DropStmt:close(),
+               ok = erloci_nif:ociSessionRelease(Svchp),
                %OciSession:close(),
                %OciPort:close(),
                application:stop(erloci_nif)

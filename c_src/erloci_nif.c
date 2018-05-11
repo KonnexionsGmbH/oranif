@@ -352,11 +352,9 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         break;
         }
     }
-    printf("Calling OCIAttrGet\r\n");
     int status = OCIAttrGet(handlep, handle_type, attributep, &size, attr_type,
                             errorhp);
 
-    printf("Called OCIAttrGet %d\r\n", size);
     if (status) {
         return reterr(env, errorhp, status);
     }
@@ -367,7 +365,6 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     }
     // printf("Called OCIAttrGet %s\r\n",(text *)attributep);
     memcpy(bin_buf, attributep, size);
-    printf("Called OCIAttrGet memcpy\r\n");
     return enif_make_tuple2(env, ATOM_OK, bin_value);
 }
 /* Generic setting of attrs. Only supports handle types we explicitly manage
@@ -585,6 +582,26 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                          ATOM_OK,
                          nif_res);
 }
+
+static ERL_NIF_TERM ociSessionRelease(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    svchp_res *svchp_res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], svchp_resource_type, (void**)&svchp_res) )) {
+            return enif_make_badarg(env);
+        }
+    int status = OCISessionRelease(svchp_res->svchp, svchp_res->errhp,
+                                    NULL, (ub4) 0, (ub4) OCI_DEFAULT);
+    if (status) {
+        return reterr(env, svchp_res->errhp, status);
+    }
+    OCIHandleFree(svchp_res->errhp, OCI_HTYPE_ERROR);
+    svchp_res->errhp = NULL;
+    svchp_res->svchp = NULL;
+    return ATOM_OK;
+}
+
+
 
 static ERL_NIF_TERM ociStmtHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIStmt *stmthp = (OCIStmt *)NULL;
@@ -1060,6 +1077,7 @@ static ErlNifFunc nif_funcs[] =
     {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"ociSessionRelease", 1, ociSessionRelease, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
     {"ociStmtPrepare", 2, ociStmtPrepare},
     {"ociStmtExecute", 6, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},

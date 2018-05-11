@@ -4,7 +4,8 @@
 
 -export([ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
+        ociSessionPoolCreate/7, ociAuthHandleCreate/3,
+        ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/5, ociStmtFetch/2]).
 
@@ -107,6 +108,14 @@ ociSessionPoolCreate(Envhp, DataBase, SessMin,
                                              | {error, binary()}.
 ociSessionGet(Envhp, Authhp, Spoolhp) ->
     erloci_nif_drv:ociSessionGet(Envhp, Authhp, Spoolhp).
+
+%%--------------------------------------------------------------------
+%% Returns a session to the session pool.
+%%--------------------------------------------------------------------
+-spec ociSessionRelease(Svchp :: reference()) -> ok
+                                                 | {error, binary()}.
+ociSessionRelease(Svchp) ->
+    erloci_nif_drv:ociSessionRelease(Svchp).
 
 %%--------------------------------------------------------------------
 %% Create a statement Handle. Can be re-used for multiple statements.

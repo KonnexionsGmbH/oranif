@@ -4,7 +4,8 @@
 -export([init/0, ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
         ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociAuthHandleCreate/3, ociSessionGet/3,
+        ociSessionPoolCreate/7, ociAuthHandleCreate/3,
+        ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociBindByName/6, ociStmtFetch/2]).
 
@@ -57,7 +58,7 @@ ociNlsCharSetIdToName(_Envhp, _CharsetId) ->
 ociNlsCharSetNameToId(Envhp, CharsetName) ->
     ociNlsCharSetNameToId_ll(Envhp, <<CharsetName/binary, 0>>).
 
-ociNlsCharSetNameToId_ll(Envhp, CharsetName) ->
+ociNlsCharSetNameToId_ll(_Envhp, _CharsetName) ->
     ?NOT_LOADED.
 
 -spec ociAttrSet(Handle :: reference(),
@@ -83,7 +84,7 @@ ociAttrGet(_Handle, _HandleType, _CDataTpe, _AttrType) ->
                           Password :: binary()) -> {ok, Authhp :: reference()}
                                                    | {error, binary()}.
 ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
-     ?NOT_LOADED.
+    ?NOT_LOADED.
 
 -spec ociSessionPoolCreate(Envhp :: reference(),
                            DataBase :: binary(),
@@ -95,14 +96,19 @@ ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
                                                     | {error, binary()}.
 ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
- ?NOT_LOADED.
+    ?NOT_LOADED.
 
 -spec ociSessionGet(Envhp :: reference(),
                     Authhp :: reference(),
                     Spoolhp :: reference()) -> {ok, Svchp :: reference()}
                                              | {error, binary()}.
 ociSessionGet(_Envhp, _Authhp, _Spoolhp) ->
-     ?NOT_LOADED.
+    ?NOT_LOADED.
+
+-spec ociSessionRelease(Svchp :: reference()) -> ok
+                                                | {error, binary()}.
+ociSessionRelease(_Svchp) ->
+    ?NOT_LOADED.
 
 -spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
                                                    | {error, binary()}.

@@ -110,6 +110,8 @@ static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
                             OCI_SPD_FORCE );
         OCIHandleFree(res->spoolhp, OCI_HTYPE_SPOOL);
         OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+        res->spoolhp = NULL;
+        res->errhp = NULL;
     }
 }
 
@@ -562,6 +564,28 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv* env, int argc, const ERL_NIF
     enif_release_resource(sphp_res);
     return enif_make_tuple2(env, ATOM_OK, nif_res);
 }
+
+static ERL_NIF_TERM ociSessionPoolDestroy(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    spoolhp_res *spoolhp_res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], spoolhp_resource_type, (void**)&spoolhp_res) )) {
+            return enif_make_badarg(env);
+        }
+    if (spoolhp_res->spoolhp) {
+        int status = OCISessionPoolDestroy(spoolhp_res->spoolhp, spoolhp_res->errhp,
+                                         OCI_DEFAULT);
+        if (status) {
+            return reterr(env, spoolhp_res->errhp, status);
+        }
+        OCIHandleFree(spoolhp_res->spoolhp, OCI_HTYPE_SPOOL);
+        OCIHandleFree(spoolhp_res->errhp, OCI_HTYPE_ERROR);
+        spoolhp_res->spoolhp = NULL;
+        spoolhp_res->errhp = NULL;
+    }
+    return ATOM_OK;
+}
+
 
 static ERL_NIF_TERM ociAuthHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIAuthInfo *authhp = (OCIAuthInfo *)0; // Ready to populate and store this
@@ -1152,6 +1176,7 @@ static ErlNifFunc nif_funcs[] =
     {"ociAttrSet", 5, ociAttrSet},
     {"ociAttrGet", 4, ociAttrGet},
     {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"ociSessionPoolDestroy", 1, ociSessionPoolDestroy, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionRelease", 1, ociSessionRelease, ERL_NIF_DIRTY_JOB_IO_BOUND},

@@ -4,7 +4,8 @@
 -export([init/0, ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
         ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociAuthHandleCreate/3,
+        ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
+        ociAuthHandleCreate/3,
         ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociStmtHandleFree/1,
@@ -79,7 +80,6 @@ ociAttrSet(_Handle, _HandleType, _CDataTpe, _Value, _AttrType) ->
 ociAttrGet(_Handle, _HandleType, _CDataTpe, _AttrType) ->
     ?NOT_LOADED.
 
-
 -spec ociAuthHandleCreate(Envhp :: reference(),
                           UserName :: binary(),
                           Password :: binary()) -> {ok, Authhp :: reference()}
@@ -99,6 +99,9 @@ ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
     ?NOT_LOADED.
 
+-spec ociSessionPoolDestroy(Spoolhp :: reference()) -> ok.
+ociSessionPoolDestroy(_Spoolhp) ->
+    ?NOT_LOADED.
 -spec ociSessionGet(Envhp :: reference(),
                     Authhp :: reference(),
                     Spoolhp :: reference()) -> {ok, Svchp :: reference()}

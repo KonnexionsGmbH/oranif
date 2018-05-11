@@ -4,7 +4,8 @@
 
 -export([ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociAuthHandleCreate/3,
+        ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
+        ociAuthHandleCreate/3,
         ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
         ociStmtHandleFree/1,
@@ -98,6 +99,14 @@ ociSessionPoolCreate(Envhp, DataBase, SessMin,
                      SessMax, SessInc, UserName, Password) ->
     erloci_nif_drv:ociSessionPoolCreate(Envhp, DataBase, SessMin,
                                         SessMax, SessInc, UserName, Password).
+
+%%--------------------------------------------------------------------
+%% Destroy a session pool. Any work on outstanding sessions will cause
+%% this to return an error return
+%%--------------------------------------------------------------------
+-spec ociSessionPoolDestroy(Spoolhp :: reference()) -> ok.
+ociSessionPoolDestroy(Spoolhp) ->
+    erloci_nif_drv:ociSessionPoolDestroy(Spoolhp).
 
 %%--------------------------------------------------------------------
 %% Fetch a session from the session pool.

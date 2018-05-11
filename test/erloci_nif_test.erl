@@ -28,6 +28,59 @@
 -define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
                         , {<<":publisher">>, 'SQLT_CHR'}
                         ]).
+% ------------------------------------------------------------------------------
+% db_negative_test_
+% ------------------------------------------------------------------------------
+db_negative_test_() ->
+    {timeout, 60, {
+        setup,
+        fun() ->
+                Conf = ?CONN_CONF,
+                application:start(erloci_nif),
+                #{tns := Tns, user := User, password := Pass,
+                 logging := _Logging, lang := Lang} = Conf,
+                 {Language, Country, Charset} =
+                    erloci_nif:parse_lang("GERMAN_SWITZERLAND.AL32UTF8"),
+                E1 =  erloci_nif:ociEnvNlsCreate(0,0),
+                {ok, CharsetId} = erloci_nif_drv:ociNlsCharSetNameToId(E1, Charset),
+                ok = erloci_nif:ociEnvHandleFree(E1),
+
+                Envhp =  erloci_nif:ociEnvNlsCreate(CharsetId,CharsetId),
+                {ok, Spoolhp} =  erloci_nif:ociSessionPoolCreate(Envhp,
+                   Tns,
+                   2, 10, 1, User, Pass),
+                #{envhp => Envhp, conf => Conf, spoolhp => Spoolhp}
+        end,
+        fun(#{envhp := Envhp, spoolhp := Spoolhp}) ->
+                ok = erloci_nif:ociSessionPoolDestroy(Spoolhp),
+                ok = erloci_nif:ociEnvHandleFree(Envhp),
+                ok = erloci_nif:ociTerminate(),
+                application:stop(erloci_nif)
+        end,
+        {with, [
+            %% fun bad_password/1,
+            fun session_ping/1
+        ]}
+    }}.
+
+bad_password(#{envhp := Envhp, spoolhp := Spoolhp, conf := #{tns := Tns, user := User, password := Pass}}) ->
+    {ok, Authhp} = erloci_nif:ociAuthHandleCreate(Envhp, User, list_to_binary([Pass,"_bad"])),
+    ?assertMatch(
+       {error, {1017,_}}, erloci_nif:ociSessionGet(Envhp, Authhp, Spoolhp)).
+
+session_ping(#{envhp := Envhp, spoolhp := Spoolhp, conf := #{tns := Tns, user := User, password := Pass}}) ->
+    {ok, Authhp} = erloci_nif:ociAuthHandleCreate(Envhp, User, Pass),
+    {ok, Svchp} =  erloci_nif:ociSessionGet(Envhp, Authhp, Spoolhp),
+    ?assertEqual(pong, erloci_nif:ociPing(Svchp)),
+    {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual">>)),
+    ?assertEqual(pong, erloci_nif:ociPing(Svchp)),
+    ?assertMatch({ok, #{cols := [{<<"DUMMY">>,'SQLT_CHR',_,_,0}]}}, erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
+    ?assertEqual(pong, erloci_nif:ociPing(Svchp)),
+    % ?assertEqual({{rows,[[<<"X">>]]},true}, erloci_nif:ociStmtFetch(Stmthp, 1)),
+    ?assertEqual(pong, erloci_nif:ociPing(Svchp)),
+    ok = erloci_nif:ociStmtHandleFree(Stmthp),
+    ok = erloci_nif:ociSessionRelease(Svchp).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -37,12 +90,13 @@ db_test_() ->
        setup,
        fun() ->
                Conf = ?CONN_CONF,
-               application:start(erloci),
+               application:start(erloci_nif),
                #{tns := Tns, user := User, password := Pass,
                  logging := _Logging, lang := Lang} = Conf,
                  {Language, Country, Charset} = erloci_nif:parse_lang(Lang),
                E1 =  erloci_nif:ociEnvNlsCreate(0,0),
                {ok, CharsetId} = erloci_nif_drv:ociNlsCharSetNameToId(E1, Charset),
+               ok = erloci_nif:ociEnvHandleFree(E1),
                Envhp =  erloci_nif:ociEnvNlsCreate(CharsetId,CharsetId),
                % ok = erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', ub2, CharsetId, 'OCI_ATTR_ENV_CHARSET_ID'),
                ok = erloci_nif:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Language,'OCI_ATTR_ENV_NLS_LANGUAGE'),
@@ -119,7 +173,7 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
     {ok, BindVars1} = erloci_nif:ociBindByName(Stmthp, #{}, <<"A">>,  'SQLT_CHR', <<"X">>),
     {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"B">>,  'SQLT_CHR', <<"Y">>),
-    ?assertMatch({ok, #{statement := select, cols := [{<<"DUMMY">>,1,1,0,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
+    ?assertMatch({ok, #{statement := select, cols := [{<<"DUMMY">>,'SQLT_CHR',1,_,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
     ?assertMatch({ok, [<<"X">>]}, erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->

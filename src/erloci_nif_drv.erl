@@ -4,6 +4,7 @@
 -export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
         ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
+        ociPing/1,
         ociAttrSet/5, ociAttrGet/4,
         ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
         ociAuthHandleCreate/3,
@@ -87,6 +88,10 @@ ociAttrSet(_Handle, _HandleType, _CDataTpe, _Value, _AttrType) ->
                  AttrType :: integer()) ->
                      ok | {error, binary()}.
 ociAttrGet(_Handle, _HandleType, _CDataTpe, _AttrType) ->
+    ?NOT_LOADED.
+
+-spec ociPing(Svchp :: reference()) -> pong | pang.
+ociPing(_Svchp) ->
     ?NOT_LOADED.
 
 -spec ociAuthHandleCreate(Envhp :: reference(),

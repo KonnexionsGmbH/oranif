@@ -4,6 +4,7 @@
 
 -export([ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
         ociNlsGetInfo/2, ociCharsetAttrGet/1,
+        ociPing/1,
         ociAttrSet/5, ociAttrGet/4,
         ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
         ociAuthHandleCreate/3,
@@ -81,7 +82,14 @@ ociAttrGet(Handle, HandleType, CDataTpe, AttrType) ->
     HandleTypeInt = erloci_nif_int:handle_type_to_int(HandleType),
     CDataTypeInt = erloci_nif_int:c_type(CDataTpe),
     AttrTypeInt = erloci_nif_int:attr_name_to_int(AttrType),
-erloci_nif_drv:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
+    erloci_nif_drv:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
+
+%%--------------------------------------------------------------------
+%% Ping the database on the referenced Session
+%%--------------------------------------------------------------------
+-spec ociPing(Svchp :: reference()) -> pong | pang.
+ociPing(Svchp) ->
+    erloci_nif_drv:ociPing(Svchp).
 
 %%--------------------------------------------------------------------
 %% Create an Auth Handle based on supplied username / password
@@ -172,7 +180,15 @@ ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, Mode) ->
     ModeInt = erloci_nif_int:oci_mode(Mode),
     case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt) of
         {ok, #{statement := Stmt} = Map} ->
-            {ok, maps:put(statement, erloci_nif_int:int_to_stmt_type(Stmt), Map)};
+            Map2 = case Map of
+                #{cols := Cols} ->
+                    Cs2 = [{Value,erloci_nif_int:int_to_sql_type(Type),Size,Precision,Scale} ||
+                            {Value,Type, Size,Precision,Scale} <- Cols],
+                    maps:put(cols, Cs2, Map);
+                _ -> 
+                    Map
+                end,
+            {ok, maps:put(statement, erloci_nif_int:int_to_stmt_type(Stmt), Map2)};
         Else ->
             Else
     end.

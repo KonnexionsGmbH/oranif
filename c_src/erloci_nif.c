@@ -17,6 +17,9 @@ static ERL_NIF_TERM ATOM_COLS;
 static ERL_NIF_TERM ATOM_ROWIDS;
 static ERL_NIF_TERM ATOM_ENOMEM;
 static ERL_NIF_TERM ATOM_STATEMENT;
+static ERL_NIF_TERM ATOM_PONG;
+static ERL_NIF_TERM ATOM_PANG;
+
 
 #define C_TYPE_MIN 0
 #define C_TYPE_TEXT 0
@@ -608,6 +611,20 @@ static ERL_NIF_TERM ociSessionPoolDestroy(ErlNifEnv* env, int argc, const ERL_NI
     return ATOM_OK;
 }
 
+static ERL_NIF_TERM ociPing(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    svchp_res *svchp_res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], svchp_resource_type, (void**)&svchp_res) )) {
+            return enif_make_badarg(env);
+        }
+    int status = OCIPing(svchp_res->svchp, svchp_res->errhp, OCI_DEFAULT);
+    if (status) {
+        return ATOM_PANG;
+    } else {
+        return ATOM_PONG;
+    }
+}
 
 static ERL_NIF_TERM ociAuthHandleCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     OCIAuthInfo *authhp = (OCIAuthInfo *)0; // Ready to populate and store this
@@ -1202,6 +1219,7 @@ static ErlNifFunc nif_funcs[] =
     {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionPoolDestroy", 1, ociSessionPoolDestroy, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
+    {"ociPing", 1, ociPing, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionGet", 3, ociSessionGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionRelease", 1, ociSessionRelease, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociStmtHandleCreate", 1, ociStmtHandleCreate},
@@ -1239,6 +1257,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     ATOM_ROWIDS = enif_make_atom(env, "rowids");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
     ATOM_STATEMENT = enif_make_atom(env, "statement");
+    ATOM_PONG = enif_make_atom(env, "pong");
+    ATOM_PANG = enif_make_atom(env, "pang");
     return 0;
 }
 

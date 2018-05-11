@@ -2,14 +2,15 @@
 
 %% External API to OCI Driver
 
--export([ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
+-export([ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
+        ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociAttrSet/5, ociAttrGet/4,
         ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
         ociAuthHandleCreate/3,
         ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
-        ociStmtHandleFree/1,
-        ociBindByName/5, ociStmtFetch/2]).
+        ociBindByName/5, ociStmtFetch/2,
+        ociStmtHandleFree/1]).
 
 -export([parse_lang/1]).
 
@@ -23,6 +24,20 @@
                                                      | {error, binary()}.
 ociEnvNlsCreate(ClientCharset, NationalCharset) ->
     erloci_nif_drv:ociEnvNlsCreate(ClientCharset, NationalCharset).
+
+%%--------------------------------------------------------------------
+%% Free the OCI Env handle
+%%--------------------------------------------------------------------
+-spec ociEnvHandleFree(Envhp :: reference()) -> ok.
+ociEnvHandleFree(Envhp) ->
+    erloci_nif_drv:ociEnvHandleFree(Envhp).
+
+%%--------------------------------------------------------------------
+%% Terminate the instance of OCI releasing all shared memory held by OCI.
+%%--------------------------------------------------------------------
+-spec ociTerminate() -> ok.
+ociTerminate() ->
+    erloci_nif_drv:ociTerminate().
 
 -spec ociNlsGetInfo(Envhp :: reference(),
                     Item :: atom()) -> {ok, Info :: binary()}

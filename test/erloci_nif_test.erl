@@ -61,14 +61,14 @@ db_test_() ->
                   svchp => Svchp,
                   conf => Conf}
        end,
-       fun(#{envhp := _Envhp, svchp := Svchp, spoolhp := Spoolhp}) ->
+       fun(#{envhp := Envhp, svchp := Svchp, spoolhp := Spoolhp}) ->
                %DropStmt = OciSession:prep_sql(?DROP),
                %DropStmt:exec_stmt(),
                %DropStmt:close(),
                ok = erloci_nif:ociSessionRelease(Svchp),
                ok = erloci_nif:ociSessionPoolDestroy(Spoolhp),
-               %OciSession:close(),
-               %OciPort:close(),
+               ok = erloci_nif:ociEnvHandleFree(Envhp),
+               ok = erloci_nif:ociTerminate(),
                application:stop(erloci_nif)
        end,
        {with,

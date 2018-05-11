@@ -96,8 +96,10 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
     envhp_res *res = (envhp_res*)resource;
     // printf("envhp_res_dtor called\r\n");
     if(res->envhp) {
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
         OCIHandleFree(res->envhp, OCI_HTYPE_ENV );
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        res->envhp = NULL;
+        res->errhp = NULL;
     }
 }
 
@@ -120,6 +122,7 @@ static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
     //printf("authhp_res_ called\r\n");
     if(res->authhp) {
         OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
+        res->authhp = NULL;
     }
 }
 
@@ -135,6 +138,8 @@ static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
                         (ub4) 0,
                         OCI_SESSRLS_DROPSESS ); // Instant drop as GC'd
         OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+        res->svchp = NULL;
+        res->errhp = NULL;
     }
 }
 
@@ -150,13 +155,14 @@ static void stmthp_res_dtor(ErlNifEnv *env, void *resource) {
         OCIDescriptorFree(res->rowidhp, OCI_DTYPE_ROWID);
         OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
         OCIHandleFree(res->stmthp, OCI_HTYPE_STMT );
+        res->rowidhp = NULL;
+        res->errhp = NULL;
         res->stmthp = NULL;
   }
 }
 
 static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
     bindhp_res *res = (bindhp_res*)resource;
-    // printf("bindhp_res_ called\r\n");
     // OCI will free the bind handle when the stmthp is released
     // so here we just need to free the name and value binaries
     enif_release_binary(&res->name);
@@ -303,6 +309,22 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             return nif_res;
         }
     }
+}
+
+static ERL_NIF_TERM ociEnvHandleFree(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    envhp_res *res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], envhp_resource_type, (void**)&res) )) {
+            return enif_make_badarg(env);
+        }
+    envhp_res_dtor(env, res);
+    return ATOM_OK;
+}
+
+static ERL_NIF_TERM ociTerminate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    OCITerminate(OCI_DEFAULT);
+    return ATOM_OK;
 }
 
 static ERL_NIF_TERM ociNlsGetInfo(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -1169,12 +1191,14 @@ static ErlNifFunc nif_funcs[] =
     // All functions that execure server round trips MUST be marked as IO_BOUND
     // Knowledge from: https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
     {"ociEnvNlsCreate", 2, ociEnvNlsCreate},
+    {"ociEnvHandleFree", 1, ociEnvHandleFree},
+    {"ociTerminate", 0, ociTerminate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociNlsGetInfo", 2, ociNlsGetInfo},
     {"ociNlsCharSetIdToName", 2, ociNlsCharSetIdToName},
     {"ociNlsCharSetNameToId_ll", 2, ociNlsCharSetNameToId},
     {"ociCharsetAttrGet", 1, ociCharsetAttrGet},
     {"ociAttrSet", 5, ociAttrSet},
-    {"ociAttrGet", 4, ociAttrGet},
+    {"ociAttrGet", 4, ociAttrGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociSessionPoolDestroy", 1, ociSessionPoolDestroy, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociAuthHandleCreate", 3, ociAuthHandleCreate},

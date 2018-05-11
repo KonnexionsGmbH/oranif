@@ -1,7 +1,8 @@
 -module(erloci_nif_drv).
 %% Low level API to the nif
 
--export([init/0, ociEnvNlsCreate/2, ociNlsGetInfo/2, ociCharsetAttrGet/1,
+-export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
+        ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
         ociAttrSet/5, ociAttrGet/4,
         ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
@@ -34,6 +35,14 @@ init() ->
                     NationalCharset :: pos_integer()) -> {ok, Envhp :: reference()}
                                                      | {error, binary()}.
 ociEnvNlsCreate(_ClientCharset, _NationalCharset) ->
+    ?NOT_LOADED.
+
+-spec ociEnvHandleFree(Envhp :: reference()) -> ok.
+ociEnvHandleFree(_Envhp) ->
+    ?NOT_LOADED.
+
+-spec ociTerminate() -> ok.
+ociTerminate() ->
     ?NOT_LOADED.
 
 -spec ociNlsGetInfo(Envhp :: reference(),

@@ -226,32 +226,32 @@ sql_type_to_int('SQLT_FILE') ->          sql_type_to_int('SQLT_BFILEE');
 sql_type_to_int('SQLT_CFILE') ->         sql_type_to_int('SQLT_CFILEE');
 sql_type_to_int('SQLT_BFILE') ->         sql_type_to_int('SQLT_BFILEE').
 
-%% Convert internal SQL type code to atom
-int_to_sql_type(1) ->   'SQLT_CHR';
-int_to_sql_type(2) ->   'SQLT_NUM';
-int_to_sql_type(3) ->   'SQLT_INT';
-int_to_sql_type(4) ->   'SQLT_FLT';
+%% Convert internal SQL type code to atom   Implemented?
+int_to_sql_type(1) ->   'SQLT_CHR';         % y
+int_to_sql_type(2) ->   'SQLT_NUM';         % y
+int_to_sql_type(3) ->   'SQLT_INT';         % y
+int_to_sql_type(4) ->   'SQLT_FLT';         % y
 int_to_sql_type(5) ->   'SQLT_STR';
 int_to_sql_type(6) ->   'SQLT_VNU';
 int_to_sql_type(7) ->   'SQLT_PDN';
-int_to_sql_type(8) ->   'SQLT_LNG';
+int_to_sql_type(8) ->   'SQLT_LNG';         % y
 int_to_sql_type(9) ->   'SQLT_VCS';
 int_to_sql_type(10) ->   'SQLT_NON';
 int_to_sql_type(11) ->   'SQLT_RID';
-int_to_sql_type(12) ->   'SQLT_DAT';
+int_to_sql_type(12) ->   'SQLT_DAT';        % y
 int_to_sql_type(15) ->   'SQLT_VBI';
-int_to_sql_type(21) -> 'SQLT_BFLOAT';
-int_to_sql_type(22) -> 'SQLT_BDOUBLE';
-int_to_sql_type(23) ->  'SQLT_BIN';
+int_to_sql_type(21) -> 'SQLT_BFLOAT';       % y
+int_to_sql_type(22) -> 'SQLT_BDOUBLE';      % y
+int_to_sql_type(23) ->  'SQLT_BIN';         % y
 int_to_sql_type(24) ->  'SQLT_LBI';
 int_to_sql_type(68) ->  'SQLT_UIN';
 int_to_sql_type(91) ->  'SQLT_SLS';
 int_to_sql_type(94) ->  'SQLT_LVC';
 int_to_sql_type(95) ->  'SQLT_LVB';
-int_to_sql_type(96) ->  'SQLT_AFC';
-int_to_sql_type(97) ->  'SQLT_AVC';
-int_to_sql_type(100) -> 'SQLT_IBFLOAT';
-int_to_sql_type(101) -> 'SQLT_IBDOUBLE';
+int_to_sql_type(96) ->  'SQLT_AFC';         % y
+int_to_sql_type(97) ->  'SQLT_AVC'; 
+int_to_sql_type(100) -> 'SQLT_IBFLOAT';     % y
+int_to_sql_type(101) -> 'SQLT_IBDOUBLE';    % y
 int_to_sql_type(102) -> 'SQLT_CUR';
 int_to_sql_type(104) -> 'SQLT_RDD';
 int_to_sql_type(105) -> 'SQLT_LAB';
@@ -263,19 +263,19 @@ int_to_sql_type(112) -> 'SQLT_CLOB';
 int_to_sql_type(113) -> 'SQLT_BLOB';
 int_to_sql_type(114) -> 'SQLT_BFILEE';
 int_to_sql_type(115) -> 'SQLT_CFILEE';
-int_to_sql_type(116) -> 'SQLT_RSET';
+int_to_sql_type(116) -> 'SQLT_RSET';        % y
 int_to_sql_type(122) -> 'SQLT_NCO';
 int_to_sql_type(155) -> 'SQLT_VST';
 int_to_sql_type(156) -> 'SQLT_ODT';
 
-int_to_sql_type(184) -> 'SQLT_DATE';
+int_to_sql_type(184) -> 'SQLT_DATE';        % y
 int_to_sql_type(185) -> 'SQLT_TIME';
 int_to_sql_type(186) -> 'SQLT_TIME_TZ';
-int_to_sql_type(187) -> 'SQLT_TIMESTAMP';
-int_to_sql_type(188) -> 'SQLT_TIMESTAMP_TZ';
-int_to_sql_type(189) -> 'SQLT_INTERVAL_YM';
-int_to_sql_type(190) -> 'SQLT_INTERVAL_DS';
-int_to_sql_type(232) -> 'SQLT_TIMESTAMP_LTZ';
+int_to_sql_type(187) -> 'SQLT_TIMESTAMP';   % y
+int_to_sql_type(188) -> 'SQLT_TIMESTAMP_TZ'; % y
+int_to_sql_type(189) -> 'SQLT_INTERVAL_YM';  % y
+int_to_sql_type(190) -> 'SQLT_INTERVAL_DS';  % y
+int_to_sql_type(232) -> 'SQLT_TIMESTAMP_LTZ'; % y
 
 int_to_sql_type(241) -> 'SQLT_PNTY';
 

@@ -78,9 +78,11 @@ typedef struct {
 // One of these is created for each bind variable. They end up stored in a map
 typedef struct {
     OCIBind *bindhp;
-    ErlNifBinary name;
-    ErlNifBinary value;
-    size_t value_sz;
+    ErlNifBinary name;   // Binding placeholder name
+    ub2 dty;             // Oracle data type
+    size_t value_sz;     // size of the currently stored value
+    size_t alloced_sz;
+    void *valuep;
 } bindhp_res;
 
 static void free_col_info(col_info *col_info, int num_cols) {
@@ -169,7 +171,9 @@ static void bindhp_res_dtor(ErlNifEnv *env, void *resource) {
     // OCI will free the bind handle when the stmthp is released
     // so here we just need to free the name and value binaries
     enif_release_binary(&res->name);
-    enif_release_binary(&res->value);
+    if (res->valuep) {
+        enif_free(res->valuep);
+    }
 }
 
 static ERL_NIF_TERM reterr(ErlNifEnv* env, OCIError *errhp, sword status) {
@@ -414,9 +418,10 @@ static ERL_NIF_TERM ociCharsetAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TE
                                                   enif_make_int(env, ncharset)));
 }
 
-/* Generic getting of attrs. Only supports handle types we explicitly manage
-   and values of types we explicitly suppor */
+
 static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    /* Generic getting of attrs. Only supports handle types we explicitly manage
+       and values of types we explicitly support */
     ub4 handle_type, data_type, attr_type;
     ERL_NIF_TERM bin_value; // value when it's text
     // ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
@@ -462,9 +467,10 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     memcpy(bin_buf, attributep, size);
     return enif_make_tuple2(env, ATOM_OK, bin_value);
 }
-/* Generic setting of attrs. Only supports handle types we explicitly manage
-   and values of types we explicitly support */
+
 static ERL_NIF_TERM ociAttrSet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    /* Generic setting of attrs. Only supports handle types we explicitly manage
+       and values of types we explicitly support */
     ub4 handle_type, data_type, attr_type;
     ErlNifBinary bin_value; // value when it's text
     ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
@@ -841,83 +847,251 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     bindhp_res *bindhp_resource;
     stmthp_res *stmthp_res;
     int dty, ind, status;
-    ErlNifBinary name, value;
+    int is_new_resource;
+    ErlNifBinary name;
+
+    // 
+    enum v_type {
+        V_INT,
+        V_FLOAT,
+        V_DOUBLE,
+        V_BINARY
+    };
+
+    // Vars for each value type.
+    enum v_type v_type = V_BINARY;
+    int value_int;
+    double value_float, value_double;
+    ErlNifBinary value_bin;
+
+    ub4 arg_len;             // The size of memory we will need for the value
+    // void *valuep = NULL;     // pointer to the value whatever c type it is
 
     if(!(argc == 6 &&
         enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_is_map(env, argv[1]) &&
         enif_inspect_binary(env, argv[2], &name) &&
         enif_get_int(env, argv[3], &ind) &&
-        enif_get_int(env, argv[4], &dty) &&
-        enif_inspect_binary(env, argv[5], &value))) {
+        enif_get_int(env, argv[4], &dty))) {
             return enif_make_badarg(env);
         }
 
-    ERL_NIF_TERM return_map = argv[1];
-    ERL_NIF_TERM current_value;
-    if(enif_get_map_value(env, argv[1], argv[2], &current_value)) {
-        if (!enif_get_resource(env, current_value, bindhp_resource_type, (void**)&bindhp_resource)) {
+    ERL_NIF_TERM original_map = argv[1];
+    ERL_NIF_TERM current_map_value;
+    if(enif_get_map_value(env, original_map, argv[2], &current_map_value)) {
+        if (!enif_get_resource(env, current_map_value, bindhp_resource_type, (void**)&bindhp_resource)) {
             return enif_make_badarg(env);
         }
-
-        // See if we can re-use the value memory
-        if (bindhp_resource->value.size >= value.size) {
-            memcpy(bindhp_resource->value.data, value.data, value.size);
-            bindhp_resource->value_sz = value.size;
-            // Nothing else to do - the existing OCIBind will use the new value
-            return enif_make_tuple2(env, ATOM_OK, return_map);
-        } else {
-            ErlNifBinary new;
-            if(!enif_alloc_binary(value.size, &new)) {
-                enif_raise_exception(env, ATOM_ENOMEM);
-            }
-            memcpy(new.data, value.data, value.size);
-            enif_release_binary(&bindhp_resource->value);
-            bindhp_resource->value = new;
-            bindhp_resource->value_sz = value.size;
-        }
+        is_new_resource = 0;
     } else {
         // No existing bind for this name
         // Create the managed pointer / resource
         bindhp_resource = (bindhp_res *) enif_alloc_resource(bindhp_resource_type, sizeof(bindhp_res));
         if(!bindhp_resource) return enif_make_badarg(env);
         bindhp_resource->bindhp = NULL; // Ask the OCIBindByName call to allocate this
-
+        bindhp_resource->valuep = NULL;
+        bindhp_resource->value_sz = 0;
+        bindhp_resource->dty = 0;
+        bindhp_resource->alloced_sz = 0;
         // Make copy of the name for oci use
         if (!enif_alloc_binary(name.size, &bindhp_resource->name)) {
-            enif_raise_exception(env, ATOM_ENOMEM);
+            return enif_raise_exception(env, ATOM_ENOMEM);
         }
         memcpy(bindhp_resource->name.data, name.data, name.size);
-
-        // Make copy of the value
-        if (!enif_alloc_binary(value.size, &bindhp_resource->value)) {
-            enif_raise_exception(env, ATOM_ENOMEM);
-        }
-        memcpy(bindhp_resource->value.data, value.data, value.size);
-        bindhp_resource->value_sz = value.size;
-        
-        // Put this new handle in the map
-        ERL_NIF_TERM nif_res = enif_make_resource(env, bindhp_resource);
-        enif_release_resource(bindhp_resource);
-        enif_make_map_put(env, argv[1], argv[2], nif_res, &return_map);
+        is_new_resource = 1;
     }
 
+    /* Unpack the value from Erlang, casting to match the SQL_* type
+       provided by the user.
+       Could be less prescriptive here. Maybe always allow binary data?
+     */
+    //printf("NAME: %.*s\r\n", (int)name.size, name.data);
+    switch (dty) {
+        case SQLT_NUM:
+        case SQLT_INT:
+            if (!enif_get_int(env, argv[5], &value_int)) {
+                return enif_make_badarg(env);
+            }
+            arg_len = sizeof(int);
+            v_type = V_INT;
+            break;
+        case SQLT_FLT:
+        case SQLT_BFLOAT:
+        case SQLT_IBFLOAT:
+            // Could be int or float
+            if (!enif_get_double(env, argv[5], &value_double)) {
+                if (!enif_get_int(env, argv[5], &value_int)) {
+                    return enif_make_badarg(env);
+                }
+                // user provided an int, cast to float
+                value_float = (float)value_int;
+                arg_len = sizeof(float);
+                v_type = V_FLOAT;
+            }
+            // User provided a float
+            value_float = (float)value_double;
+            arg_len = sizeof(float);
+            v_type = V_FLOAT;
+            /*
+            printf("FLOAT: %d ",v_type);
+            unsigned char *p = (unsigned char *)&value_float;
+            size_t i;
+            for (i=0; i < arg_len; ++i)
+                printf("%02x ", p[i]);
+            printf("\r\n");
+            */
+            break;
+        case SQLT_IBDOUBLE:
+        case SQLT_BDOUBLE:
+            if (!enif_get_double(env, argv[5], &value_double)) {
+                if (!enif_get_int(env, argv[5], &value_int)) {
+                    return enif_make_badarg(env);
+                }
+                // user provided an int, cast to double
+                value_double = (double)value_int;
+                arg_len = sizeof(double);
+                v_type = V_DOUBLE;
+            }
+            // User provided a double
+            arg_len = sizeof(double);
+            v_type = V_DOUBLE;
+            /*
+            printf("DOUBLE: %d ",v_type);
+            unsigned char *dp = (unsigned char *)&value_double;
+            size_t di;
+            for (di=0; di < arg_len; ++di)
+                printf("%02x ", dp[di]);
+            printf("\r\n");
+            */
+            break;
+        case SQLT_AFC:
+        case SQLT_CHR:
+        case SQLT_LNG:
+        case SQLT_BIN:
+            if (!enif_inspect_binary(env, argv[5], &value_bin)) {
+                return enif_make_badarg(env);
+            }
+            arg_len = value_bin.size;
+            v_type = V_BINARY;
+            break;
+        case SQLT_INTERVAL_YM:
+        case SQLT_DAT:
+        case SQLT_DATE:
+        case SQLT_TIMESTAMP:
+        case SQLT_TIMESTAMP_LTZ:
+        case SQLT_INTERVAL_DS:
+        case SQLT_TIMESTAMP_TZ:
+        case SQLT_RDD:
+            if (!enif_inspect_binary(env, argv[5], &value_bin)) {
+                return enif_make_badarg(env);
+            }
+            arg_len = value_bin.size;
+            v_type = V_BINARY;
+            break;
+        case SQLT_RSET:
+            // Ouput ref cursors bind values are ignored.
+            break;
+        default:
+            return enif_make_badarg(env);
+    }
+
+    /* If it's an existing binding, the dty of the new value is the same,
+       and there is enough space, we can just copy the new value into
+       the existing memory and don't need to call OCIBind again.
+
+       Special case this fast path
+    */
+   if (!is_new_resource &&
+        bindhp_resource->dty == dty &&
+        bindhp_resource->alloced_sz >= arg_len) {
+        switch (v_type) {
+        case V_BINARY:
+            memcpy(bindhp_resource->valuep, value_bin.data, arg_len);
+            bindhp_resource->value_sz = arg_len;
+            break;
+        case V_INT:
+            *(int *)bindhp_resource->valuep = value_int;
+            break;
+        case V_FLOAT:
+            *(float *)bindhp_resource->valuep = value_float;
+            break;
+        case V_DOUBLE:
+            *(double *)bindhp_resource->valuep = value_double;
+            break;
+        }
+        return enif_make_tuple2(env, ATOM_OK, original_map);
+    }
+
+    bindhp_resource->dty = dty;
+
+    /* From this point we know we must call OCIBind, but we might
+       or might not be able to reuse the allocated memory */
+
+    if (is_new_resource) {
+        bindhp_resource->valuep = enif_alloc(arg_len);
+        if (!bindhp_resource->valuep) {
+            return enif_raise_exception(env, ATOM_ENOMEM);
+        }
+        bindhp_resource->alloced_sz = arg_len;
+    } else if (!is_new_resource && bindhp_resource->alloced_sz < arg_len) {
+        void *tmp = enif_realloc(bindhp_resource->valuep, arg_len);
+        if (!tmp) {
+            return enif_raise_exception(env, ATOM_ENOMEM);
+        }
+        bindhp_resource->valuep = tmp;
+        bindhp_resource->alloced_sz = arg_len;
+    } // else we already have enough memory
+
+    /* We have a bindhp struct, reserved memory, and our value, it's
+       time to put them together */
+    switch (v_type) {
+    case V_INT:
+        *(int *)bindhp_resource->valuep = value_int;
+        bindhp_resource->value_sz = arg_len;
+        //printf("VALUE INT: %d with sz %zu\r\n", *(int *)bindhp_resource->valuep, bindhp_resource->value_sz);
+        break;
+    case V_FLOAT:
+        *(float *)bindhp_resource->valuep = value_float;
+        bindhp_resource->value_sz = arg_len;
+        //printf("VALUE FLOAT: %f with sz %zu\r\n", value_float, bindhp_resource->value_sz);
+        break;
+    case V_DOUBLE:
+        *(double *)bindhp_resource->valuep = value_double;
+        bindhp_resource->value_sz = arg_len;
+        //printf("VALUE DOUBLE: %f with sz %zu\r\n", *(double *)bindhp_resource->valuep, bindhp_resource->value_sz);
+        break;
+    case V_BINARY:
+        memcpy(bindhp_resource->valuep, value_bin.data, arg_len);
+        bindhp_resource->value_sz = arg_len;
+        //printf("VALUE BUF: %.*s with sz %zu\r\n", arg_len, value_bin.data, bindhp_resource->value_sz);
+    }
     status = OCIBindByName(stmthp_res->stmthp, &bindhp_resource->bindhp,
                 stmthp_res->errhp,
                 (OraText *) bindhp_resource->name.data, (sword) bindhp_resource->name.size, // Bind name
-                (void *) bindhp_resource->value.data, (sword) bindhp_resource->value_sz, // Bind value
-                (sb2) dty,           // Oracle DataType
-                (void *) &ind, // Indicator variable
+                bindhp_resource->valuep, (sword) bindhp_resource->value_sz, // Bind value
+                (sb2) dty,      // Oracle DataType
+                (void *) &ind,  // Indicator variable
                 (ub2*) NULL,    // address of actual length
                 (ub2*) NULL,    // address of return code
-                0,             // max array length for PLSQL indexed tables
+                0,              // max array length for PLSQL indexed tables
                 (ub4*) NULL,    // current array length for PLSQL indexed tables
-                OCI_DEFAULT); // mode
-
+                OCI_DEFAULT);   // mode
     if (status) {
         return reterr(env, stmthp_res->errhp, status);
     }
-    return enif_make_tuple2(env, ATOM_OK, return_map);
+    // If it's a new resource put it in the map
+    if (is_new_resource) {
+        ERL_NIF_TERM return_map;
+        ERL_NIF_TERM nif_res = enif_make_resource(env, bindhp_resource);
+        enif_release_resource(bindhp_resource);
+        if (!enif_make_map_put(env, original_map, argv[2], nif_res, &return_map)) {
+            return enif_raise_exception(env, ATOM_ENOMEM);
+        }
+        return enif_make_tuple2(env, ATOM_OK, return_map);
+
+    } else {
+        return enif_make_tuple2(env, ATOM_OK, original_map);
+    }
 }
 
 static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {

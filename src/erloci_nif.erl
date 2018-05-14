@@ -197,15 +197,14 @@ ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, Mode) ->
                     BindVars :: map(),
                     BindVarName :: binary(),
                     SqlType :: atom(),
-                    BindVarValue :: binary() | 'NULL') ->
+                    BindVarValue :: term() | 'NULL') ->
                                         {ok, BindVars2 :: map()}
                                         | {error, binary()}.
 ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) when
                                                     is_reference(Stmthp),
                                                     is_map(BindVars),
                                                     is_binary(BindVarName),
-                                                    is_atom(SqlType),
-                                                    is_binary(BindVarValue) ->
+                                                    is_atom(SqlType) ->
     IntType = erloci_nif_int:sql_type_to_int(SqlType),
     case BindVarValue of
         'NULL' ->

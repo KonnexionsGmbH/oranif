@@ -7,12 +7,29 @@
 
 
 -define(DROP,   <<"drop table "?TESTTABLE>>).
+
 -define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
-                  "publisher varchar2(30))">>).
+                  "publisher varchar2(30),"
+                  "rank float,"
+                  "hero binary_double,"
+                  "reality raw(10),"
+                  "votes number(1,-10),"
+                  "createdate date default sysdate,"
+                  "chapters binary_float,"
+                  "votes_first_rank number)">>).
+
 -define(INSERT, <<"insert into "?TESTTABLE
-                " (pkey,publisher) values ("
-                ":pkey"
-                ", :publisher)">>).
+                " (pkey,publisher,rank,hero,reality,votes,createdate,"
+                  "  chapters,votes_first_rank) values ("
+                  ":pkey"
+                  ", :publisher"
+                  ", :rank"
+                  ", :hero"
+                  ", :reality"
+                  ", :votes"
+                  ", :createdate"
+                  ", :chapters"
+                  ", :votes_first_rank)">>).
 -define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE
                            ".* from "?TESTTABLE>>).
 -define(SELECT_ROWID_ASC, <<"select rowid from "?TESTTABLE" order by pkey">>).
@@ -198,15 +215,28 @@ bad_sql_connection_reuse(#{envhp := Envhp}) ->
         ?assertEqual(ok, erloci_nif:ociStmtHandleFree(Stmthp)).
 
 insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
-    _RowCount = 6,
+    _RowCount = 5,
     flush_table(Sess),
-
+    I = 5,
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ok =  erloci_nif:ociStmtPrepare(Stmthp, ?INSERT),
-    {ok, BindVars1} = erloci_nif:ociBindByName(Stmthp, #{}, <<"pkey">>,  'SQLT_INT', <<"1">>),
-    {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"publisher">>, 'SQLT_CHR',
-                         unicode:characters_to_binary(["_püèr_",integer_to_list(1),"_"])),
-    ?assertMatch({ok, _}, erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 1, 0, 'OCI_DEFAULT')).
+    Vars = [{<<"pkey">>,  'SQLT_INT', 1},
+            {<<"publisher">>, 'SQLT_CHR',
+                         unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])},
+            {<<"rank">>, 'SQLT_FLT', I+I/2},
+            {<<"hero">>, 'SQLT_IBDOUBLE', 9.9945}, %1.0e-307},
+            {<<"reality">>, 'SQLT_BIN', list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])},
+            {<<"votes">>, 'SQLT_INT', 27},
+            {<<"createdate">>, 'SQLT_DAT', oci_util:edatetime_to_ora(os:timestamp())},
+            {<<"chapters">>, 'SQLT_IBFLOAT', 9.9945},% 9.999999350456404e-39},
+            {<<"votes_first_rank">>, 'SQLT_INT', I}],
+    BindVars = lists:foldl(fun({Name, Type, Value}, Acc) ->
+                            {ok, BV} = erloci_nif:ociBindByName(Stmthp, Acc, Name, Type, Value),
+                            BV
+                        end, #{}, Vars),
+    Res = erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, 'OCI_COMMIT_ON_SUCCESS'),
+    io:format("RES: ~p\r\n", [Res]),
+    ?assertMatch({ok, _}, Res).
 
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->

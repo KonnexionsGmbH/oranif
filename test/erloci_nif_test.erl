@@ -243,15 +243,16 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     {ok, Stmthp2} = erloci_nif:ociStmtHandleCreate(Envhp),
     ok =  erloci_nif:ociStmtPrepare(Stmthp2, <<"SELECT count(*) FROM erloci_nif_simple_test_1">>),
     {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, 'OCI_DEFAULT'),
-    {ok, [RowCount1], _} = erloci_nif:ociStmtFetch(Stmthp2, 1),
+    {ok, [[RowCount1]], _} = erloci_nif:ociStmtFetch(Stmthp2, 1),
     % io:format("RowCount: ~p\r\n", [RowCount]),
-    Total = "1", %oci_util:from_num(RowCount),
-    ?assertMatch("1", Total),
+    Total = oci_util:from_num(RowCount1),
+    ?assertMatch("6", Total),
 
     {ok, Stmthp3} = erloci_nif:ociStmtHandleCreate(Envhp),
     ok =  erloci_nif:ociStmtPrepare(Stmthp3, <<"SELECT * FROM erloci_nif_simple_test_1">>),
     {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, 'OCI_DEFAULT'),
     {ok, [Row1,R2,R3], false} = erloci_nif:ociStmtFetch(Stmthp3, 3),
+    % ?ELog("ROW ~p\r\n", [R3]),
     {ok, [R4,R5], false} = erloci_nif:ociStmtFetch(Stmthp3, 2),
     {ok, [R6], true} = erloci_nif:ociStmtFetch(Stmthp3, 7).
 

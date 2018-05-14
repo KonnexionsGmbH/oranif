@@ -74,8 +74,8 @@ typedef struct {
     OCIError *errhp;        // per statement error handle
     ub2 stmt_type;          // Retrieved statement type (e.g. OCI_SELECT)
     int col_info_retrieved; // Set on first call to execute
-    int num_cols;           // number of define columns for select
-    int num_rows_reserved;
+    ub4 num_cols;           // number of define columns for select
+    ub4 num_rows_reserved;
     col_info *col_info;     // array of *col_info for define data
 } stmthp_res;
 
@@ -427,7 +427,6 @@ static ERL_NIF_TERM ociCharsetAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TE
                             enif_make_tuple2(env, enif_make_int(env, charset),
                                                   enif_make_int(env, ncharset)));
 }
-
 
 static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     /* Generic getting of attrs. Only supports handle types we explicitly manage
@@ -919,6 +918,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     switch (dty) {
         case SQLT_NUM:
         case SQLT_INT:
+        case SQLT_UIN:
             if (!enif_get_int(env, argv[5], &value_int)) {
                 return enif_make_badarg(env);
             }
@@ -1234,6 +1234,11 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             return reterr(env, stmthp_res->errhp, status);
         }
         column_info->col_type = col_type;
+        // We want simple numbers out of the database as VARNUMs for decoding
+        // on the Erlang side
+        if (col_type == SQLT_NUM || col_type == SQLT_INT || col_type == SQLT_UIN) {
+            column_info->col_type = SQLT_VNU;
+        }
         // printf("Col %d data_type: %d\r\n", counter, col_type);
 
         /* Retrieve the column name attribute and put in a locally stored
@@ -1322,10 +1327,9 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         /* We have what we need to set up the OCIDefine for this column
            Allocate storage and call DefineByPos */
-        if (col_type == SQLT_NUM) {
-            // FIXME: Proper handling of NUMBER types
-            // printf("OVERRODE\r\n");
-            col_type = SQLT_VNU;
+        if (column_info->col_type == SQLT_VNU) {
+            // FIXME: Why do we need to do this to avoid truncation?
+            column_info->col_size++;
         }
 
         valuep = enif_alloc(column_info->col_size);
@@ -1338,14 +1342,12 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         column_info->rlenp = enif_alloc(sizeof(ub2));
         memset(column_info->rlenp, 0, sizeof(ub2));
 
-
-
         status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
                                 stmthp_res->errhp,
                                 counter,
                                 (void *)valuep,
                                 column_info->col_size,
-                                col_type,
+                                column_info->col_type,
                                 (sb2 *) column_info->indp,
                                 (ub2 *) column_info->rlenp,
                                 (ub2 *) NULL, // FIXME rcodep,
@@ -1444,9 +1446,10 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             } else {
                 ERL_NIF_TERM term;
                 ub2 rlen = *(col->rlenp + i);
+                if (col->col_type == SQLT_VNU) rlen++;
                 
                 unsigned char *bin = enif_make_new_binary(env, rlen, &term);
-                memcpy(bin, col->valuep + i * col->col_size, rlen);
+                memcpy(bin, (char *)col->valuep + i * col->col_size, rlen);
 
                 row_list = enif_make_list_cell(env, term, row_list);
             }

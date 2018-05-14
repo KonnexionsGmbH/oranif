@@ -1301,20 +1301,20 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         /* Retrieve the column precision */
         status = OCIAttrGet((dvoid*) paramd, (ub4) OCI_DTYPE_PARAM,
-                (dvoid*) &column_info->col_precision, (ub4 *) 0, (ub4) OCI_ATTR_SCALE,
+                (dvoid*) &column_info->col_precision, (ub4 *) 0, (ub4) OCI_ATTR_PRECISION,
                 (OCIError *) stmthp_res->errhp  );
         if (status) {
             OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
             return reterr(env, stmthp_res->errhp, status);
         }
 
-
-        // FIXME: could also retrieve Character set form and id,
-        // column scale, column precision
+        // FIXME: could also retrieve Character set form and id
 
         /* We have what we need to set up the OCIDefine for this column
            Allocate storage and call DefineByPos */
+        if (col_type == SQLT_NUM) col_type = SQLT_VNU;
         valuep = enif_alloc(column_info->col_size);
+        memset(valuep, 0, column_info->col_size);
         column_info->valuep = valuep;
         status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
                                 stmthp_res->errhp,
@@ -1330,7 +1330,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
                 return reterr(env, stmthp_res->errhp, status);
                 }
-        // printf("Col %d OCIDefineByPos OK\r\n", counter);
+        //  printf("Col %d OCIDefineByPos type: %d \r\n", counter, col_type);
 
 
         counter++;

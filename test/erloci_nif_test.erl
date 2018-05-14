@@ -236,7 +236,13 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
                         end, #{}, Vars),
     Res = erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, 'OCI_COMMIT_ON_SUCCESS'),
     io:format("RES: ~p\r\n", [Res]),
-    ?assertMatch({ok, _}, Res).
+    ?assertMatch({ok, _}, Res),
+    %% {ok, Stmthp2} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ok =  erloci_nif:ociStmtPrepare(Stmthp, <<"SELECT count(*) FROM erloci_nif_simple_test_1">>),
+    {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT'),
+    {ok, [RowCount]} = erloci_nif:ociStmtFetch(Stmthp, 1),
+    Total = oci_util:from_num(RowCount),
+    ?assertMatch("1", Total).
 
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->

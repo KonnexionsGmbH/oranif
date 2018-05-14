@@ -11,6 +11,8 @@ static ErlNifResourceType *stmthp_resource_type;
 static ErlNifResourceType *bindhp_resource_type;
 
 static ERL_NIF_TERM ATOM_OK;
+static ERL_NIF_TERM ATOM_TRUE;
+static ERL_NIF_TERM ATOM_FALSE;
 static ERL_NIF_TERM ATOM_ERROR;
 static ERL_NIF_TERM ATOM_NULL;
 static ERL_NIF_TERM ATOM_COLS;
@@ -61,8 +63,9 @@ typedef struct {
     ub2 col_precision;
     ErlNifBinary col_name;
     OCIDefine *definehp;
-    ub2 ind;                // OUT - fetched NULL? indicator placed here
-    void *valuep;           // OUT - value here
+    sb2 *indp;              // OUT - array of NULL? indicator placed here
+    ub2 *rlenp;             // OUT - array of row lenghts
+    void *valuep;           // OUT - array of output values
 } col_info;
 
 typedef struct {
@@ -72,6 +75,7 @@ typedef struct {
     ub2 stmt_type;          // Retrieved statement type (e.g. OCI_SELECT)
     int col_info_retrieved; // Set on first call to execute
     int num_cols;           // number of define columns for select
+    int num_rows_reserved;
     col_info *col_info;     // array of *col_info for define data
 } stmthp_res;
 
@@ -91,8 +95,14 @@ static void free_col_info(col_info *col_info, int num_cols) {
     Also needed by the GC callbacks when our stmt resource is
     destroyed
     */
-    for (int i = 0; i < num_cols; i++) {
+   int i;
+    for (i = 0; i < num_cols; i++) {
         enif_release_binary(&col_info[i].col_name);
+    }
+    for (i = 0; i < num_cols; i++) {
+        enif_free(col_info[i].indp);
+        enif_free(col_info[i].rlenp);
+        enif_free(col_info[i].valuep);
     }
     enif_free(col_info);
 }
@@ -110,7 +120,7 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
     spoolhp_res *res = (spoolhp_res*)resource;
-    //printf("spoolhp_res_ called\r\n");
+    // printf("spoolhp_res_ called\r\n");
     if(res->spoolhp) {
         OCISessionPoolDestroy(res->spoolhp, 
                             res->errhp,
@@ -124,7 +134,7 @@ static void spoolhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
     authhp_res *res = (authhp_res*)resource;
-    //printf("authhp_res_ called\r\n");
+    // printf("authhp_res_ called\r\n");
     if(res->authhp) {
         OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO );
         res->authhp = NULL;
@@ -133,7 +143,7 @@ static void authhp_res_dtor(ErlNifEnv *env, void *resource) {
 
 static void svchp_res_dtor(ErlNifEnv *env, void *resource) {
   svchp_res *res = (svchp_res*)resource;
-  //printf("svchp_res_ called\r\n");
+  // printf("svchp_res_ called\r\n");
   if(res->svchp) {
         // The docs say this will even commit outstanding transactions
         // Do we really want this to happen during garbage collection?
@@ -1164,7 +1174,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             if (status) {
                 return reterr(env, stmthp_res->errhp, status);
             }
-            printf("ROW COUNT %d\r\n", rc);
+            // printf("ROW COUNT %d\r\n", rc);
 
             OraText *rowID = NULL;
             ub2 size = 0;
@@ -1172,7 +1182,7 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             OCIRowidToChar(stmthp_res->rowidhp, rowID, &size, stmthp_res->errhp);
             unsigned char *buf = enif_make_new_binary(env, size, &row_id_bin);
             OCIRowidToChar(stmthp_res->rowidhp, buf, &size, stmthp_res->errhp);
-            printf("ROWD STR %.*s\r\n", size, buf);
+            // printf("ROWD STR %.*s\r\n", size, buf);
         }
     }
 
@@ -1312,18 +1322,32 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
         /* We have what we need to set up the OCIDefine for this column
            Allocate storage and call DefineByPos */
-        if (col_type == SQLT_NUM) col_type = SQLT_VNU;
+        if (col_type == SQLT_NUM) {
+            // FIXME: Proper handling of NUMBER types
+            // printf("OVERRODE\r\n");
+            col_type = SQLT_VNU;
+        }
+
         valuep = enif_alloc(column_info->col_size);
         memset(valuep, 0, column_info->col_size);
         column_info->valuep = valuep;
+
+        column_info->indp = enif_alloc(sizeof(sb2));
+        memset(column_info->indp, 0, sizeof(sb2));
+
+        column_info->rlenp = enif_alloc(sizeof(ub2));
+        memset(column_info->rlenp, 0, sizeof(ub2));
+
+
+
         status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
                                 stmthp_res->errhp,
                                 counter,
                                 (void *)valuep,
                                 column_info->col_size,
                                 col_type,
-                                (void *) &column_info->ind,
-                                (ub2 *) NULL, // FIXME: rlenp,
+                                (sb2 *) column_info->indp,
+                                (ub2 *) column_info->rlenp,
                                 (ub2 *) NULL, // FIXME rcodep,
                                 OCI_DEFAULT );
         if (status) {
@@ -1339,42 +1363,103 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                                     (dvoid **)&paramd, counter);
     }
     stmthp_res->col_info_retrieved = 1;
+    stmthp_res->num_rows_reserved = 1;
     return enif_make_tuple2(env, ATOM_OK, execute_result_map(env, stmthp_res));
 }
 
 static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stmthp_res *stmthp_res;
     ub4 nrows;
+    ub4 fetched_rows;
     
     if(!(argc == 2 &&
         enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
         enif_get_uint(env, argv[1], &nrows) )) {
             return enif_make_badarg(env);
         }
+    if (nrows > stmthp_res->num_rows_reserved) {
+        // Not enough space for the rows requested, alloc more and rebind
+        for (int i = 0; i < stmthp_res->num_cols; i++) {
+            col_info *column_info = &stmthp_res->col_info[i];
+            void *valuep = enif_realloc(column_info->valuep, column_info->col_size * nrows);
+            if (!valuep) {
+                return enif_raise_exception(env, ATOM_ENOMEM);
+            }
+            column_info->valuep = valuep;
+
+            void *indp = enif_realloc(column_info->indp, sizeof(sb2) * nrows);
+            if (!indp) {
+                return enif_raise_exception(env, ATOM_ENOMEM);
+            }
+            column_info->indp = indp;
+
+            void *rlenp = enif_realloc(column_info->rlenp, sizeof(ub2) * nrows);
+            if (!rlenp) {
+                return enif_raise_exception(env, ATOM_ENOMEM);
+            }
+            column_info->rlenp = rlenp;
+
+            int status = OCIDefineByPos(stmthp_res->stmthp, &column_info->definehp,
+                                stmthp_res->errhp,
+                                i + 1,
+                                (void *)valuep,
+                                column_info->col_size,
+                                column_info->col_type,
+                                (sb2 *) indp,
+                                (ub2 *) rlenp,
+                                (ub2 *) NULL, // FIXME rcodep,
+                                OCI_DEFAULT );
+            if (status) {
+                return reterr(env, stmthp_res->errhp, status);
+                }
+        }
+        stmthp_res->num_rows_reserved = nrows;
+    }
     
     int status = OCIStmtFetch2 (stmthp_res->stmthp, stmthp_res->errhp,
                                 nrows,               // Number of rows to return
                                 (ub2) OCI_DEFAULT,   // orientation
                                 (sb4) 0,             // fetchOffset
                                 OCI_DEFAULT);
+    if (status != OCI_SUCCESS && status != OCI_NO_DATA) {
+        return reterr(env, stmthp_res->errhp, status);
+    }
+    status = OCIAttrGet(stmthp_res->stmthp, (ub4) OCI_HTYPE_STMT,
+                            (void*) &fetched_rows,(ub4 *) 0,
+                            OCI_ATTR_ROWS_FETCHED,
+                            stmthp_res->errhp);
     if (status) {
         return reterr(env, stmthp_res->errhp, status);
-    } else {
-        ERL_NIF_TERM list = enif_make_list(env, 0);
-        for (int i = 0; i < stmthp_res->num_cols; i++) {
-            ERL_NIF_TERM term;
-            col_info *col = &stmthp_res->col_info[i];
-            if (col->ind == (ub2) -1) {
+    }
+
+    ERL_NIF_TERM col_list = enif_make_list(env, 0);
+    // 
+    for (int i = 0; i < fetched_rows; i++) {
+        ERL_NIF_TERM row_list = enif_make_list(env, 0);
+        for (int j = 0; j < stmthp_res->num_cols; j++) {
+            col_info *col = &stmthp_res->col_info[j];
+            if (*(col->indp + i) == (sb2) -1) {
                 // returned value is NULL
-                list = enif_make_list_cell(env, ATOM_NULL, list);
+                row_list = enif_make_list_cell(env, ATOM_NULL, row_list);
             } else {
-                unsigned char *bin = enif_make_new_binary(env, col->col_size, &term);
-                memcpy(bin, col->valuep, col->col_size);
-                list = enif_make_list_cell(env, term, list);
+                ERL_NIF_TERM term;
+                ub2 rlen = *(col->rlenp + i);
+                
+                unsigned char *bin = enif_make_new_binary(env, rlen, &term);
+                memcpy(bin, col->valuep + i * col->col_size, rlen);
+
+                row_list = enif_make_list_cell(env, term, row_list);
             }
         }
-        return enif_make_tuple2(env, ATOM_OK, list);
+        col_list = enif_make_list_cell(env, row_list, col_list);
     }
+    ERL_NIF_TERM finished;
+    if (status == OCI_NO_DATA || fetched_rows < nrows) {
+        finished = ATOM_TRUE;
+    } else {
+        finished = ATOM_FALSE;
+    }
+    return enif_make_tuple3(env, ATOM_OK, col_list, finished);
 }
 
 static ErlNifFunc nif_funcs[] =
@@ -1425,6 +1510,8 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
         bindhp_res_dtor, ERL_NIF_RT_CREATE, NULL);
 
     ATOM_OK = enif_make_atom(env, "ok");
+    ATOM_TRUE = enif_make_atom(env, "true");
+    ATOM_FALSE = enif_make_atom(env, "false");
     ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_NULL = enif_make_atom(env, "NULL");
     ATOM_COLS = enif_make_atom(env, "cols");

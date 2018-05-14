@@ -183,7 +183,7 @@ select_null(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
     ?assertMatch({ok, #{statement := select}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
-    ?assertMatch({ok, _},  erloci_nif:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, _,_},  erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
@@ -191,13 +191,13 @@ select_bind(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, BindVars1} = erloci_nif:ociBindByName(Stmthp, #{}, <<"A">>,  'SQLT_CHR', <<"X">>),
     {ok, BindVars2} = erloci_nif:ociBindByName(Stmthp, BindVars1, <<"B">>,  'SQLT_CHR', <<"Y">>),
     ?assertMatch({ok, #{statement := select, cols := [{<<"DUMMY">>,'SQLT_CHR',1,_,0}]}},  erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, 'OCI_DEFAULT')),
-    ?assertMatch({ok, [<<"X">>]}, erloci_nif:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, [[<<"X">>]], _}, erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci_nif:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
     ?assertMatch({ok, _}, erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
-    ?assertMatch({ok, _}, erloci_nif:ociStmtFetch(Stmthp, 1)).
+    ?assertMatch({ok, _,_}, erloci_nif:ociStmtFetch(Stmthp, 1)).
 
 missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
@@ -215,34 +215,46 @@ bad_sql_connection_reuse(#{envhp := Envhp}) ->
         ?assertEqual(ok, erloci_nif:ociStmtHandleFree(Stmthp)).
 
 insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
-    _RowCount = 5,
+    RowCount = 6,
     flush_table(Sess),
-    I = 5,
+
     {ok, Stmthp} = erloci_nif:ociStmtHandleCreate(Envhp),
     ok =  erloci_nif:ociStmtPrepare(Stmthp, ?INSERT),
-    Vars = [{<<"pkey">>,  'SQLT_INT', 1},
-            {<<"publisher">>, 'SQLT_CHR',
-                         unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])},
-            {<<"rank">>, 'SQLT_FLT', I+I/2},
-            {<<"hero">>, 'SQLT_IBDOUBLE', 9.9945}, %1.0e-307},
-            {<<"reality">>, 'SQLT_BIN', list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])},
-            {<<"votes">>, 'SQLT_INT', 27},
-            {<<"createdate">>, 'SQLT_DAT', oci_util:edatetime_to_ora(os:timestamp())},
-            {<<"chapters">>, 'SQLT_IBFLOAT', 9.9945},% 9.999999350456404e-39},
-            {<<"votes_first_rank">>, 'SQLT_INT', I}],
-    BindVars = lists:foldl(fun({Name, Type, Value}, Acc) ->
-                            {ok, BV} = erloci_nif:ociBindByName(Stmthp, Acc, Name, Type, Value),
-                            BV
-                        end, #{}, Vars),
-    Res = erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, 'OCI_COMMIT_ON_SUCCESS'),
-    io:format("RES: ~p\r\n", [Res]),
-    ?assertMatch({ok, _}, Res),
-    %% {ok, Stmthp2} = erloci_nif:ociStmtHandleCreate(Envhp),
-    ok =  erloci_nif:ociStmtPrepare(Stmthp, <<"SELECT count(*) FROM erloci_nif_simple_test_1">>),
-    {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT'),
-    {ok, [RowCount]} = erloci_nif:ociStmtFetch(Stmthp, 1),
-    Total = oci_util:from_num(RowCount),
-    ?assertMatch("1", Total).
+    lists:foreach(fun(I) ->
+        Vars = [{<<"pkey">>,  'SQLT_INT', I},
+                {<<"publisher">>, 'SQLT_CHR',
+                            unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])},
+                {<<"rank">>, 'SQLT_FLT', I+I/2},
+                {<<"hero">>, 'SQLT_IBDOUBLE', 9.9945}, %1.0e-307},
+                {<<"reality">>, 'SQLT_BIN', list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])},
+                {<<"votes">>, 'SQLT_INT', 27},
+                {<<"createdate">>, 'SQLT_DAT', oci_util:edatetime_to_ora(os:timestamp())},
+                {<<"chapters">>, 'SQLT_IBFLOAT', 9.9945},% 9.999999350456404e-39},
+                {<<"votes_first_rank">>, 'SQLT_INT', I}],
+        BindVars = lists:foldl(fun({Name, Type, Value}, Acc) ->
+                                {ok, BV} = erloci_nif:ociBindByName(Stmthp, Acc, Name, Type, Value),
+                                BV
+                            end, #{}, Vars),
+        Res = erloci_nif:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, 'OCI_COMMIT_ON_SUCCESS'),
+        % io:format("RES: ~p\r\n", [Res]),
+        ?assertMatch({ok, _}, Res)
+    end, lists:seq(1, RowCount)),
+
+    {ok, Stmthp2} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ok =  erloci_nif:ociStmtPrepare(Stmthp2, <<"SELECT count(*) FROM erloci_nif_simple_test_1">>),
+    {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, 'OCI_DEFAULT'),
+    {ok, [RowCount1], _} = erloci_nif:ociStmtFetch(Stmthp2, 1),
+    % io:format("RowCount: ~p\r\n", [RowCount]),
+    Total = "1", %oci_util:from_num(RowCount),
+    ?assertMatch("1", Total),
+
+    {ok, Stmthp3} = erloci_nif:ociStmtHandleCreate(Envhp),
+    ok =  erloci_nif:ociStmtPrepare(Stmthp3, <<"SELECT * FROM erloci_nif_simple_test_1">>),
+    {ok, _} = erloci_nif:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, 'OCI_DEFAULT'),
+    {ok, [Row1,R2,R3], false} = erloci_nif:ociStmtFetch(Stmthp3, 3),
+    {ok, [R4,R5], false} = erloci_nif:ociStmtFetch(Stmthp3, 2),
+    {ok, [R6], true} = erloci_nif:ociStmtFetch(Stmthp3, 7).
+
 
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->

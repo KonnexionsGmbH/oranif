@@ -1117,7 +1117,6 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     text *col_name;
 
     // Vars for the define step
-    void *valuep;
     OCIDefine *definehp = (OCIDefine *) 0;
 
     if(!(argc == 6 &&
@@ -1332,20 +1331,22 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             column_info->col_size++;
         }
 
-        valuep = enif_alloc(column_info->col_size);
-        memset(valuep, 0, column_info->col_size);
-        column_info->valuep = valuep;
-
+        column_info->valuep = enif_alloc(column_info->col_size);
         column_info->indp = enif_alloc(sizeof(sb2));
-        memset(column_info->indp, 0, sizeof(sb2));
-
         column_info->rlenp = enif_alloc(sizeof(ub2));
+
+        if (!column_info->valuep || !column_info->indp || !column_info->rlenp) {
+            OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
+            return reterr(env, stmthp_res->errhp, status);
+        }
+        memset(column_info->valuep, 0, column_info->col_size);
+        memset(column_info->indp, 0, sizeof(sb2));
         memset(column_info->rlenp, 0, sizeof(ub2));
 
         status = OCIDefineByPos(stmthp_res->stmthp, &definehp,
                                 stmthp_res->errhp,
                                 counter,
-                                (void *)valuep,
+                                (void *)column_info->valuep,
                                 column_info->col_size,
                                 column_info->col_type,
                                 (sb2 *) column_info->indp,
@@ -1356,10 +1357,9 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                 OCIDescriptorFree(paramd, OCI_DTYPE_PARAM);
                 return reterr(env, stmthp_res->errhp, status);
                 }
-        //  printf("Col %d OCIDefineByPos type: %d \r\n", counter, col_type);
-
 
         counter++;
+        // param_status will get us out of the while loop
         param_status = OCIParamGet(stmthp_res->stmthp, OCI_HTYPE_STMT,
                                     stmthp_res->errhp,
                                     (dvoid **)&paramd, counter);

@@ -1,14 +1,13 @@
-{application, erloci_nif,
+{application, erloci,
  [{description, "NIF based driver for Oracle OCI library"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, { erloci_nif_app, []}},
   {applications,
    [kernel,
     stdlib
    ]},
   {env,[]},
-  {modules, []},
+  {modules, [erloci]},
 
   {maintainers, []},
   {licenses, ["Apache 2.0"]},

@@ -1,4 +1,4 @@
--module(erloci_nif_int).
+-module(erloci_int).
 
 -export([sql_type_to_int/1, int_to_sql_type/1,
         stmt_type_to_int/1, int_to_stmt_type/1,
@@ -19,7 +19,7 @@ c_type(sb4) -> 6.
 %% From oci.h
 %%--------------------------- OCI Statement Types -----------------------------
 
-stmt_type_to_int('unknowN') -> 0;      % Unknown statement
+stmt_type_to_int('unknown') -> 0;      % Unknown statement
 stmt_type_to_int('select')  -> 1;      % select statement
 stmt_type_to_int('update')  -> 2;      % update statement
 stmt_type_to_int('delete')  -> 3;      % delete statement

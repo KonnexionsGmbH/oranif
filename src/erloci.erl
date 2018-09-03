@@ -1,4 +1,4 @@
--module(erloci_nif).
+-module(erloci).
 
 %% External API to OCI Driver
 
@@ -24,37 +24,37 @@
                      NationalCharset :: integer()) -> {ok, Envhp :: reference()}
                                                      | {error, binary()}.
 ociEnvNlsCreate(ClientCharset, NationalCharset) ->
-    erloci_nif_drv:ociEnvNlsCreate(ClientCharset, NationalCharset).
+    erloci_drv:ociEnvNlsCreate(ClientCharset, NationalCharset).
 
 %%--------------------------------------------------------------------
 %% Free the OCI Env handle
 %%--------------------------------------------------------------------
 -spec ociEnvHandleFree(Envhp :: reference()) -> ok.
 ociEnvHandleFree(Envhp) ->
-    erloci_nif_drv:ociEnvHandleFree(Envhp).
+    erloci_drv:ociEnvHandleFree(Envhp).
 
 %%--------------------------------------------------------------------
 %% Terminate the instance of OCI releasing all shared memory held by OCI.
 %%--------------------------------------------------------------------
 -spec ociTerminate() -> ok.
 ociTerminate() ->
-    erloci_nif_drv:ociTerminate().
+    erloci_drv:ociTerminate().
 
 -spec ociNlsGetInfo(Envhp :: reference(),
                     Item :: atom()) -> {ok, Info :: binary()}
                                           | {error, binary()}.
 ociNlsGetInfo(Envhp, Item) ->
-    ItemId = erloci_nif_int:nls_info_to_int(Item),
-    erloci_nif_drv:ociNlsGetInfo(Envhp, ItemId).
+    ItemId = erloci_int:nls_info_to_int(Item),
+    erloci_drv:ociNlsGetInfo(Envhp, ItemId).
 
 -spec ociCharsetAttrGet(Envhp :: reference()) ->
     {ok, {Charset :: integer(), NCharset :: integer()}}
     | {error, binary()}.
 ociCharsetAttrGet(Envhp) ->
-    case erloci_nif_drv:ociCharsetAttrGet(Envhp) of
+    case erloci_drv:ociCharsetAttrGet(Envhp) of
         {ok, {CharsetId, NCharsetId}} ->
-            {ok, Name} = erloci_nif_drv:ociNlsCharSetIdToName(Envhp, CharsetId),
-            {ok, NName} = erloci_nif_drv:ociNlsCharSetIdToName(Envhp, NCharsetId),
+            {ok, Name} = erloci_drv:ociNlsCharSetIdToName(Envhp, CharsetId),
+            {ok, NName} = erloci_drv:ociNlsCharSetIdToName(Envhp, NCharsetId),
             {ok, #{charset => {CharsetId, Name},
                    ncharset => {NCharsetId, NName}}};
         Err ->
@@ -68,10 +68,10 @@ ociCharsetAttrGet(Envhp) ->
                 AttrType :: atom()) ->
                     ok | {error, binary()}.
 ociAttrSet(Handle, HandleType, CDataTpe, Value, AttrType) ->
-    HandleTypeInt = erloci_nif_int:handle_type_to_int(HandleType),
-    CDataTypeInt = erloci_nif_int:c_type(CDataTpe),
-    AttrTypeInt = erloci_nif_int:attr_name_to_int(AttrType),
-    erloci_nif_drv:ociAttrSet(Handle, HandleTypeInt, CDataTypeInt, Value, AttrTypeInt).
+    HandleTypeInt = erloci_int:handle_type_to_int(HandleType),
+    CDataTypeInt = erloci_int:c_type(CDataTpe),
+    AttrTypeInt = erloci_int:attr_name_to_int(AttrType),
+    erloci_drv:ociAttrSet(Handle, HandleTypeInt, CDataTypeInt, Value, AttrTypeInt).
 
 -spec ociAttrGet(Handle :: reference(),
                 HandleType :: atom(),
@@ -79,17 +79,17 @@ ociAttrSet(Handle, HandleType, CDataTpe, Value, AttrType) ->
                 AttrType :: atom()) ->
         {ok, Value :: integer() | binary()} | {error, binary()}.
 ociAttrGet(Handle, HandleType, CDataTpe, AttrType) ->
-    HandleTypeInt = erloci_nif_int:handle_type_to_int(HandleType),
-    CDataTypeInt = erloci_nif_int:c_type(CDataTpe),
-    AttrTypeInt = erloci_nif_int:attr_name_to_int(AttrType),
-    erloci_nif_drv:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
+    HandleTypeInt = erloci_int:handle_type_to_int(HandleType),
+    CDataTypeInt = erloci_int:c_type(CDataTpe),
+    AttrTypeInt = erloci_int:attr_name_to_int(AttrType),
+    erloci_drv:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
 
 %%--------------------------------------------------------------------
 %% Ping the database on the referenced Session
 %%--------------------------------------------------------------------
 -spec ociPing(Svchp :: reference()) -> pong | pang.
 ociPing(Svchp) ->
-    erloci_nif_drv:ociPing(Svchp).
+    erloci_drv:ociPing(Svchp).
 
 %%--------------------------------------------------------------------
 %% Create an Auth Handle based on supplied username / password
@@ -101,7 +101,7 @@ ociPing(Svchp) ->
                           Password :: binary()) -> {ok, Authhp :: reference()}
                                                    | {error, binary()}.
 ociAuthHandleCreate(Envhp, UserName, Password) ->
-    erloci_nif_drv:ociAuthHandleCreate(Envhp, UserName, Password).
+    erloci_drv:ociAuthHandleCreate(Envhp, UserName, Password).
 
 %%--------------------------------------------------------------------
 %% Create a session pool. All operations to the database must use one
@@ -120,7 +120,7 @@ ociAuthHandleCreate(Envhp, UserName, Password) ->
                                                     | {error, binary()}.
 ociSessionPoolCreate(Envhp, DataBase, SessMin,
                      SessMax, SessInc, UserName, Password) ->
-    erloci_nif_drv:ociSessionPoolCreate(Envhp, DataBase, SessMin,
+    erloci_drv:ociSessionPoolCreate(Envhp, DataBase, SessMin,
                                         SessMax, SessInc, UserName, Password).
 
 %%--------------------------------------------------------------------
@@ -129,7 +129,7 @@ ociSessionPoolCreate(Envhp, DataBase, SessMin,
 %%--------------------------------------------------------------------
 -spec ociSessionPoolDestroy(Spoolhp :: reference()) -> ok.
 ociSessionPoolDestroy(Spoolhp) ->
-    erloci_nif_drv:ociSessionPoolDestroy(Spoolhp).
+    erloci_drv:ociSessionPoolDestroy(Spoolhp).
 
 %%--------------------------------------------------------------------
 %% Fetch a session from the session pool.
@@ -140,7 +140,7 @@ ociSessionPoolDestroy(Spoolhp) ->
                     Spoolhp :: reference()) -> {ok, Svchp :: reference()}
                                              | {error, binary()}.
 ociSessionGet(Envhp, Authhp, Spoolhp) ->
-    erloci_nif_drv:ociSessionGet(Envhp, Authhp, Spoolhp).
+    erloci_drv:ociSessionGet(Envhp, Authhp, Spoolhp).
 
 %%--------------------------------------------------------------------
 %% Returns a session to the session pool.
@@ -148,7 +148,7 @@ ociSessionGet(Envhp, Authhp, Spoolhp) ->
 -spec ociSessionRelease(Svchp :: reference()) -> ok
                                                  | {error, binary()}.
 ociSessionRelease(Svchp) ->
-    erloci_nif_drv:ociSessionRelease(Svchp).
+    erloci_drv:ociSessionRelease(Svchp).
 
 %%--------------------------------------------------------------------
 %% Create a statement Handle. Can be re-used for multiple statements.
@@ -156,19 +156,19 @@ ociSessionRelease(Svchp) ->
 -spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
                                                    | {error, binary()}.
 ociStmtHandleCreate(Envhp) ->
-    erloci_nif_drv:ociStmtHandleCreate(Envhp).
+    erloci_drv:ociStmtHandleCreate(Envhp).
 
 %%--------------------------------------------------------------------
 %% Free a statement handle.
 %%--------------------------------------------------------------------
 -spec ociStmtHandleFree(Stmthp :: reference()) -> ok.
 ociStmtHandleFree(Stmthp) ->
-    erloci_nif_drv:ociStmtHandleFree(Stmthp).
+    erloci_drv:ociStmtHandleFree(Stmthp).
 
 -spec ociStmtPrepare(Stmthp :: reference(),
                     Stmt :: binary()) -> ok | {error, binary()}.
 ociStmtPrepare(Stmthp, Stmt) ->
-        erloci_nif_drv:ociStmtPrepare(Stmthp, Stmt).
+        erloci_drv:ociStmtPrepare(Stmthp, Stmt).
 %%
 -spec ociStmtExecute(Svchp :: reference(),
                     Stmthp :: reference(),
@@ -177,18 +177,18 @@ ociStmtPrepare(Stmthp, Stmt) ->
                     RowOff :: pos_integer(),
                     Mode :: atom()) -> ok | {error, binary()}.
 ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, Mode) ->
-    ModeInt = erloci_nif_int:oci_mode(Mode),
-    case erloci_nif_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt) of
+    ModeInt = erloci_int:oci_mode(Mode),
+    case erloci_drv:ociStmtExecute(Svchp, Stmthp, BindVars, Iters, RowOff, ModeInt) of
         {ok, #{statement := Stmt} = Map} ->
             Map2 = case Map of
                 #{cols := Cols} ->
-                    Cs2 = [{Value,erloci_nif_int:int_to_sql_type(Type),Size,Precision,Scale} ||
+                    Cs2 = [{Value,erloci_int:int_to_sql_type(Type),Size,Precision,Scale} ||
                             {Value,Type, Size,Precision,Scale} <- Cols],
                     maps:put(cols, Cs2, Map);
                 _ -> 
                     Map
                 end,
-            {ok, maps:put(statement, erloci_nif_int:int_to_stmt_type(Stmt), Map2)};
+            {ok, maps:put(statement, erloci_int:int_to_stmt_type(Stmt), Map2)};
         Else ->
             Else
     end.
@@ -205,19 +205,19 @@ ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) when
                                                     is_map(BindVars),
                                                     is_binary(BindVarName),
                                                     is_atom(SqlType) ->
-    IntType = erloci_nif_int:sql_type_to_int(SqlType),
+    IntType = erloci_int:sql_type_to_int(SqlType),
     case BindVarValue of
         'NULL' ->
-            erloci_nif_drv:ociBindByName(Stmthp, BindVars, BindVarName, -1, IntType, <<>>);
+            erloci_drv:ociBindByName(Stmthp, BindVars, BindVarName, -1, IntType, <<>>);
         _ ->
-            erloci_nif_drv:ociBindByName(Stmthp, BindVars, BindVarName, 0, IntType, BindVarValue)
+            erloci_drv:ociBindByName(Stmthp, BindVars, BindVarName, 0, IntType, BindVarValue)
     end.
 
 -spec ociStmtFetch(Stmthp :: {reference(), map()},
   NumRows :: pos_integer()) -> {ok, [term]}
                                | {error, binary()}.
 ociStmtFetch(Stmthp, NumRows) ->
-        erloci_nif_drv:ociStmtFetch(Stmthp, NumRows).
+        erloci_drv:ociStmtFetch(Stmthp, NumRows).
 
 parse_lang(Lang) when is_list(Lang) ->
     case string:tokens(Lang, "._") of

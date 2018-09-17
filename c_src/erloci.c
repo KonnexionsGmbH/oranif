@@ -1520,7 +1520,9 @@ static ErlNifFunc nif_funcs[] =
 };
 
 
-static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    printf("%s:%d\r\n", __FUNCTION__, __LINE__);
     envhp_resource_type = enif_open_resource_type(env, NULL, "envhp",
         envhp_res_dtor, ERL_NIF_RT_CREATE, NULL);
 
@@ -1553,4 +1555,4 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
     return 0;
 }
 
-ERL_NIF_INIT(erloci_drv,nif_funcs,&load,NULL,NULL,NULL)
+ERL_NIF_INIT(erloci_drv, nif_funcs, load, NULL, NULL, NULL)

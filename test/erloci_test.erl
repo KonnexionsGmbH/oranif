@@ -3,98 +3,76 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("test_common.hrl").
 
--define(TESTTABLE, "erloci_simple_test_1").
+-define(TESTTABLE, "erloci_eunit_test").
 
+-define(DROP, <<"drop table "?TESTTABLE>>).
 
--define(DROP,   <<"drop table "?TESTTABLE>>).
+-define(CREATE,
+    <<"create table "?TESTTABLE
+      " (pkey integer, publisher varchar2(30), rank float, hero binary_double,"
+       " reality raw(10), votes number(1,-10), createdate date default sysdate,"
+       " chapters binary_float, votes_first_rank number)">>
+).
+-define(INSERT,
+    <<"insert into "?TESTTABLE" (pkey, publisher, rank, hero, reality, votes,"
+                               " createdate, chapters, votes_first_rank) "
+      "values (:pkey, :publisher, :rank, :hero, :reality, :votes, :createdate,"
+             " :chapters, :votes_first_rank)">>).
 
--define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
-                  "publisher varchar2(30),"
-                  "rank float,"
-                  "hero binary_double,"
-                  "reality raw(10),"
-                  "votes number(1,-10),"
-                  "createdate date default sysdate,"
-                  "chapters binary_float,"
-                  "votes_first_rank number)">>).
-
--define(INSERT, <<"insert into "?TESTTABLE
-                " (pkey,publisher,rank,hero,reality,votes,createdate,"
-                  "  chapters,votes_first_rank) values ("
-                  ":pkey"
-                  ", :publisher"
-                  ", :rank"
-                  ", :hero"
-                  ", :reality"
-                  ", :votes"
-                  ", :createdate"
-                  ", :chapters"
-                  ", :votes_first_rank)">>).
--define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE
-                           ".* from "?TESTTABLE>>).
+-define(SELECT_WITH_ROWID,
+    <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>
+).
 -define(SELECT_ROWID_ASC, <<"select rowid from "?TESTTABLE" order by pkey">>).
--define(SELECT_ROWID_DESC, <<"select rowid from "?TESTTABLE
-                           " order by pkey desc">>).
--define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
-                 , {<<":publisher">>, 'SQLT_CHR'}
-                 ]).
--define(UPDATE, <<"update "?TESTTABLE" set "
-                "pkey = :pkey"
-                ", publisher = :publisher"
-                " where "?TESTTABLE".rowid = :pri_rowid1">>).
--define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
-                        , {<<":publisher">>, 'SQLT_CHR'}
-                        ]).
+-define(SELECT_ROWID_DESC,
+    <<"select rowid from "?TESTTABLE" order by pkey desc">>
+).
+-define(BIND_LIST, [{<<":pkey">>, 'SQLT_INT'}, {<<":publisher">>, 'SQLT_CHR'}]).
+
+-define(UPDATE,
+    <<"update "?TESTTABLE" set pkey = :pkey, publisher = :publisher"
+      " where "?TESTTABLE".rowid = :pri_rowid1">>
+).
+-define(UPDATE_BIND_LIST,
+    [{<<":pkey">>, 'SQLT_INT'}, {<<":publisher">>, 'SQLT_CHR'}]
+).
+
 % ------------------------------------------------------------------------------
 % db_negative_test_
 % ------------------------------------------------------------------------------
 db_negative_test_() ->
     {timeout, 60, {
-        setup,
-        fun() ->
-                Conf = ?CONN_CONF,
-                application:start(erloci_nif),
-                #{tns := Tns, user := User, password := Pass,
-                 logging := _Logging, lang := Lang} = Conf,
-                 {Language, Country, Charset} =
-                    erloci:parse_lang("GERMAN_SWITZERLAND.AL32UTF8"),
-                E1 =  erloci:ociEnvNlsCreate(0,0),
-                {ok, CharsetId} = erloci_drv:ociNlsCharSetNameToId(E1, Charset),
-                ok = erloci:ociEnvHandleFree(E1),
-
-                Envhp =  erloci:ociEnvNlsCreate(CharsetId,CharsetId),
-                {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp,
-                   Tns,
-                   2, 10, 1, User, Pass),
-                #{envhp => Envhp, conf => Conf, spoolhp => Spoolhp}
-        end,
-        fun(#{envhp := Envhp, spoolhp := Spoolhp}) ->
-                ok = erloci:ociSessionPoolDestroy(Spoolhp),
-                ok = erloci:ociEnvHandleFree(Envhp),
-                ok = erloci:ociTerminate(),
-                application:stop(erloci_nif)
-        end,
+        setup, fun setup/0, fun teardown/1,
         {with, [
-            %% fun bad_password/1,
+            fun bad_password/1,
             fun session_ping/1
         ]}
     }}.
 
-bad_password(#{envhp := Envhp, spoolhp := Spoolhp, conf := #{tns := Tns, user := User, password := Pass}}) ->
+bad_password(#{envhp := Envhp, spoolhp := Spoolhp,
+               conf := #{user := User, password := Pass}}) ->
     {ok, Authhp} = erloci:ociAuthHandleCreate(Envhp, User, list_to_binary([Pass,"_bad"])),
-    ?assertMatch(
-       {error, {1017,_}}, erloci:ociSessionGet(Envhp, Authhp, Spoolhp)).
+    Res = erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
+    case Res of
+        {ok, Svchp} -> ok = erloci:ociSessionRelease(Svchp);
+        _ -> ok
+    end,
+    ok = erloci:ociAuthHandleFree(Authhp),
+    ?assertMatch({error, {1017,_}}, Res).
 
-session_ping(#{envhp := Envhp, spoolhp := Spoolhp, conf := #{tns := Tns, user := User, password := Pass}}) ->
+session_ping(#{envhp := Envhp, spoolhp := Spoolhp,
+               conf := #{user := User, password := Pass}}) ->
     {ok, Authhp} = erloci:ociAuthHandleCreate(Envhp, User, Pass),
     {ok, Svchp} =  erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
     ?assertEqual(pong, erloci:ociPing(Svchp)),
     {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
     ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from dual">>)),
     ?assertEqual(pong, erloci:ociPing(Svchp)),
-    ?assertMatch({ok, #{cols := [{<<"DUMMY">>,'SQLT_CHR',_,_,0}]}}, erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')),
+    ?assertMatch(
+        {ok, #{cols := [{<<"DUMMY">>,'SQLT_CHR',_,_,0}]}},
+        erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, 'OCI_DEFAULT')
+    ),
     ?assertEqual(pong, erloci:ociPing(Svchp)),
-    % ?assertEqual({{rows,[[<<"X">>]]},true}, erloci:ociStmtFetch(Stmthp, 1)),
+    ?assertEqual({ok, [[<<"X">>]], true}, erloci:ociStmtFetch(Stmthp, 2)),
     ?assertEqual(pong, erloci:ociPing(Svchp)),
     ok = erloci:ociStmtHandleFree(Stmthp),
     ok = erloci:ociSessionRelease(Svchp).
@@ -104,44 +82,7 @@ session_ping(#{envhp := Envhp, spoolhp := Spoolhp, conf := #{tns := Tns, user :=
 %%------------------------------------------------------------------------------
 db_test_() ->
     {timeout, 60, {
-       setup,
-       fun() ->
-               Conf = ?CONN_CONF,
-               application:start(erloci_nif),
-               #{tns := Tns, user := User, password := Pass,
-                 logging := _Logging, lang := Lang} = Conf,
-                 {Language, Country, Charset} = erloci:parse_lang(Lang),
-               E1 =  erloci:ociEnvNlsCreate(0,0),
-               {ok, CharsetId} = erloci_drv:ociNlsCharSetNameToId(E1, Charset),
-               ok = erloci:ociEnvHandleFree(E1),
-               Envhp =  erloci:ociEnvNlsCreate(CharsetId,CharsetId),
-               % ok = erloci:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', ub2, CharsetId, 'OCI_ATTR_ENV_CHARSET_ID'),
-               ok = erloci:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Language,'OCI_ATTR_ENV_NLS_LANGUAGE'),
-               ok = erloci:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Country,'OCI_ATTR_ENV_NLS_TERRITORY'),
-               {ok,<<"SWITZERLAND">>} = erloci:ociAttrGet(Envhp, 'OCI_HTYPE_ENV', text,'OCI_ATTR_ENV_NLS_TERRITORY'),
-
-
-               {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp,
-                   Tns,
-                   2, 10, 1, User, Pass),
-                {ok, Authhp} =  erloci:ociAuthHandleCreate(Envhp, User, Pass),
-                {ok, Svchp} =  erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
-                #{envhp => Envhp,
-                  spoolhp => Spoolhp,
-                  authhp => Authhp,
-                  svchp => Svchp,
-                  conf => Conf}
-       end,
-       fun(#{envhp := Envhp, svchp := Svchp, spoolhp := Spoolhp}) ->
-               %DropStmt = OciSession:prep_sql(?DROP),
-               %DropStmt:exec_stmt(),
-               %DropStmt:close(),
-               ok = erloci:ociSessionRelease(Svchp),
-               ok = erloci:ociSessionPoolDestroy(Spoolhp),
-               ok = erloci:ociEnvHandleFree(Envhp),
-               ok = erloci:ociTerminate(),
-               application:stop(erloci_nif)
-       end,
+        setup, fun setup_session/0, fun teardown_session/1,
        {with,
         [fun nls_get_info/1,
          fun set_binary_attr/1,
@@ -166,8 +107,8 @@ db_test_() ->
          %fun check_ping/1,
          %fun check_session_without_ping/1,
          %fun check_session_with_ping/1,
-         %fun urowid/1
-        fun select_null/1
+         %fun urowid/1,
+         fun select_null/1
         ]}
       }}.
 
@@ -244,26 +185,59 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     ok =  erloci:ociStmtPrepare(Stmthp2, <<"SELECT count(*) FROM erloci_simple_test_1">>),
     {ok, _} = erloci:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, 'OCI_DEFAULT'),
     {ok, [[RowCount1]], _} = erloci:ociStmtFetch(Stmthp2, 1),
-    % io:format("RowCount: ~p\r\n", [RowCount]),
     Total = oci_util:from_num(RowCount1),
     ?assertMatch("6", Total),
 
     {ok, Stmthp3} = erloci:ociStmtHandleCreate(Envhp),
     ok =  erloci:ociStmtPrepare(Stmthp3, <<"SELECT * FROM erloci_simple_test_1">>),
     {ok, _} = erloci:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, 'OCI_DEFAULT'),
-    {ok, [Row1,R2,R3], false} = erloci:ociStmtFetch(Stmthp3, 3),
-    % ?ELog("ROW ~p\r\n", [R3]),
+    {ok, [R1,R2,R3], false} = erloci:ociStmtFetch(Stmthp3, 3),
     {ok, [R4,R5], false} = erloci:ociStmtFetch(Stmthp3, 2),
     {ok, [R6], true} = erloci:ociStmtFetch(Stmthp3, 7).
 
+% ------------------------------------------------------------------------------
+% helpers
+% ------------------------------------------------------------------------------
+setup() ->
+    Conf = ?CONN_CONF,
+    #{tns := Tns, user := User, password := Pass, lang := Lang} = Conf,
+    {Language, Country, Charset} = erloci:parse_lang(Lang),
+    E1 =  erloci:ociEnvNlsCreate(0,0),
+    {ok, CharsetId} = erloci_drv:ociNlsCharSetNameToId(E1, Charset),
+    ok = erloci:ociEnvHandleFree(E1),
+    Envhp =  erloci:ociEnvNlsCreate(CharsetId,CharsetId),
+    ok = erloci:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Language,
+                           'OCI_ATTR_ENV_NLS_LANGUAGE'),
+    ok = erloci:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Country,
+                           'OCI_ATTR_ENV_NLS_TERRITORY'),
+    {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp, Tns, 2, 10, 1, User,
+                                                 Pass),
+    #{envhp => Envhp, conf => Conf, spoolhp => Spoolhp}.
+
+teardown(#{envhp := Envhp, spoolhp := Spoolhp}) ->
+    ok = erloci:ociSessionPoolDestroy(Spoolhp),
+    ok = erloci:ociEnvHandleFree(Envhp),
+    ok = erloci:ociTerminate().
+
+setup_session() ->
+    #{envhp := Envhp, spoolhp := Spoolhp, conf := #{user := User,
+      password := Pass}} = Ctx = setup(),
+    {ok, Authhp} =  erloci:ociAuthHandleCreate(Envhp, User, Pass),
+    {ok, Svchp} =  erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
+    Ctx#{authhp => Authhp, svchp => Svchp}.
+
+teardown_session(#{authhp := Authhp, svchp := Svchp} = Ctx) ->
+    ok = erloci:ociSessionRelease(Svchp),
+    ok = erloci:ociAuthHandleFree(Authhp),
+    teardown(Ctx).
+
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->
     {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp, ?DROP),
+    ok = erloci:ociStmtPrepare(Stmthp, ?DROP),
     case  erloci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0,  'OCI_DEFAULT') of
         {ok, #{statement := drop}} -> ok;
         {error,{942,_}} -> ok;
         Else -> exit(Else)
     end,
-    ok =  erloci:ociStmtPrepare(Stmthp, ?CREATE),
+    ok = erloci:ociStmtPrepare(Stmthp, ?CREATE),
     {ok, #{statement := create}} = erloci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, 'OCI_DEFAULT').
-

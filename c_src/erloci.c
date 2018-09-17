@@ -111,8 +111,8 @@ static void envhp_res_dtor(ErlNifEnv *env, void *resource) {
     envhp_res *res = (envhp_res*)resource;
     // printf("envhp_res_dtor called\r\n");
     if(res->envhp) {
-        OCIHandleFree(res->envhp, OCI_HTYPE_ENV );
-        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR );
+        OCIHandleFree(res->errhp, OCI_HTYPE_ERROR);
+        OCIHandleFree(res->envhp, OCI_HTYPE_ENV);
         res->envhp = NULL;
         res->errhp = NULL;
     }
@@ -326,6 +326,22 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             return nif_res;
         }
     }
+}
+
+static ERL_NIF_TERM ociAuthHandleFree(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    authhp_res *res;
+
+    if(!(argc == 1 &&
+        enif_get_resource(env, argv[0], authhp_resource_type, (void**)&res) )) {
+            return enif_make_badarg(env);
+        }
+
+    if(res->authhp) {
+        OCIHandleFree(res->authhp, OCI_HTYPE_AUTHINFO);
+        res->authhp = NULL;
+    }
+
+    return ATOM_OK;
 }
 
 static ERL_NIF_TERM ociEnvHandleFree(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -1175,6 +1191,14 @@ static ERL_NIF_TERM ociStmtExecute(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             }
             // printf("ROW COUNT %d\r\n", rc);
 
+            /********
+             * READING ROWID
+             * To determine the string size of ROWID to be read
+             *  OCIRowidToChar(...OraText *outbfp, ub2 *outbflp..) MUST be called with
+             * outbfp = NULL and *outbflp = 0, on return *outbflp will be set to ROWID size in bytes
+             */
+
+            // TODO find out what this is supposed to do and implement it
             OraText *rowID = NULL;
             ub2 size = 0;
             ERL_NIF_TERM row_id_bin;
@@ -1471,6 +1495,7 @@ static ErlNifFunc nif_funcs[] =
     // Knowledge from: https://docs.oracle.com/en/database/oracle/oracle-database/12.2/lnoci/oci-function-server-round-trips.html
     {"ociEnvNlsCreate", 2, ociEnvNlsCreate},
     {"ociEnvHandleFree", 1, ociEnvHandleFree},
+    {"ociAuthHandleFree", 1, ociAuthHandleFree},
     {"ociTerminate", 0, ociTerminate, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"ociNlsGetInfo", 2, ociNlsGetInfo},
     {"ociNlsCharSetIdToName", 2, ociNlsCharSetIdToName},

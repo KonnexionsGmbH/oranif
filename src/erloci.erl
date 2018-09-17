@@ -2,7 +2,7 @@
 
 %% External API to OCI Driver
 
--export([ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
+-export([ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1, ociTerminate/0,
         ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociPing/1,
         ociAttrSet/5, ociAttrGet/4,
@@ -32,6 +32,13 @@ ociEnvNlsCreate(ClientCharset, NationalCharset) ->
 -spec ociEnvHandleFree(Envhp :: reference()) -> ok.
 ociEnvHandleFree(Envhp) ->
     erloci_drv:ociEnvHandleFree(Envhp).
+
+%%--------------------------------------------------------------------
+%% Free the OCI Env handle
+%%--------------------------------------------------------------------
+-spec ociAuthHandleFree(Authhp :: reference()) -> ok.
+ociAuthHandleFree(Authhp) ->
+    erloci_drv:ociAuthHandleFree(Authhp).
 
 %%--------------------------------------------------------------------
 %% Terminate the instance of OCI releasing all shared memory held by OCI.

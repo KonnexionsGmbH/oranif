@@ -1,7 +1,8 @@
 -module(erloci_drv).
 %% Low level API to the nif
 
--export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociTerminate/0,
+-export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1,
+        ociTerminate/0,
         ociNlsGetInfo/2, ociCharsetAttrGet/1,
         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
         ociPing/1,
@@ -40,6 +41,10 @@ ociEnvNlsCreate(_ClientCharset, _NationalCharset) ->
 
 -spec ociEnvHandleFree(Envhp :: reference()) -> ok.
 ociEnvHandleFree(_Envhp) ->
+    ?NOT_LOADED.
+
+-spec ociAuthHandleFree(Authhp :: reference()) -> ok.
+ociAuthHandleFree(_Authhp) ->
     ?NOT_LOADED.
 
 -spec ociTerminate() -> ok.

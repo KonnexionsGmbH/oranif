@@ -245,7 +245,8 @@ static ERL_NIF_TERM execute_result_map(ErlNifEnv* env, stmthp_res *stmthp) {
         // return collected column info
         ERL_NIF_TERM list = enif_make_list(env, 0);
         ERL_NIF_TERM new_map;
-        for (int i = 0; i < stmthp->num_cols; i++) {
+        int i = 0;
+        for (i = 0; i < stmthp->num_cols; i++) {
             col_info *col = &stmthp->col_info[i];
             ERL_NIF_TERM name;
             text *buf = enif_make_new_binary(env, col->col_name.size, &name);
@@ -452,8 +453,8 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     // ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
     // sb4 int_value;        // value when it's signed
     ub4 size = 100;         // size of output value
-    void *handlep;
-    OCIError *errorhp;
+    void *handlep = NULL;
+    OCIError *errorhp = NULL;
     text attributep[100];
     //void *attributep = NULL;     // void * to output value
 
@@ -501,9 +502,9 @@ static ERL_NIF_TERM ociAttrSet(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
     sb4 int_value;        // value when it's signed
     ub4 size = 0;         // size of input value - can use 0 except for binaries
-    void *handlep;
-    OCIError *errorhp;
-    void *attributep;     // void * to value
+    void *handlep = NULL;
+    OCIError *errorhp = NULL;
+    void *attributep = NULL;     // void * to value
 
     if(!(argc == 5 &&
         enif_get_uint(env, argv[1], &handle_type) &&
@@ -886,10 +887,10 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     // Vars for each value type.
     enum v_type v_type = V_BINARY;
     int value_int;
-    double value_float, value_double;
+    double value_float = 0.0, value_double;
     ErlNifBinary value_bin;
 
-    ub4 arg_len;             // The size of memory we will need for the value
+    ub4 arg_len = 0;             // The size of memory we will need for the value
     // void *valuep = NULL;     // pointer to the value whatever c type it is
 
     if(!(argc == 6 &&
@@ -1397,6 +1398,7 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     stmthp_res *stmthp_res;
     ub4 nrows;
     ub4 fetched_rows;
+    int i, j;
     
     if(!(argc == 2 &&
         enif_get_resource(env, argv[0], stmthp_resource_type, (void**)&stmthp_res) &&
@@ -1405,7 +1407,7 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         }
     if (nrows > stmthp_res->num_rows_reserved) {
         // Not enough space for the rows requested, alloc more and rebind
-        for (int i = 0; i < stmthp_res->num_cols; i++) {
+        for (i = 0; i < stmthp_res->num_cols; i++) {
             col_info *column_info = &stmthp_res->col_info[i];
             void *valuep = enif_realloc(column_info->valuep, column_info->col_size * nrows);
             if (!valuep) {
@@ -1460,9 +1462,9 @@ static ERL_NIF_TERM ociStmtFetch(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     ERL_NIF_TERM col_list = enif_make_list(env, 0);
     // 
-    for (int i = 0; i < fetched_rows; i++) {
+    for (i = 0; i < fetched_rows; i++) {
         ERL_NIF_TERM row_list = enif_make_list(env, 0);
-        for (int j = 0; j < stmthp_res->num_cols; j++) {
+        for (j = 0; j < stmthp_res->num_cols; j++) {
             col_info *col = &stmthp_res->col_info[j];
             if (*(col->indp + i) == (sb2) -1) {
                 // returned value is NULL

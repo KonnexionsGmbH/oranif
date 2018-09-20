@@ -111,13 +111,13 @@ typedef struct
 		env,                                                                                          \
 		enif_make_tuple5(                                                                             \
 			env, ATOM_OCI_ERROR, STRING_FILE, enif_make_int(env, __LINE__), enif_make_int(env, __EC), \
-			enif_make_string(env, __EB, ERL_NIF_LATIN1)))
+			enif_make_string(env, (const char *)(__EB), ERL_NIF_LATIN1)))
 
 #define RAISE_EXCEPTION(__EB)                                           \
 	enif_raise_exception(                                               \
 		env,                                                            \
 		enif_make_tuple4(                                               \
 			env, ATOM_ERROR, STRING_FILE, enif_make_int(env, __LINE__), \
-			enif_make_string(env, __EB, ERL_NIF_LATIN1)))
+			enif_make_string(env, (const char *)(__EB), ERL_NIF_LATIN1)))
 
 #endif // __ERLOCI_H__

@@ -248,7 +248,7 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     default:
     {
         /* allocate an error handle */
-        OCIHandleAlloc(envhp, &errhp, OCI_HTYPE_ERROR, 0, NULL);
+        OCIHandleAlloc(envhp, (void**)&errhp, OCI_HTYPE_ERROR, 0, NULL);
 
         // Create the enif resource to hold the handles
         envhp_res *res = (envhp_res *)enif_alloc_resource(envhp_resource_type, sizeof(envhp_res));
@@ -335,7 +335,7 @@ static ERL_NIF_TERM ociNlsCharSetIdToName(ErlNifEnv *env, int argc, const ERL_NI
     ERL_NIF_TERM binary;
 
     if (!(argc == 2 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, &envhp_res) &&
+          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
           enif_get_uint(env, argv[1], &charset_id)))
     {
         return enif_make_badarg(env);
@@ -358,7 +358,7 @@ static ERL_NIF_TERM ociNlsCharSetNameToId(ErlNifEnv *env, int argc, const ERL_NI
     ErlNifBinary name;
 
     if (!(argc == 2 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, &envhp_res) &&
+          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
           enif_inspect_binary(env, argv[1], &name)))
     {
         return enif_make_badarg(env);
@@ -375,7 +375,7 @@ static ERL_NIF_TERM ociCharsetAttrGet(ErlNifEnv *env, int argc, const ERL_NIF_TE
     int status;
 
     if (!(argc == 1 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, &envhp_res)))
+          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res)))
     {
         return enif_make_badarg(env);
     }
@@ -1648,4 +1648,15 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     return 0;
 }
 
-ERL_NIF_INIT(erloci_drv, nif_funcs, load, NULL, NULL, NULL)
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
+{
+    TRACE;
+    return 0;
+}
+
+static void unload(ErlNifEnv* env, void* priv_data)
+{
+    TRACE;
+}
+
+ERL_NIF_INIT(erloci, nif_funcs, load, NULL, upgrade, unload)

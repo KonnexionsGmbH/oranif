@@ -201,7 +201,7 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
 % ------------------------------------------------------------------------------
 setup() ->
     Conf = ?CONN_CONF,
-    #{tns := Tns, user := User, password := Pass, lang := Lang} = Conf,
+    #{tns := Tns, lang := Lang} = Conf,
     {Language, Country, Charset} = erloci_intf:parse_lang(Lang),
     E1 =  erloci:ociEnvNlsCreate(0,0),
     {ok, CharsetId} = erloci:ociNlsCharSetNameToId(E1, Charset),
@@ -211,8 +211,8 @@ setup() ->
                            'OCI_ATTR_ENV_NLS_LANGUAGE'),
     ok = erloci_intf:ociAttrSet(Envhp, 'OCI_HTYPE_ENV', text, Country,
                            'OCI_ATTR_ENV_NLS_TERRITORY'),
-    {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp, Tns, 2, 10, 1, User,
-                                                 Pass),
+    {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp, Tns, 2, 10, 1, null,
+                                                 null),
     #{envhp => Envhp, conf => Conf, spoolhp => Spoolhp}.
 
 teardown(#{envhp := Envhp, spoolhp := Spoolhp}) ->

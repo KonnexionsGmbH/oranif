@@ -141,9 +141,9 @@ ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
                            SessMin :: pos_integer(),
                            SessMax :: pos_integer(),
                            SessInc :: pos_integer(),
-                           UserName :: binary(),
-                           Password :: binary()) -> {ok, Spoolhp :: reference()}
-                                                    | {error, binary()}.
+                           UserName :: null | binary(),
+                           Password :: null | binary()) ->
+        {ok, Spoolhp :: reference()} | {error, binary()}.
 ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
     ?NOT_LOADED.

@@ -248,7 +248,7 @@ static ERL_NIF_TERM ociEnvNlsCreate(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     default:
     {
         /* allocate an error handle */
-        OCIHandleAlloc(envhp, (void**)&errhp, OCI_HTYPE_ERROR, 0, NULL);
+        OCIHandleAlloc(envhp, (void **)&errhp, OCI_HTYPE_ERROR, 0, NULL);
 
         // Create the enif resource to hold the handles
         envhp_res *res = (envhp_res *)enif_alloc_resource(envhp_resource_type, sizeof(envhp_res));
@@ -335,7 +335,7 @@ static ERL_NIF_TERM ociNlsCharSetIdToName(ErlNifEnv *env, int argc, const ERL_NI
     ERL_NIF_TERM binary;
 
     if (!(argc == 2 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
+          enif_get_resource(env, argv[0], envhp_resource_type, (void **)&envhp_res) &&
           enif_get_uint(env, argv[1], &charset_id)))
     {
         return enif_make_badarg(env);
@@ -358,7 +358,7 @@ static ERL_NIF_TERM ociNlsCharSetNameToId(ErlNifEnv *env, int argc, const ERL_NI
     ErlNifBinary name;
 
     if (!(argc == 2 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res) &&
+          enif_get_resource(env, argv[0], envhp_resource_type, (void **)&envhp_res) &&
           enif_inspect_binary(env, argv[1], &name)))
     {
         return enif_make_badarg(env);
@@ -375,7 +375,7 @@ static ERL_NIF_TERM ociCharsetAttrGet(ErlNifEnv *env, int argc, const ERL_NIF_TE
     int status;
 
     if (!(argc == 1 &&
-          enif_get_resource(env, argv[0], envhp_resource_type, (void**)&envhp_res)))
+          enif_get_resource(env, argv[0], envhp_resource_type, (void **)&envhp_res)))
     {
         return enif_make_badarg(env);
     }
@@ -464,7 +464,7 @@ static ERL_NIF_TERM ociAttrSet(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     ErlNifBinary bin_value; // value when it's text
     ub4 uint_value;         // value when it's unsigned (erlang only unpacks ub4)
     sb4 int_value;          // value when it's signed
-    size_t size = 0;           // size of input value - can use 0 except for binaries
+    size_t size = 0;        // size of input value - can use 0 except for binaries
     void *handlep = NULL;
     OCIError *errorhp = NULL;
     void *attributep = NULL; // void * to value
@@ -552,8 +552,12 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv *env, int argc, const ERL_NIF
           enif_get_uint(env, argv[2], &sessMin) &&
           enif_get_uint(env, argv[3], &sessMax) &&
           enif_get_uint(env, argv[4], &sessIncr) &&
-          enif_inspect_binary(env, argv[5], &username) &&
-          enif_inspect_binary(env, argv[6], &password)))
+          // if username and password are binary
+          ((enif_inspect_binary(env, argv[5], &username) &&
+            enif_inspect_binary(env, argv[6], &password)) ||
+           // or username and password are both atom 'null'
+           (enif_is_identical(argv[5], ATOM_NULL) &&
+            enif_is_identical(argv[6], ATOM_NULL)))))
     {
         return enif_make_badarg(env);
     }
@@ -581,14 +585,34 @@ static ERL_NIF_TERM ociSessionPoolCreate(ErlNifEnv *env, int argc, const ERL_NIF
     sphp_res->errhp = errhp;
 
     // Create a session pool
-    status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
-                                  spoolhp, (OraText **)&poolName,
-                                  (ub4 *)&poolNameLen,
-                                  database.data, (ub4)database.size,
-                                  sessMin, sessMax, sessIncr,
-                                  (OraText *)username.data, (ub4)username.size,
-                                  (OraText *)password.data, (ub4)password.size,
-                                  OCI_SPC_HOMOGENEOUS);
+    if (enif_is_identical(argv[5], ATOM_NULL) && enif_is_identical(argv[6], ATOM_NULL))
+    {
+        // OCI_DEFAULT - direct connections : the userid and password may not be specified.
+        // If these values are null, no proxy connections can exist in this pool.
+        status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
+                                      spoolhp, (OraText **)&poolName,
+                                      (ub4 *)&poolNameLen,
+                                      database.data, (ub4)database.size,
+                                      sessMin, sessMax, sessIncr,
+                                      NULL, 0, // username
+                                      NULL, 0, // password
+                                      OCI_DEFAULT);
+    }
+    else
+    {
+        /* OCI_SPC_HOMOGENEOUS - all sessions in the pool will be authenticated with the username
+           and password passed to OCISessionPoolCreate(). The authentication handle (parameter authInfo)
+           passed into OCISessionGet() is ignored in this case. Moreover, the sessMin and the SessIncr
+           values are considered only in this case. No proxy session can be created in this mode.*/
+        status = OCISessionPoolCreate(envhp_res->envhp, envhp_res->errhp,
+                                      spoolhp, (OraText **)&poolName,
+                                      (ub4 *)&poolNameLen,
+                                      database.data, (ub4)database.size,
+                                      sessMin, sessMax, sessIncr,
+                                      (OraText *)username.data, (ub4)username.size,
+                                      (OraText *)password.data, (ub4)password.size,
+                                      OCI_SPC_HOMOGENEOUS);
+    }
     if (status)
     {
         return reterr(env, envhp_res->errhp, status);
@@ -715,7 +739,7 @@ static ERL_NIF_TERM ociSessionGet(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
                                0, NULL, NULL, NULL, OCI_SESSGET_SPOOL);
     if (status)
     {
-        return reterr(env, envhp_res->errhp, status);
+        return reterr(env, spoolhp_res->errhp, status);
     }
 
     svchp_res *res = (svchp_res *)enif_alloc_resource(svchp_resource_type,
@@ -1634,7 +1658,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     ATOM_TRUE = enif_make_atom(env, "true");
     ATOM_FALSE = enif_make_atom(env, "false");
     ATOM_ERROR = enif_make_atom(env, "error");
-    ATOM_NULL = enif_make_atom(env, "NULL");
+    ATOM_NULL = enif_make_atom(env, "null");
     ATOM_COLS = enif_make_atom(env, "cols");
     ATOM_ROWIDS = enif_make_atom(env, "rowids");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
@@ -1648,13 +1672,13 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     return 0;
 }
 
-static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
+static int upgrade(ErlNifEnv *env, void **priv_data, void **old_priv_data, ERL_NIF_TERM load_info)
 {
     TRACE;
     return 0;
 }
 
-static void unload(ErlNifEnv* env, void* priv_data)
+static void unload(ErlNifEnv *env, void *priv_data)
 {
     TRACE;
 }

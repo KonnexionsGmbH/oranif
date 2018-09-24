@@ -27,7 +27,6 @@ init() ->
                   Path ->
                       Path
               end,
-    true = code:add_path(PrivDir),
     case erlang:load_nif(filename:join(PrivDir, "erloci"), 0) of
         ok ->                  ok;
         {error,{reload, _}} -> ok;

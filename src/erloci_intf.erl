@@ -2,50 +2,10 @@
 
 %% External API to OCI Driver
 
--export([ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1, ociTerminate/0,
-        ociNlsGetInfo/2, ociCharsetAttrGet/1,
-        ociPing/1,
-        ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
-        ociAuthHandleCreate/3,
-        ociSessionGet/3, ociSessionRelease/1,
-        ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
-        ociBindByName/5, ociStmtFetch/2,
-        ociStmtHandleFree/1]).
+-export([ociNlsGetInfo/2, ociCharsetAttrGet/1, ociAttrSet/5, ociAttrGet/4,
+         ociStmtExecute/6, ociBindByName/5]).
 
 -export([parse_lang/1]).
-
-%%--------------------------------------------------------------------
-%% Create an OCI Env
-%% One of these is sufficient for the whole system
-%% returns {ok, Envhp}
-%%--------------------------------------------------------------------
--spec ociEnvNlsCreate(ClientCharset :: integer(),
-                     NationalCharset :: integer()) -> {ok, Envhp :: reference()}
-                                                     | {error, binary()}.
-ociEnvNlsCreate(ClientCharset, NationalCharset) ->
-    erloci:ociEnvNlsCreate(ClientCharset, NationalCharset).
-
-%%--------------------------------------------------------------------
-%% Free the OCI Env handle
-%%--------------------------------------------------------------------
--spec ociEnvHandleFree(Envhp :: reference()) -> ok.
-ociEnvHandleFree(Envhp) ->
-    erloci:ociEnvHandleFree(Envhp).
-
-%%--------------------------------------------------------------------
-%% Free the OCI Env handle
-%%--------------------------------------------------------------------
--spec ociAuthHandleFree(Authhp :: reference()) -> ok.
-ociAuthHandleFree(Authhp) ->
-    erloci:ociAuthHandleFree(Authhp).
-
-%%--------------------------------------------------------------------
-%% Terminate the instance of OCI releasing all shared memory held by OCI.
-%%--------------------------------------------------------------------
--spec ociTerminate() -> ok.
-ociTerminate() ->
-    erloci:ociTerminate().
 
 -spec ociNlsGetInfo(Envhp :: reference(),
                     Item :: atom()) -> {ok, Info :: binary()}
@@ -91,91 +51,6 @@ ociAttrGet(Handle, HandleType, CDataTpe, AttrType) ->
     AttrTypeInt = erloci_int:attr_name_to_int(AttrType),
     erloci:ociAttrGet(Handle, HandleTypeInt, CDataTypeInt, AttrTypeInt).
 
-%%--------------------------------------------------------------------
-%% Ping the database on the referenced Session
-%%--------------------------------------------------------------------
--spec ociPing(Svchp :: reference()) -> pong | pang.
-ociPing(Svchp) ->
-    erloci:ociPing(Svchp).
-
-%%--------------------------------------------------------------------
-%% Create an Auth Handle based on supplied username / password
-%% Used as an argument to ociSessionGet
-%% returns {ok, Authhp}
-%%--------------------------------------------------------------------
--spec ociAuthHandleCreate(Envhp :: reference(),
-                          UserName :: binary(),
-                          Password :: binary()) -> {ok, Authhp :: reference()}
-                                                   | {error, binary()}.
-ociAuthHandleCreate(Envhp, UserName, Password) ->
-    erloci:ociAuthHandleCreate(Envhp, UserName, Password).
-
-%%--------------------------------------------------------------------
-%% Create a session pool. All operations to the database must use one
-%% of the connections to this pool.
-%% Username and Password here are used for all sessions in this pool 
-%% (i.e. the pool uses OCI_SPC_HOMOGENEOUS)
-%% returns {ok, PoolName}
-%%--------------------------------------------------------------------
--spec ociSessionPoolCreate(Envhp :: reference(),
-                           DataBase :: binary(),
-                           SessMin :: pos_integer(),
-                           SessMax :: pos_integer(),
-                           SessInc :: pos_integer(),
-                           UserName :: binary(),
-                           Password :: binary()) -> {ok, Spoolhp :: reference()}
-                                                    | {error, binary()}.
-ociSessionPoolCreate(Envhp, DataBase, SessMin,
-                     SessMax, SessInc, UserName, Password) ->
-    erloci:ociSessionPoolCreate(Envhp, DataBase, SessMin,
-                                        SessMax, SessInc, UserName, Password).
-
-%%--------------------------------------------------------------------
-%% Destroy a session pool. Any work on outstanding sessions will cause
-%% this to return an error return
-%%--------------------------------------------------------------------
--spec ociSessionPoolDestroy(Spoolhp :: reference()) -> ok.
-ociSessionPoolDestroy(Spoolhp) ->
-    erloci:ociSessionPoolDestroy(Spoolhp).
-
-%%--------------------------------------------------------------------
-%% Fetch a session from the session pool.
-%% Returns {ok, Svchp :: reference()}
-%%--------------------------------------------------------------------
--spec ociSessionGet(Envhp :: reference(),
-                    Authhp :: reference(),
-                    Spoolhp :: reference()) -> {ok, Svchp :: reference()}
-                                             | {error, binary()}.
-ociSessionGet(Envhp, Authhp, Spoolhp) ->
-    erloci:ociSessionGet(Envhp, Authhp, Spoolhp).
-
-%%--------------------------------------------------------------------
-%% Returns a session to the session pool.
-%%--------------------------------------------------------------------
--spec ociSessionRelease(Svchp :: reference()) -> ok
-                                                 | {error, binary()}.
-ociSessionRelease(Svchp) ->
-    erloci:ociSessionRelease(Svchp).
-
-%%--------------------------------------------------------------------
-%% Create a statement Handle. Can be re-used for multiple statements.
-%%--------------------------------------------------------------------
--spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
-                                                   | {error, binary()}.
-ociStmtHandleCreate(Envhp) ->
-    erloci:ociStmtHandleCreate(Envhp).
-
-%%--------------------------------------------------------------------
-%% Free a statement handle.
-%%--------------------------------------------------------------------
--spec ociStmtHandleFree(Stmthp :: reference()) -> ok.
-ociStmtHandleFree(Stmthp) ->
-    erloci:ociStmtHandleFree(Stmthp).
-
--spec ociStmtPrepare(Stmthp :: reference(),
-                    Stmt :: binary()) -> ok | {error, binary()}.
-ociStmtPrepare(Stmthp, Stmt) ->
-        erloci:ociStmtPrepare(Stmthp, Stmt).
 %%
 -spec ociStmtExecute(Svchp :: reference(),
                     Stmthp :: reference(),
@@ -219,12 +94,6 @@ ociBindByName(Stmthp, BindVars, BindVarName, SqlType, BindVarValue) when
         _ ->
             erloci:ociBindByName(Stmthp, BindVars, BindVarName, 0, IntType, BindVarValue)
     end.
-
--spec ociStmtFetch(Stmthp :: {reference(), map()},
-  NumRows :: pos_integer()) -> {ok, [term]}
-                               | {error, binary()}.
-ociStmtFetch(Stmthp, NumRows) ->
-        erloci:ociStmtFetch(Stmthp, NumRows).
 
 parse_lang(Lang) when is_list(Lang) ->
     case string:tokens(Lang, "._") of

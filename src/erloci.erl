@@ -34,20 +34,34 @@ init() ->
         Error ->               Error
     end.
 
+%%--------------------------------------------------------------------
+%% Create an OCI Env
+%% One of these is sufficient for the whole system
+%% returns {ok, Envhp}
+%%--------------------------------------------------------------------
 -spec ociEnvNlsCreate(ClientCharset :: pos_integer(),
                     NationalCharset :: pos_integer()) -> {ok, Envhp :: reference()}
                                                      | {error, binary()}.
 ociEnvNlsCreate(_ClientCharset, _NationalCharset) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Free the OCI Env handle
+%%--------------------------------------------------------------------
 -spec ociEnvHandleFree(Envhp :: reference()) -> ok.
 ociEnvHandleFree(_Envhp) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Free the OCI Env handle
+%%--------------------------------------------------------------------
 -spec ociAuthHandleFree(Authhp :: reference()) -> ok.
 ociAuthHandleFree(_Authhp) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Terminate the instance of OCI releasing all shared memory held by OCI.
+%%--------------------------------------------------------------------
 -spec ociTerminate() -> ok.
 ociTerminate() ->
     ?NOT_LOADED.
@@ -96,10 +110,18 @@ ociAttrSet(_Handle, _HandleType, _CDataTpe, _Value, _AttrType) ->
 ociAttrGet(_Handle, _HandleType, _CDataTpe, _AttrType) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Ping the database on the referenced Session
+%%--------------------------------------------------------------------
 -spec ociPing(Svchp :: reference()) -> pong | pang.
 ociPing(_Svchp) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Create an Auth Handle based on supplied username / password
+%% Used as an argument to ociSessionGet
+%% returns {ok, Authhp}
+%%--------------------------------------------------------------------
 -spec ociAuthHandleCreate(Envhp :: reference(),
                           UserName :: binary(),
                           Password :: binary()) -> {ok, Authhp :: reference()}
@@ -107,6 +129,13 @@ ociPing(_Svchp) ->
 ociAuthHandleCreate(_Envhp, _UserName, _Password) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Create a session pool. All operations to the database must use one
+%% of the connections to this pool.
+%% Username and Password here are used for all sessions in this pool 
+%% (i.e. the pool uses OCI_SPC_HOMOGENEOUS)
+%% returns {ok, PoolName}
+%%--------------------------------------------------------------------
 -spec ociSessionPoolCreate(Envhp :: reference(),
                            DataBase :: binary(),
                            SessMin :: pos_integer(),
@@ -119,9 +148,18 @@ ociSessionPoolCreate(_Envhp, _DataBase, _SessMin,
                      _SessMax, _SessInc, _UserName, _Password) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Destroy a session pool. Any work on outstanding sessions will cause
+%% this to return an error return
+%%--------------------------------------------------------------------
 -spec ociSessionPoolDestroy(Spoolhp :: reference()) -> ok.
 ociSessionPoolDestroy(_Spoolhp) ->
     ?NOT_LOADED.
+
+%%--------------------------------------------------------------------
+%% Fetch a session from the session pool.
+%% Returns {ok, Svchp :: reference()}
+%%--------------------------------------------------------------------
 -spec ociSessionGet(Envhp :: reference(),
                     Authhp :: reference(),
                     Spoolhp :: reference()) -> {ok, Svchp :: reference()}
@@ -129,16 +167,24 @@ ociSessionPoolDestroy(_Spoolhp) ->
 ociSessionGet(_Envhp, _Authhp, _Spoolhp) ->
     ?NOT_LOADED.
 
--spec ociSessionRelease(Svchp :: reference()) -> ok
-                                                | {error, binary()}.
+%%--------------------------------------------------------------------
+%% Returns a session to the session pool.
+%%--------------------------------------------------------------------
+-spec ociSessionRelease(Svchp :: reference()) -> ok | {error, binary()}.
 ociSessionRelease(_Svchp) ->
     ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Create a statement Handle. Can be re-used for multiple statements.
+%%--------------------------------------------------------------------
 -spec ociStmtHandleCreate(Envhp :: reference()) -> {ok, Stmthp :: reference()}
                                                    | {error, binary()}.
 ociStmtHandleCreate(_Envhp) ->
      ?NOT_LOADED.
 
+%%--------------------------------------------------------------------
+%% Free a statement handle.
+%%--------------------------------------------------------------------
 -spec ociStmtHandleFree(Stmthp :: reference()) -> ok.
 ociStmtHandleFree(_Stmthp) ->
     ?NOT_LOADED.

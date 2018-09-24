@@ -1,11 +1,15 @@
 .eunit
 deps
 *.o
+*.d
+*.log
 *.beam
 *.plt
 erl_crash.dump
-ebin/*.beam
 priv
+*.exe
+*.so
+*.dll
 .rebar
 .rebar3
 _*
@@ -13,10 +17,10 @@ _*
 _build
 rebar.lock
 rebar3.crashdump
-package-lock.json
 
 # windows build temp files
 *.pdb
 
 # for vim users
 *.swp
+oci_scratchpad/console

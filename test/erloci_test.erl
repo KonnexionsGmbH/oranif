@@ -36,6 +36,9 @@
     [{<<":pkey">>, 'SQLT_INT'}, {<<":publisher">>, 'SQLT_CHR'}]
 ).
 
+-define(SELECT_ROW_COUNT, <<"select count(*) from "?TESTTABLE>>).
+-define(SELECT_ALL_ROWS, <<"select * from "?TESTTABLE>>).
+
 % ------------------------------------------------------------------------------
 % db_negative_test_
 % ------------------------------------------------------------------------------
@@ -183,14 +186,14 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     end, lists:seq(1, RowCount)),
 
     {ok, Stmthp2} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp2, <<"SELECT count(*) FROM erloci_simple_test_1">>),
+    ok =  erloci:ociStmtPrepare(Stmthp2, ?SELECT_ROW_COUNT),
     {ok, _} = erloci_intf:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, 'OCI_DEFAULT'),
     {ok, [[RowCount1]], _} = erloci:ociStmtFetch(Stmthp2, 1),
     Total = oci_util:from_num(RowCount1),
     ?assertMatch("6", Total),
 
     {ok, Stmthp3} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp3, <<"SELECT * FROM erloci_simple_test_1">>),
+    ok =  erloci:ociStmtPrepare(Stmthp3, ?SELECT_ALL_ROWS),
     {ok, _} = erloci_intf:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, 'OCI_DEFAULT'),
     {ok, [_R1,_R2,_R3], false} = erloci:ociStmtFetch(Stmthp3, 3),
     {ok, [_R4,_R5], false} = erloci:ociStmtFetch(Stmthp3, 2),

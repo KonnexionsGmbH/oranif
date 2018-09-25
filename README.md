@@ -33,3 +33,25 @@ Open Questions
 INSTANT_CLIENT_INCLUDE_PATH=path_to_instant_client_installation\sdk\include
 INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation\sdk\lib\msvc
 ```
+
+# DB Init SQL (XE)
+```sql
+create user scott identified by tiger;
+
+grant alter system to scott;
+grant create session to scott;
+grant unlimited tablespace to scott;
+grant create table to scott;
+grant create cluster to scott;
+grant create view to scott;
+grant create sequence to scott;
+grant create procedure to scott;
+grant create trigger to scott;
+grant create any directory to scott;
+grant drop any directory to scott;
+grant create type to scott;
+grant create operator to scott;
+grant create indextype to scott;
+
+select * from session_privs;
+```

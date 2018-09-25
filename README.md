@@ -35,7 +35,11 @@ INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation\sdk\lib\msvc
 ```
 
 # DB Init SQL (XE)
+```cmd
+C:\> sqlplus system
+```
 ```sql
+EXEC DBMS_XDB.SETLISTENERLOCALACCESS(FALSE);
 create user scott identified by tiger;
 
 grant alter system to scott;
@@ -53,5 +57,11 @@ grant create type to scott;
 grant create operator to scott;
 grant create indextype to scott;
 
+exit
+```
+```cmd
+C:\> sqlplus scott/tiger@192.168.1.49:1521/xe
+```
+```sql
 select * from session_privs;
 ```

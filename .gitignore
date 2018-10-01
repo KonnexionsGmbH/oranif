@@ -23,4 +23,5 @@ rebar3.crashdump
 
 # for vim users
 *.swp
-oci_scratchpad/console
+c_src/oci_api/select
+c_src/oci_api/session

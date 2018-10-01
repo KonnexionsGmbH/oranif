@@ -102,9 +102,11 @@ typedef struct
 	void *valuep;
 } bindhp_res;
 
-#define TRACE printf("%s:%d\r\n", __FUNCTION__, __LINE__)
-#define CALL_TRACE printf("%s:%d called\r\n", __FUNCTION__, __LINE__)
-#define RETURNED_TRACE printf("%s:%d returned\r\n", __FUNCTION__, __LINE__)
+#define TRACE printf("[%s:%s:%d]\r\n", __FILE__, __FUNCTION__, __LINE__)
+#define CALL_TRACE	\
+	printf("[%s:%s:%d] called\r\n", __FILE__, __FUNCTION__, __LINE__)
+#define RETURNED_TRACE	\
+	printf("[%s:%s:%d] returned\r\n", __FILE__, __FUNCTION__, __LINE__)
 
 #define RAISE_OCI_EXCEPTION(__EC, __EB)                                                               \
 	enif_raise_exception(                                                                             \

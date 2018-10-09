@@ -5,7 +5,7 @@
 #include <orid.h>
 
 #define TNS "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)"\
-           "(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))"
+           "(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))"
 #define USR "scott"
 #define PWD	"regit"
 

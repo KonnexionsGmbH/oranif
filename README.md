@@ -34,7 +34,7 @@ INSTANT_CLIENT_INCLUDE_PATH=path_to_instant_client_installation\sdk\include
 INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation\sdk\lib\msvc
 ```
 
-# DB Init SQL (XE)
+## DB Init SQL (XE)
 ```cmd
 C:\> sqlplus system
 ```
@@ -102,7 +102,7 @@ Verify that the change took effect using sqlplus:
 show parameter sessions 
 ```
 
-A result similar tho this should be printed:
+A result similar to this should be printed:
 
 ```
 NAME                                 TYPE        VALUE

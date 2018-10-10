@@ -65,3 +65,52 @@ C:\> sqlplus scott/tiger@192.168.1.49:1521/xe
 ```sql
 select * from session_privs;
 ```
+## Increase amount of processes, sessions and transactions
+
+Extensive database usage may exhaust the connection limits that have defaults around 100. If that happens, attempts to establish further connections may fail, resulting in an error such as "ORA-12516: TNS:listener could not find available handler with matching protocol stack". To prevent this, the limit should be raised so the database can establish more simultaneous connections.
+
+To do this, log into the database as SYSDBA. Normal users aren't privileged enough.
+
+```
+sqlplus sys as sysdba
+```
+
+Then, set the new limits:
+
+```
+alter system set processes=1000 scope=spfile
+alter system set sessions=1000 scope=spfile
+alter system set transactions=1000 scope=spfile
+```
+
+In this example, the limits are set to 1000. The actual values might be even higher because there are constraints regarding the size of those numbers. For instance, "sessions" might be set to 1524 instead.
+
+Then, the database must be restarted for this change to take effect:
+
+```
+Windows Menu --> Oracle Database 11g Express Edition --> Stop database
+```
+
+This takes a while, as indicated by the console window that opens. When it is done, start the database:
+
+```
+Windows Menu --> Oracle Database 11g Express Edition --> Start database
+```
+Verify that the change took effect using sqlplus:
+
+```
+show parameter sessions 
+```
+
+A result similar tho this should be printed:
+
+```
+NAME                                 TYPE        VALUE
+------------------------------------ ----------- ------------------------------
+java_max_sessionspace_size           integer     0
+java_soft_sessionspace_limit         integer     0
+license_max_sessions                 integer     0
+license_sessions_warning             integer     0
+sessions                             integer     1524
+shared_server_sessions               integer
+```

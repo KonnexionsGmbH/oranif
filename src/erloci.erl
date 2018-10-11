@@ -2,17 +2,15 @@
 %% Low level API to the nif
 
 -export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1,
-        ociTerminate/0,
-        ociNlsGetInfo/2, ociCharsetAttrGet/1,
-        ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2,
-        ociPing/1,
-        ociAttrSet/5, ociAttrGet/4,
-        ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
-        ociAuthHandleCreate/3,
-        ociSessionGet/3, ociSessionRelease/1,
+        ociTerminate/0, ociNlsGetInfo/2, ociCharsetAttrGet/1, ociAttrSet/5,
+        ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2, ociPing/1,
+        ociAttrGet/3, ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
+        ociAuthHandleCreate/3, ociSessionGet/3, ociSessionRelease/1,
         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
-        ociStmtHandleFree/1,
-        ociBindByName/6, ociStmtFetch/2]).
+        ociStmtHandleFree/1, ociBindByName/5, ociStmtFetch/2]).
+
+% lib API
+-export([parse_lang/1]).
 
 -on_load(init/0).
 
@@ -103,10 +101,9 @@ ociAttrSet(_Handle, _HandleType, _CDataTpe, _Value, _AttrType) ->
 
 -spec ociAttrGet(Handle :: reference(),
                  HandleType :: integer(),
-                 CDataTpe :: integer(),
                  AttrType :: integer()) ->
                      ok | {error, binary()}.
-ociAttrGet(_Handle, _HandleType, _CDataTpe, _AttrType) ->
+ociAttrGet(_Handle, _HandleType, _AttrType) ->
     ?NOT_LOADED.
 
 %%--------------------------------------------------------------------
@@ -205,11 +202,10 @@ ociStmtExecute(_Svchp, _Stmthp, _BindVars, _Iters, _RowOff, _Mode) ->
 -spec ociBindByName(Stmthp :: reference(),
                     BindVars :: map(),
                     BindVarName :: binary(),
-                    Ind :: integer(),
                     SqlType :: integer(),
-                    BindVarValue :: binary()) -> {ok, Bindvars2 :: map()}
+                    BindVarValue :: binary() | null) -> {ok, Bindvars2 :: map()}
                                                  | {error, binary()}.
-ociBindByName(_Stmthp, _BindVars, _BindVarName, _Ind, _SqlType, _BindVarValue) ->
+ociBindByName(_Stmthp, _BindVars, _BindVarName, _SqlType, _BindVarValue) ->
     ?NOT_LOADED.
 
 -spec ociStmtFetch(Stmthp :: {reference(), map()},
@@ -220,3 +216,23 @@ ociStmtFetch(_Stmthp, _NumRows) ->
 
 not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
+
+%%--------------------------------------------------------------------
+%% Parses a TNS style language/country/charset string
+%%--------------------------------------------------------------------
+parse_lang(Lang) when is_list(Lang) ->
+    case string:tokens(Lang, "._") of
+        [Language, Country, Charset] ->
+            {list_to_binary(Language),
+                list_to_binary(Country),
+                list_to_binary(Charset)};
+        Else ->
+            Else
+    end;
+parse_lang(Lang) when is_binary(Lang) ->
+    case binary:split(Lang, [<<".">>, <<"_">>], [global]) of
+        [Language, Country, Charset] ->
+            {Language, Country, Charset};
+        Else ->
+                Else
+    end.

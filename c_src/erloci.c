@@ -194,7 +194,7 @@ static ERL_NIF_TERM execute_result_map(ErlNifEnv *env, stmthp_res *stmthp)
     }
     else if (stmthp->stmt_type == OCI_STMT_INSERT || stmthp->stmt_type == OCI_STMT_UPDATE || stmthp->stmt_type == OCI_STMT_DELETE)
     {
-        // Return any updated row_ids
+        // TODO: Return any updated row_ids
         enif_make_map_put(env, map, ATOM_STATEMENT,
                           enif_make_int(env, stmthp->stmt_type), &result_map);
         return result_map;
@@ -404,7 +404,7 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
 {
     /* Generic getting of attrs. Only supports handle types we explicitly manage
        and values of types we explicitly support */
-    ub4 handle_type, data_type, attr_type;
+    ub4 handle_type, attr_type;
     ERL_NIF_TERM bin_value; // value when it's text
     // ub4 uint_value;       // value when it's unsigned (erlang only unpacks ub4)
     // sb4 int_value;        // value when it's signed
@@ -414,12 +414,9 @@ static ERL_NIF_TERM ociAttrGet(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     text attributep[100];
     //void *attributep = NULL;     // void * to output value
 
-    if (!(argc == 4 &&
+    if (!(argc == 3 &&
           enif_get_uint(env, argv[1], &handle_type) &&
-          enif_get_uint(env, argv[2], &data_type) &&
-          data_type >= C_TYPE_MIN &&
-          data_type <= C_TYPE_MAX &&
-          enif_get_uint(env, argv[3], &attr_type)))
+          enif_get_uint(env, argv[2], &attr_type)))
     {
         return enif_make_badarg(env);
     }
@@ -460,57 +457,53 @@ static ERL_NIF_TERM ociAttrSet(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
 {
     /* Generic setting of attrs. Only supports handle types we explicitly manage
        and values of types we explicitly support */
-    ub4 handle_type, data_type, attr_type;
+    ub4 handle_type, attr_type;
     ErlNifBinary bin_value; // value when it's text
     ub4 uint_value;         // value when it's unsigned (erlang only unpacks ub4)
     sb4 int_value;          // value when it's signed
-    size_t size = 0;        // size of input value - can use 0 except for binaries
+    ub4 size = 0;        // size of input value - can use 0 except for binaries
     void *handlep = NULL;
     OCIError *errorhp = NULL;
     void *attributep = NULL; // void * to value
 
     if (!(argc == 5 &&
           enif_get_uint(env, argv[1], &handle_type) &&
-          enif_get_uint(env, argv[2], &data_type) &&
-          data_type >= C_TYPE_MIN &&
-          data_type <= C_TYPE_MAX &&
           enif_get_uint(env, argv[4], &attr_type)))
     {
         return enif_make_badarg(env);
     }
-    switch (data_type)
+
+    if (enif_is_identical(ATOM_C_TYPE_TEXT, argv[2]))
     {
-    case C_TYPE_TEXT:
         if (!enif_inspect_binary(env, argv[3], &bin_value))
         {
             return enif_make_badarg(env);
         }
         attributep = (void *)bin_value.data;
         size = bin_value.size;
-        break;
-    case C_TYPE_SB1:
-    case C_TYPE_SB2:
-    case C_TYPE_SB4:
+    }
+    else if (enif_is_identical(ATOM_C_TYPE_SB1, argv[2]) || enif_is_identical(ATOM_C_TYPE_SB2, argv[2]) || enif_is_identical(ATOM_C_TYPE_SB4, argv[2]))
+    {
         if (!enif_get_int(env, argv[3], &int_value))
         {
             return enif_make_badarg(env);
         }
         attributep = (void *)&int_value;
-        break;
-    case C_TYPE_UB1:
-    case C_TYPE_UB2:
-    case C_TYPE_UB4:
+    }
+    else if (enif_is_identical(ATOM_C_TYPE_UB1, argv[2]) || enif_is_identical(ATOM_C_TYPE_UB2, argv[2]) || enif_is_identical(ATOM_C_TYPE_UB4, argv[2]))
+    {
         if (!enif_get_uint(env, argv[3], &uint_value))
         {
             return enif_make_badarg(env);
         }
         attributep = (void *)&uint_value;
-        break;
+    }
+    else
+    {
+        return enif_make_badarg(env);
     }
 
-    switch (handle_type)
-    {
-    case OCI_HTYPE_ENV:
+    if (handle_type == OCI_HTYPE_ENV)
     {
         envhp_res *envhp_res;
         if (!enif_get_resource(env, argv[0], envhp_resource_type, (void **)&envhp_res))
@@ -519,8 +512,6 @@ static ERL_NIF_TERM ociAttrSet(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
         }
         handlep = envhp_res->envhp;
         errorhp = envhp_res->errhp;
-        break;
-    }
     }
 
     int status = OCIAttrSet(handlep, handle_type,
@@ -912,7 +903,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 {
     bindhp_res *bindhp_resource;
     stmthp_res *stmthp_res;
-    int dty, ind, status;
+    int dty, status;
     int is_new_resource;
     ErlNifBinary name;
 
@@ -935,15 +926,16 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     size_t arg_len = 0; // The size of memory we will need for the value
     // void *valuep = NULL;     // pointer to the value whatever c type it is
 
-    if (!(argc == 6 &&
+    if (!(argc == 5 &&
           enif_get_resource(env, argv[0], stmthp_resource_type, (void **)&stmthp_res) &&
           enif_is_map(env, argv[1]) &&
           enif_inspect_binary(env, argv[2], &name) &&
-          enif_get_int(env, argv[3], &ind) &&
-          enif_get_int(env, argv[4], &dty)))
+          enif_get_int(env, argv[3], &dty)))
     {
         return enif_make_badarg(env);
     }
+    
+    int dbNull = enif_is_identical(ATOM_NULL, argv[4]);
 
     ERL_NIF_TERM original_map = argv[1];
     ERL_NIF_TERM current_map_value;
@@ -951,7 +943,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     {
         if (!enif_get_resource(env, current_map_value, bindhp_resource_type, (void **)&bindhp_resource))
         {
-            return enif_make_badarg(env);
+            return enif_raise_exception(env, enif_make_string(env, "Unable to get existing bind resource", ERL_NIF_LATIN1));
         }
         is_new_resource = 0;
     }
@@ -961,7 +953,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
         // Create the managed pointer / resource
         bindhp_resource = (bindhp_res *)enif_alloc_resource(bindhp_resource_type, sizeof(bindhp_res));
         if (!bindhp_resource)
-            return enif_make_badarg(env);
+            return enif_raise_exception(env, enif_make_string(env, "Unable to allocate new bind resource", ERL_NIF_LATIN1));
         bindhp_resource->bindhp = NULL; // Ask the OCIBindByName call to allocate this
         bindhp_resource->valuep = NULL;
         bindhp_resource->value_sz = 0;
@@ -986,8 +978,9 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     case SQLT_NUM:
     case SQLT_INT:
     case SQLT_UIN:
-        if (!enif_get_int(env, argv[5], &value_int))
+        if (!dbNull && !enif_get_int(env, argv[4], &value_int))
         {
+            L("isValueNull %d\r\n", dbNull);
             return enif_make_badarg(env);
         }
         arg_len = sizeof(int);
@@ -997,7 +990,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     case SQLT_BFLOAT:
     case SQLT_IBFLOAT:
         // Could be int or float
-        if (!enif_get_double(env, argv[5], &value_double))
+        if (!dbNull && !enif_get_double(env, argv[4], &value_double))
         {
             if (!enif_get_int(env, argv[5], &value_int))
             {
@@ -1023,7 +1016,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
         break;
     case SQLT_IBDOUBLE:
     case SQLT_BDOUBLE:
-        if (!enif_get_double(env, argv[5], &value_double))
+        if (!dbNull && !enif_get_double(env, argv[4], &value_double))
         {
             if (!enif_get_int(env, argv[5], &value_int))
             {
@@ -1050,7 +1043,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     case SQLT_CHR:
     case SQLT_LNG:
     case SQLT_BIN:
-        if (!enif_inspect_binary(env, argv[5], &value_bin))
+        if (!dbNull && !enif_inspect_binary(env, argv[4], &value_bin))
         {
             return enif_make_badarg(env);
         }
@@ -1065,7 +1058,7 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
     case SQLT_INTERVAL_DS:
     case SQLT_TIMESTAMP_TZ:
     case SQLT_RDD:
-        if (!enif_inspect_binary(env, argv[5], &value_bin))
+        if (!dbNull && !enif_inspect_binary(env, argv[4], &value_bin))
         {
             return enif_make_badarg(env);
         }
@@ -1157,6 +1150,8 @@ static ERL_NIF_TERM ociBindByName(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
         bindhp_resource->value_sz = arg_len;
         //printf("VALUE BUF: %.*s with sz %zu\r\n", arg_len, value_bin.data, bindhp_resource->value_sz);
     }
+
+    int ind = (dbNull ? -1 : 0);
     status = OCIBindByName(stmthp_res->stmthp, &bindhp_resource->bindhp,
                            stmthp_res->errhp,
                            (OraText *)bindhp_resource->name.data, (sword)bindhp_resource->name.size, // Bind name
@@ -1619,7 +1614,7 @@ static ErlNifFunc nif_funcs[] =
         {"ociNlsCharSetNameToId_ll", 2, ociNlsCharSetNameToId},
         {"ociCharsetAttrGet", 1, ociCharsetAttrGet},
         {"ociAttrSet", 5, ociAttrSet},
-        {"ociAttrGet", 4, ociAttrGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
+        {"ociAttrGet", 3, ociAttrGet, ERL_NIF_DIRTY_JOB_IO_BOUND},
         {"ociSessionPoolCreate", 7, ociSessionPoolCreate, ERL_NIF_DIRTY_JOB_IO_BOUND},
         {"ociSessionPoolDestroy", 1, ociSessionPoolDestroy, ERL_NIF_DIRTY_JOB_IO_BOUND},
         {"ociAuthHandleCreate", 3, ociAuthHandleCreate},
@@ -1630,7 +1625,7 @@ static ErlNifFunc nif_funcs[] =
         {"ociStmtPrepare", 2, ociStmtPrepare},
         {"ociStmtHandleFree", 1, ociStmtHandleFree},
         {"ociStmtExecute", 6, ociStmtExecute, ERL_NIF_DIRTY_JOB_IO_BOUND},
-        {"ociBindByName", 6, ociBindByName},
+        {"ociBindByName", 5, ociBindByName},
         {"ociStmtFetch", 2, ociStmtFetch, ERL_NIF_DIRTY_JOB_IO_BOUND}};
 
 static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
@@ -1666,6 +1661,14 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     ATOM_PONG = enif_make_atom(env, "pong");
     ATOM_PANG = enif_make_atom(env, "pang");
     ATOM_OCI_ERROR = enif_make_atom(env, "oci_error");
+
+    ATOM_C_TYPE_TEXT = enif_make_atom(env, "text");
+    ATOM_C_TYPE_UB1 = enif_make_atom(env, "ub1");
+    ATOM_C_TYPE_UB2 = enif_make_atom(env, "ub2");
+    ATOM_C_TYPE_UB4 = enif_make_atom(env, "ub4");
+    ATOM_C_TYPE_SB1 = enif_make_atom(env, "sb1");
+    ATOM_C_TYPE_SB2 = enif_make_atom(env, "sb2");
+    ATOM_C_TYPE_SB4 = enif_make_atom(env, "sb4");
 
     STRING_FILE = enif_make_string(env, __FILE__, ERL_NIF_LATIN1);
 

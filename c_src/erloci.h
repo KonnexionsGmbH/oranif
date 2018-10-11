@@ -29,15 +29,13 @@ static ERL_NIF_TERM ATOM_PONG;
 static ERL_NIF_TERM ATOM_PANG;
 static ERL_NIF_TERM STRING_FILE;
 
-#define C_TYPE_MIN 0
-#define C_TYPE_TEXT 0
-#define C_TYPE_UB1 1
-#define C_TYPE_UB2 2
-#define C_TYPE_UB4 3
-#define C_TYPE_SB1 4
-#define C_TYPE_SB2 5
-#define C_TYPE_SB4 6
-#define C_TYPE_MAX 6
+static ERL_NIF_TERM ATOM_C_TYPE_TEXT;
+static ERL_NIF_TERM ATOM_C_TYPE_UB1;
+static ERL_NIF_TERM ATOM_C_TYPE_UB2;
+static ERL_NIF_TERM ATOM_C_TYPE_UB4;
+static ERL_NIF_TERM ATOM_C_TYPE_SB1;
+static ERL_NIF_TERM ATOM_C_TYPE_SB2;
+static ERL_NIF_TERM ATOM_C_TYPE_SB4;
 
 typedef struct
 {
@@ -107,6 +105,15 @@ typedef struct
 	printf("[%s:%s:%d] called\r\n", __FILE__, __FUNCTION__, __LINE__)
 #define RETURNED_TRACE	\
 	printf("[%s:%s:%d] returned\r\n", __FILE__, __FUNCTION__, __LINE__)
+
+
+#ifndef __WIN32__
+#define L(_Format, ...)	\
+	printf("[%s:%s:%d] "_Format, __FILE__, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#else
+#define L(_Format, ...)	\
+	printf("[%s:%s:%d] "_Format, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+#endif
 
 #define RAISE_OCI_EXCEPTION(__EC, __EB)                                                               \
 	enif_raise_exception(                                                                             \

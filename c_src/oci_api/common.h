@@ -22,4 +22,10 @@ extern int init(void);
 extern int session(void);
 extern void checkerr(OCIError *, sword, const char[100], int);
 
+#ifndef __WIN32__
+#define L(_str, ...)	printf("[%s:%d] "_str, __FUNCTION__,__LINE__, ##__VA_ARGS__)
+#else
+#define L(_str, ...)	printf("[%s:%d] "_str, __FUNCTION__,__LINE__, __VA_ARGS__)
+#endif
+
 #endif // _COMMON_H_

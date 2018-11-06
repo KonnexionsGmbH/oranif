@@ -1,5 +1,5 @@
 /* nix command shell:
-    LD_LIBRARY_PATH=priv/ ./c_src/oci_api/select
+    LD_LIBRARY_PATH=priv/ ./c_src/oci_api/table_w
 */
 
 #ifdef __WIN32__
@@ -17,15 +17,19 @@ DROP TYPE T_TEXT_ARR;
 CREATE OR REPLACE TYPE T_TEXT_ARR AS TABLE OF VARCHAR2(4000);
 /
 
-DROP FUNCTION test_fun;
-CREATE OR REPLACE FUNCTION test_fun(a IN NUMBER)
+DROP FUNCTION test_fun2;
+CREATE OR REPLACE FUNCTION test_fun2(p_text IN T_TEXT_ARR)
 RETURN T_TEXT_ARR
 IS
-p_text T_TEXT_ARR;
+p_text_out T_TEXT_ARR := T_TEXT_ARR();
 BEGIN
-    p_text := T_TEXT_ARR('Hello','world','!');
-    RETURN(p_text);
-END test_fun;
+    FOR I IN 1..p_text.COUNT
+    LOOP
+		p_text_out.extend;
+        p_text_out(I) := p_text(I) || p_text(I) || to_char(I);
+    END LOOP;
+    RETURN(p_text_out);
+END test_fun2;
 /
 */
 int main(int argc, char *argv[])
@@ -46,18 +50,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	char *stmt = "select test_fun(1) from dual";
+	char *stmt = "select test_fun2(:p_text) from dual";
 	status = OCIStmtPrepare(stmthp, errhp, (OraText *)stmt, (ub4)strlen(stmt), OCI_NTV_SYNTAX, OCI_DEFAULT);
-	if (status != OCI_SUCCESS)
-	{
-		LOG_ERROR(errhp, status);
-		return -1;
-	}
-
-	OCIDefine *definehp = NULL;
-	status = OCIDefineByPos(stmthp, &definehp, errhp, 1,
-							NULL, 0, SQLT_NTY,
-							NULL, NULL, NULL, OCI_DEFAULT);
 	if (status != OCI_SUCCESS)
 	{
 		LOG_ERROR(errhp, status);
@@ -77,6 +71,89 @@ int main(int argc, char *argv[])
 	if (!tdo)
 	{
 		L("Error - NULL tdo returned\n");
+		return -1;
+	}
+
+	OCIBind *bindpp = NULL;
+	status = OCIBindByName(stmthp, &bindpp, errhp, ":p_text",
+						   (sb4)-1, NULL /*void *valuep*/,
+						   (sb4)sizeof(OCITable *) /*sb4 value_sz*/,
+						   SQLT_NTY /*ub2 dty*/,
+						   NULL /*void *indp*/,
+						   NULL /*ub2 *alenp*/,
+						   NULL /*ub2 *rcodep*/,
+						   10 /*ub4 maxarr_len*/,
+						   NULL /*ub4 *curelep*/,
+						   OCI_DEFAULT /*ub4 mode*/);
+	if (status != OCI_SUCCESS)
+	{
+		LOG_ERROR(errhp, status);
+		return -1;
+	}
+
+	OCITable *in_tab = NULL;
+	status = OCIObjectNew(envhp, errhp, svchp,
+						  OCI_TYPECODE_TABLE, tdo,
+						  NULL, OCI_DURATION_SESSION,
+						  TRUE, &in_tab);
+	if (status != OCI_SUCCESS)
+	{
+		LOG_ERROR(errhp, status);
+		return -1;
+	}
+
+	OCIString *str;
+	status = OCIObjectNew(envhp, errhp, svchp,
+						  OCI_TYPECODE_VARCHAR2, NULL,
+						  NULL, OCI_DURATION_SESSION,
+						  TRUE, &str);
+	if (status != OCI_SUCCESS)
+	{
+		LOG_ERROR(errhp, status);
+		return -1;
+	}
+
+	for (int i = 0; i < 5; ++i)
+	{
+		status = OCIStringAssignText(envhp, errhp,
+									 "TestBikram",
+									 (ub4)(strlen("TestBikram")),
+									 &str);
+		if (status != OCI_SUCCESS)
+		{
+			LOG_ERROR(errhp, status);
+			return -1;
+		}
+
+		status = OCICollAppend(envhp, errhp,
+							   str,
+							   NULL,
+							   (OCIColl *)in_tab);
+		if (status != OCI_SUCCESS)
+		{
+			LOG_ERROR(errhp, status);
+			return -1;
+		}
+	}
+
+	status = OCIBindObject(bindpp, errhp, tdo,
+						   &in_tab /*void **pgvpp*/,
+						   NULL /*ub4 *pvszsp*/,
+						   NULL /*void **indpp*/,
+						   NULL /*ub4 *indszp*/);
+	if (status != OCI_SUCCESS)
+	{
+		LOG_ERROR(errhp, status);
+		return -1;
+	}
+
+	OCIDefine *definehp = NULL;
+	status = OCIDefineByPos(stmthp, &definehp, errhp, 1,
+							NULL, 0, SQLT_NTY,
+							NULL, NULL, NULL, OCI_DEFAULT);
+	if (status != OCI_SUCCESS)
+	{
+		LOG_ERROR(errhp, status);
 		return -1;
 	}
 

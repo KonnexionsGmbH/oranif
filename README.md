@@ -41,6 +41,7 @@ C:\> sqlplus system
 ```sql
 EXEC DBMS_XDB.SETLISTENERLOCALACCESS(FALSE);
 create user scott identified by tiger;
+alter session set "_ORACLE_SCRIPT"=true; -- if 'create user scott...' results into ORA-65096
 
 grant alter system to scott;
 grant create session to scott;

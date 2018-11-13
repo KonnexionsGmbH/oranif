@@ -270,8 +270,13 @@ check_lib(PrivDir) ->
     case lists:flatten(
             [filelib:wildcard(L, P) || L <- LibFiles, P <- Paths]
     ) of
-        [] ->
-            error({"OCI runtime libraries are not found in path",
-                    Envs, LibFiles, Paths});
-        _ -> ok
+        [] -> error({"OCI runtime libraries missing", Envs, LibFiles, Paths});
+        _ ->
+            if Envs == ["PATH"] ->
+                    os:putenv(
+                        "PATH",
+                        lists:flatten([os:getenv("PATH"), Seperator, PrivDir])
+                    );
+                true -> ok
+            end
     end.

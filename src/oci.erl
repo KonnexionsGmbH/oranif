@@ -2,12 +2,12 @@
 %% Low level API to the nif
 
 -export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1,
-        ociTerminate/0, ociNlsGetInfo/2, ociCharsetAttrGet/1, ociAttrSet/5,
-        ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2, ociPing/1,
-        ociAttrGet/3, ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
-        ociAuthHandleCreate/3, ociSessionGet/3, ociSessionRelease/1,
-        ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
-        ociStmtHandleFree/1, ociBindByName/5, ociStmtFetch/2]).
+         ociTerminate/0, ociNlsGetInfo/2, ociCharsetAttrGet/1, ociAttrSet/5,
+         ociNlsCharSetIdToName/2, ociNlsCharSetNameToId/2, ociPing/1,
+         ociAttrGet/3, ociSessionPoolCreate/7, ociSessionPoolDestroy/1,
+         ociAuthHandleCreate/3, ociSessionGet/3, ociSessionRelease/1,
+         ociStmtHandleCreate/1, ociStmtPrepare/2, ociStmtExecute/6,
+         ociStmtHandleFree/1, ociBindByName/5, ociStmtFetch/2]).
 
 % lib API
 -export([parse_lang/1]).
@@ -17,18 +17,20 @@
 -define(NOT_LOADED, not_loaded(?LINE)).
 
 init() ->
-    PrivDir = case code:priv_dir(?MODULE) of
-                  {error, _} ->
-                      EbinDir = filename:dirname(code:which(?MODULE)),
-                      AppPath = filename:dirname(EbinDir),
-                      filename:join(AppPath, "priv");
-                  Path ->
-                      Path
-              end,
+    PrivDir =
+        case code:priv_dir(?MODULE) of
+            {error, _} ->
+                EbinDir = filename:dirname(code:which(?MODULE)),
+                AppPath = filename:dirname(EbinDir),
+                filename:join(AppPath, "priv");
+            Path ->
+                Path
+        end,
+    check_lib(),
     case erlang:load_nif(filename:join(PrivDir, "ocinif"), 0) of
         ok ->                  ok;
         {error,{reload, _}} -> ok;
-        Error ->               Error
+        {error, Error} ->      error(Error)
     end.
 
 %%--------------------------------------------------------------------
@@ -235,4 +237,39 @@ parse_lang(Lang) when is_binary(Lang) ->
             {Language, Country, Charset};
         Else ->
                 Else
+    end.
+
+%%--------------------------------------------------------------------
+%% Internal Functions
+%%--------------------------------------------------------------------
+check_lib() ->
+    {Envs, Seperator, LibFiles} =
+        case os:type() of
+            {unix, darwin} ->
+                {["DYLD_LIBRARY_PATH", "PATH"], ":", ["libocci.dylib"]};
+            {win32, nt} ->
+                {["PATH"], ";", ["oci.dll", "oraons.dll", "oraociei12.dll"]};
+            {unix, linux}->
+                {["LD_LIBRARY_PATH", "PATH"], ":", ["libocci.so"]}
+        end,
+    Paths =
+        re:split(
+            string:join(
+                lists:foldl(
+                    fun(E, Acc) ->
+                        case os:getenv(E) of
+                            Path when is_list(Path) -> [Path | Acc];
+                            _ -> Acc
+                        end
+                    end, [], Envs
+                ), Seperator
+            ), Seperator, [{return, list}]
+        ),
+    case lists:flatten(
+            [filelib:wildcard(L, P) || L <- LibFiles, P <- Paths]
+    ) of
+        [] ->
+            error({"OCI runtime libraries are not found in path",
+                    Envs, LibFiles, Paths});
+        _ -> ok
     end.

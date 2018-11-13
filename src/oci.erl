@@ -26,7 +26,7 @@ init() ->
             Path ->
                 Path
         end,
-    check_lib(),
+    check_lib(PrivDir),
     case erlang:load_nif(filename:join(PrivDir, "ocinif"), 0) of
         ok ->                  ok;
         {error,{reload, _}} -> ok;
@@ -242,7 +242,7 @@ parse_lang(Lang) when is_binary(Lang) ->
 %%--------------------------------------------------------------------
 %% Internal Functions
 %%--------------------------------------------------------------------
-check_lib() ->
+check_lib(PrivDir) ->
     {Envs, Seperator, LibFiles} =
         case os:type() of
             {unix, darwin} ->
@@ -252,19 +252,21 @@ check_lib() ->
             {unix, linux}->
                 {["LD_LIBRARY_PATH", "PATH"], ":", ["libocci.so"]}
         end,
-    Paths =
-        re:split(
-            string:join(
-                lists:foldl(
-                    fun(E, Acc) ->
-                        case os:getenv(E) of
-                            Path when is_list(Path) -> [Path | Acc];
-                            _ -> Acc
-                        end
-                    end, [], Envs
-                ), Seperator
-            ), Seperator, [{return, list}]
-        ),
+    Paths = [
+        PrivDir |
+            re:split(
+                string:join(
+                    lists:foldl(
+                        fun(E, Acc) ->
+                            case os:getenv(E) of
+                                Path when is_list(Path) -> [Path | Acc];
+                                _ -> Acc
+                            end
+                        end, [], Envs
+                    ), Seperator
+                ), Seperator, [{return, list}]
+            )
+    ],
     case lists:flatten(
             [filelib:wildcard(L, P) || L <- LibFiles, P <- Paths]
     ) of

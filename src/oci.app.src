@@ -1,5 +1,5 @@
-{application, erloci,
- [{description, "NIF based driver for Oracle OCI library"},
+{application, oci,
+ [{description, "NIF based driver for Oracle Call Interface"},
   {vsn, "0.1.0"},
   {registered, []},
   {applications,
@@ -7,7 +7,7 @@
     stdlib
    ]},
   {env,[]},
-  {modules, [erloci]},
+  {modules, [oci]},
 
   {maintainers, []},
   {licenses, ["Apache 2.0"]},

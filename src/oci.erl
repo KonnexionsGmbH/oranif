@@ -1,4 +1,4 @@
--module(erloci).
+-module(oci).
 %% Low level API to the nif
 
 -export([init/0, ociEnvNlsCreate/2, ociEnvHandleFree/1, ociAuthHandleFree/1,
@@ -25,7 +25,7 @@ init() ->
                   Path ->
                       Path
               end,
-    case erlang:load_nif(filename:join(PrivDir, "erloci"), 0) of
+    case erlang:load_nif(filename:join(PrivDir, "ocinif"), 0) of
         ok ->                  ok;
         {error,{reload, _}} -> ok;
         Error ->               Error

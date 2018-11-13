@@ -1,5 +1,5 @@
-# erloci_nif
-Oracle OCI driver using dirty NIFs
+# ocinif
+Oracle Call Interface driver using dirty NIFs
 
 Requires Erlang/OTP 20 or later with full dirty nif support.
 

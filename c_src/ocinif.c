@@ -1,4 +1,4 @@
-#include "erloci.h"
+#include "ocinif.h"
 
 static void free_col_info(col_info *col_info, int num_cols)
 {
@@ -1686,4 +1686,4 @@ static void unload(ErlNifEnv *env, void *priv_data)
     TRACE;
 }
 
-ERL_NIF_INIT(erloci, nif_funcs, load, NULL, upgrade, unload)
+ERL_NIF_INIT(oci, nif_funcs, load, NULL, upgrade, unload)

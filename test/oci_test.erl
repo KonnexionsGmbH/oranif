@@ -1,4 +1,4 @@
--module(erloci_test).
+-module(oci_test).
 
 -include_lib("eunit/include/eunit.hrl").
 -include("test_common.hrl").
@@ -54,32 +54,32 @@ db_negative_test_() ->
 
 bad_password(#{envhp := Envhp, spoolhp := Spoolhp,
                conf := #{user := User, password := Pass}}) ->
-    {ok, Authhp} = erloci:ociAuthHandleCreate(Envhp, User, list_to_binary([Pass,"_bad"])),
-    Res = erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
+    {ok, Authhp} = oci:ociAuthHandleCreate(Envhp, User, list_to_binary([Pass,"_bad"])),
+    Res = oci:ociSessionGet(Envhp, Authhp, Spoolhp),
     case Res of
-        {ok, Svchp} -> ok = erloci:ociSessionRelease(Svchp);
+        {ok, Svchp} -> ok = oci:ociSessionRelease(Svchp);
         _ -> ok
     end,
-    ok = erloci:ociAuthHandleFree(Authhp),
+    ok = oci:ociAuthHandleFree(Authhp),
     ?assertMatch({error, {1017,_}}, Res).
 
 session_ping(#{envhp := Envhp, spoolhp := Spoolhp,
                conf := #{user := User, password := Pass}}) ->
-    {ok, Authhp} = erloci:ociAuthHandleCreate(Envhp, User, Pass),
-    {ok, Svchp} =  erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
-    ?assertEqual(pong, erloci:ociPing(Svchp)),
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from dual">>)),
-    ?assertEqual(pong, erloci:ociPing(Svchp)),
+    {ok, Authhp} = oci:ociAuthHandleCreate(Envhp, User, Pass),
+    {ok, Svchp} =  oci:ociSessionGet(Envhp, Authhp, Spoolhp),
+    ?assertEqual(pong, oci:ociPing(Svchp)),
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, <<"select * from dual">>)),
+    ?assertEqual(pong, oci:ociPing(Svchp)),
     ?assertMatch(
         {ok, #{cols := [{<<"DUMMY">>,?SQLT_CHR,_,_,0}]}},
-        erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)
+        oci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)
     ),
-    ?assertEqual(pong, erloci:ociPing(Svchp)),
-    ?assertEqual({ok, [[<<"X">>]], true}, erloci:ociStmtFetch(Stmthp, 2)),
-    ?assertEqual(pong, erloci:ociPing(Svchp)),
-    ok = erloci:ociStmtHandleFree(Stmthp),
-    ok = erloci:ociSessionRelease(Svchp).
+    ?assertEqual(pong, oci:ociPing(Svchp)),
+    ?assertEqual({ok, [[<<"X">>]], true}, oci:ociStmtFetch(Stmthp, 2)),
+    ?assertEqual(pong, oci:ociPing(Svchp)),
+    ok = oci:ociStmtHandleFree(Stmthp),
+    ok = oci:ociSessionRelease(Svchp).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -117,57 +117,57 @@ db_test_() ->
       }}.
 
 nls_get_info(#{envhp := Envhp}) ->
-    ?assertMatch({ok, <<"montag">>}, erloci:ociNlsGetInfo(Envhp, ?OCI_NLS_DAYNAME1)),
-    CharSetInfo = erloci:ociCharsetAttrGet(Envhp),
+    ?assertMatch({ok, <<"montag">>}, oci:ociNlsGetInfo(Envhp, ?OCI_NLS_DAYNAME1)),
+    CharSetInfo = oci:ociCharsetAttrGet(Envhp),
     ?assertMatch({ok, {_, _}}, CharSetInfo),
     {ok, {CharsetId, NCharsetId}} = CharSetInfo,
-    ?assertEqual({ok, <<"AL32UTF8">>}, erloci:ociNlsCharSetIdToName(Envhp, CharsetId)),
-    ?assertEqual({ok, <<"AL32UTF8">>}, erloci:ociNlsCharSetIdToName(Envhp, NCharsetId)).
+    ?assertEqual({ok, <<"AL32UTF8">>}, oci:ociNlsCharSetIdToName(Envhp, CharsetId)),
+    ?assertEqual({ok, <<"AL32UTF8">>}, oci:ociNlsCharSetIdToName(Envhp, NCharsetId)).
 
 set_binary_attr(#{envhp := Envhp}) ->
-    ?assertMatch(ok, erloci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, <<"GERMAN">>,?OCI_ATTR_ENV_NLS_LANGUAGE)).
+    ?assertMatch(ok, oci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, <<"GERMAN">>,?OCI_ATTR_ENV_NLS_LANGUAGE)).
 
 select_null(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
-    ?assertMatch({ok, #{statement := ?OCI_STMT_SELECT}},  erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)),
-    ?assertMatch({ok, _,_},  erloci:ociStmtFetch(Stmthp, 1)).
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, <<"select * from numbers">>)),
+    ?assertMatch({ok, #{statement := ?OCI_STMT_SELECT}},  oci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)),
+    ?assertMatch({ok, _,_},  oci:ociStmtFetch(Stmthp, 1)).
 
 select_bind(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
-    {ok, BindVars1} = erloci:ociBindByName(Stmthp, #{}, <<"A">>,  ?SQLT_CHR, <<"X">>),
-    {ok, BindVars2} = erloci:ociBindByName(Stmthp, BindVars1, <<"B">>,  ?SQLT_CHR, <<"Y">>),
-    ?assertMatch({ok, #{statement := ?OCI_STMT_SELECT, cols := [{<<"DUMMY">>,?SQLT_CHR,1,_,0}]}},  erloci:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, ?OCI_DEFAULT)),
-    ?assertMatch({ok, [[<<"X">>]], _}, erloci:ociStmtFetch(Stmthp, 1)).
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A or dummy = :B">>)),
+    {ok, BindVars1} = oci:ociBindByName(Stmthp, #{}, <<"A">>,  ?SQLT_CHR, <<"X">>),
+    {ok, BindVars2} = oci:ociBindByName(Stmthp, BindVars1, <<"B">>,  ?SQLT_CHR, <<"Y">>),
+    ?assertMatch({ok, #{statement := ?OCI_STMT_SELECT, cols := [{<<"DUMMY">>,?SQLT_CHR,1,_,0}]}},  oci:ociStmtExecute(Svchp, Stmthp, BindVars2, 0, 0, ?OCI_DEFAULT)),
+    ?assertMatch({ok, [[<<"X">>]], _}, oci:ociStmtFetch(Stmthp, 1)).
 
 column_types(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
-    ?assertMatch({ok, _}, erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)),
-    ?assertMatch({ok, _,_}, erloci:ociStmtFetch(Stmthp, 1)).
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, <<"select * from testtable">>)),
+    ?assertMatch({ok, _}, oci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)),
+    ?assertMatch({ok, _,_}, oci:ociStmtFetch(Stmthp, 1)).
 
 missing_bind_error(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
-    ?assertMatch({error, {1008, _}},  erloci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)).
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, <<"select * from dual where dummy = :A">>)),
+    ?assertMatch({error, {1008, _}},  oci:ociStmtExecute(Svchp, Stmthp, #{}, 0, 0, ?OCI_DEFAULT)).
 
 bad_sql_connection_reuse(#{envhp := Envhp}) ->
-        {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
+        {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
         BadSelect = <<"select 'abc from dual">>,
-        ?assertMatch({error, {1756, _}},  erloci:ociStmtPrepare(Stmthp, BadSelect)),
+        ?assertMatch({error, {1756, _}},  oci:ociStmtPrepare(Stmthp, BadSelect)),
         GoodSelect = <<"select 'abc' from dual">>,
-        ?assertMatch(ok, erloci:ociStmtPrepare(Stmthp, GoodSelect)),
+        ?assertMatch(ok, oci:ociStmtPrepare(Stmthp, GoodSelect)),
         %%?assertMatch({cols, [{<<"'ABC'">>,?SQLT_AFC,_,0,0}]}, SelStmt:exec_stmt()),
         %%?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
-        ?assertEqual(ok, erloci:ociStmtHandleFree(Stmthp)).
+        ?assertEqual(ok, oci:ociStmtHandleFree(Stmthp)).
 
 insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
     RowCount = 6,
     flush_table(Sess),
 
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp, ?INSERT),
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ok =  oci:ociStmtPrepare(Stmthp, ?INSERT),
     lists:foreach(fun(I) ->
         Vars = [{<<"pkey">>,  ?SQLT_INT, I},
                 {<<"publisher">>, ?SQLT_CHR,
@@ -180,27 +180,27 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
                 {<<"chapters">>, ?SQLT_IBFLOAT, 9.9945},% 9.999999350456404e-39},
                 {<<"votes_first_rank">>, ?SQLT_INT, I}],
         BindVars = lists:foldl(fun({Name, Type, Value}, Acc) ->
-                                {ok, BV} = erloci:ociBindByName(Stmthp, Acc, Name, Type, Value),
+                                {ok, BV} = oci:ociBindByName(Stmthp, Acc, Name, Type, Value),
                                 BV
                             end, #{}, Vars),
-        Res = erloci:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, ?OCI_COMMIT_ON_SUCCESS),
+        Res = oci:ociStmtExecute(Svchp, Stmthp, BindVars, 1, 0, ?OCI_COMMIT_ON_SUCCESS),
         % io:format("RES: ~p\r\n", [Res]),
         ?assertMatch({ok, _}, Res)
     end, lists:seq(1, RowCount)),
 
-    {ok, Stmthp2} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp2, ?SELECT_ROW_COUNT),
-    {ok, _} = erloci:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, ?OCI_DEFAULT),
-    {ok, [[RowCount1]], _} = erloci:ociStmtFetch(Stmthp2, 1),
+    {ok, Stmthp2} = oci:ociStmtHandleCreate(Envhp),
+    ok =  oci:ociStmtPrepare(Stmthp2, ?SELECT_ROW_COUNT),
+    {ok, _} = oci:ociStmtExecute(Svchp, Stmthp2, #{}, 0, 0, ?OCI_DEFAULT),
+    {ok, [[RowCount1]], _} = oci:ociStmtFetch(Stmthp2, 1),
     Total = oci_util:from_num(RowCount1),
     ?assertMatch("6", Total),
 
-    {ok, Stmthp3} = erloci:ociStmtHandleCreate(Envhp),
-    ok =  erloci:ociStmtPrepare(Stmthp3, ?SELECT_ALL_ROWS),
-    {ok, _} = erloci:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, ?OCI_DEFAULT),
-    {ok, [_R1,_R2,_R3], false} = erloci:ociStmtFetch(Stmthp3, 3),
-    {ok, [_R4,_R5], false} = erloci:ociStmtFetch(Stmthp3, 2),
-    {ok, [_R6], true} = erloci:ociStmtFetch(Stmthp3, 7).
+    {ok, Stmthp3} = oci:ociStmtHandleCreate(Envhp),
+    ok =  oci:ociStmtPrepare(Stmthp3, ?SELECT_ALL_ROWS),
+    {ok, _} = oci:ociStmtExecute(Svchp, Stmthp3, #{}, 0, 0, ?OCI_DEFAULT),
+    {ok, [_R1,_R2,_R3], false} = oci:ociStmtFetch(Stmthp3, 3),
+    {ok, [_R4,_R5], false} = oci:ociStmtFetch(Stmthp3, 2),
+    {ok, [_R6], true} = oci:ociStmtFetch(Stmthp3, 7).
 
 % ------------------------------------------------------------------------------
 % helpers
@@ -208,43 +208,43 @@ insert_select_update(#{envhp := Envhp, svchp := Svchp} = Sess) ->
 setup() ->
     Conf = ?CONN_CONF,
     #{tns := Tns, lang := Lang} = Conf,
-    {Language, Country, Charset} = erloci:parse_lang(Lang),
-    E1 =  erloci:ociEnvNlsCreate(0,0),
-    {ok, CharsetId} = erloci:ociNlsCharSetNameToId(E1, Charset),
-    ok = erloci:ociEnvHandleFree(E1),
-    Envhp =  erloci:ociEnvNlsCreate(CharsetId,CharsetId),
-    ok = erloci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, Language,
+    {Language, Country, Charset} = oci:parse_lang(Lang),
+    E1 =  oci:ociEnvNlsCreate(0,0),
+    {ok, CharsetId} = oci:ociNlsCharSetNameToId(E1, Charset),
+    ok = oci:ociEnvHandleFree(E1),
+    Envhp =  oci:ociEnvNlsCreate(CharsetId,CharsetId),
+    ok = oci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, Language,
                            ?OCI_ATTR_ENV_NLS_LANGUAGE),
-    ok = erloci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, Country,
+    ok = oci:ociAttrSet(Envhp, ?OCI_HTYPE_ENV, text, Country,
                            ?OCI_ATTR_ENV_NLS_TERRITORY),
-    {ok, Spoolhp} =  erloci:ociSessionPoolCreate(Envhp, Tns, 2, 10, 1, null,
+    {ok, Spoolhp} =  oci:ociSessionPoolCreate(Envhp, Tns, 2, 10, 1, null,
                                                  null),
     #{envhp => Envhp, conf => Conf, spoolhp => Spoolhp}.
 
 teardown(#{envhp := Envhp, spoolhp := Spoolhp}) ->
-    ok = erloci:ociSessionPoolDestroy(Spoolhp),
-    ok = erloci:ociEnvHandleFree(Envhp),
-    ok = erloci:ociTerminate().
+    ok = oci:ociSessionPoolDestroy(Spoolhp),
+    ok = oci:ociEnvHandleFree(Envhp),
+    ok = oci:ociTerminate().
 
 setup_session() ->
     #{envhp := Envhp, spoolhp := Spoolhp, conf := #{user := User,
       password := Pass}} = Ctx = setup(),
-    {ok, Authhp} =  erloci:ociAuthHandleCreate(Envhp, User, Pass),
-    {ok, Svchp} =  erloci:ociSessionGet(Envhp, Authhp, Spoolhp),
+    {ok, Authhp} =  oci:ociAuthHandleCreate(Envhp, User, Pass),
+    {ok, Svchp} =  oci:ociSessionGet(Envhp, Authhp, Spoolhp),
     Ctx#{authhp => Authhp, svchp => Svchp}.
 
 teardown_session(#{authhp := Authhp, svchp := Svchp} = Ctx) ->
-    ok = erloci:ociSessionRelease(Svchp),
-    ok = erloci:ociAuthHandleFree(Authhp),
+    ok = oci:ociSessionRelease(Svchp),
+    ok = oci:ociAuthHandleFree(Authhp),
     teardown(Ctx).
 
 flush_table(#{envhp := Envhp, svchp := Svchp}) ->
-    {ok, Stmthp} = erloci:ociStmtHandleCreate(Envhp),
-    ok = erloci:ociStmtPrepare(Stmthp, ?DROP),
-    case  erloci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0,  ?OCI_DEFAULT) of
+    {ok, Stmthp} = oci:ociStmtHandleCreate(Envhp),
+    ok = oci:ociStmtPrepare(Stmthp, ?DROP),
+    case  oci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0,  ?OCI_DEFAULT) of
         {ok, #{statement := ?OCI_STMT_DROP}} -> ok;
         {error,{942,_}} -> ok;
         Else -> exit(Else)
     end,
-    ok = erloci:ociStmtPrepare(Stmthp, ?CREATE),
-    {ok, #{statement := ?OCI_STMT_CREATE}} = erloci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, ?OCI_DEFAULT).
+    ok = oci:ociStmtPrepare(Stmthp, ?CREATE),
+    {ok, #{statement := ?OCI_STMT_CREATE}} = oci:ociStmtExecute(Svchp, Stmthp, #{}, 1, 0, ?OCI_DEFAULT).

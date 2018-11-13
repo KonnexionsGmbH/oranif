@@ -29,9 +29,11 @@ Open Questions
 
 ## Development
 ### Windows
-```bat
-INSTANT_CLIENT_INCLUDE_PATH=path_to_instant_client_installation\sdk\include
-INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation\sdk\lib\msvc
+```sh
+INSTANT_CLIENT_LIB_PATH=path_to_instant_client_installation
+# The following paths MUST exist
+# %INSTANT_CLIENT_LIB_PATH%\sdk\lib\msvc
+# %INSTANT_CLIENT_LIB_PATH%\sdk\include
 ```
 
 ## DB Init SQL (XE)

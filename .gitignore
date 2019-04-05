@@ -6,7 +6,6 @@ deps
 *.beam
 *.plt
 erl_crash.dump
-priv
 *.exe
 *.so
 *.dll
@@ -25,3 +24,7 @@ rebar3.crashdump
 *.swp
 c_src/oci_api/select
 c_src/oci_api/session
+
+c_src/odpi
+priv/
+ebin/

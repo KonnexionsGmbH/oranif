@@ -1,0 +1,84 @@
+O = priv
+S = c_src
+T = test
+L = $S\odpi\lib\odpic.lib
+
+OBJS = $O\dpi_nif.obj $O\dpiContext_nif.obj $O\dpiConn_nif.obj $O\dpiStmt_nif.obj $O\dpiData_nif.obj $O\dpiQueryInfo_nif.obj $O\dpiVar_nif.obj $O\dpiObjectType_nif.obj
+TARGETS = $O\dpi_nif.dll
+
+TEST_OBJS = test\odpi_test.obj
+TEST_TARGETS = test\odpi_test.exe
+
+CFLAGS = /nologo /c /MT
+# CFLAGS = $(CFLAGS) /Wall /WX
+INCLUDE_PATHS = /I$S /I"$(OTPROOT)\erts-9.2\include" /I"$S\odpi\include"
+LDFLAGS = /nologo 
+
+!IFDEF EMBEDED
+CFLAGS = $(CFLAGS) /DEMBED
+!ELSE
+LDFLAGS = $(LDFLAGS) $L
+!ENDIF
+
+all : priv $(TEST_TARGETS) $(TARGETS) cleanup
+
+$(TARGETS) : odpi $(OBJS)
+
+$(TEST_TARGETS) : odpi $(TEST_OBJS)
+
+{$T}.c{$T}.obj::
+    cl $(CFLAGS) /Fo$T\ $(INCLUDE_PATHS) $<
+
+{$S}.c{$O}.obj::
+    cl $(CFLAGS) /Fo$O\ $(INCLUDE_PATHS) $<
+
+priv:
+!IF !EXISTS($O)
+    mkdir $O
+!ENDIF
+
+$(OBJS) :
+
+$(TEST_OBJS) :
+
+{$T}.obj{$T}.exe:
+    link $(LDFLAGS) $T\*.obj /out:$@
+
+{$O}.obj{$O}.dll:
+    link $(LDFLAGS) /dll\
+        /libpath:"$(ERL_INTERFACE_DIR)/lib"\
+        $O\*.obj erl_interface.lib ei.lib\
+        /out:$@
+
+odpi:
+!IF !EXISTS($S\odpi)
+    cd c_src && git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi
+    @RD /S /Q c_src\odpi\.git 2>nul || rem
+!ENDIF
+!IF !DEFINED(EMBEDED) && !EXISTS($L)
+    cd c_src/odpi && nmake -F Makefile.win32
+!ELSEIF !DEFINED(EMBEDED)
+    @ECHO "===> odpi already built"
+!ELSE
+    @ECHO "===> odpi embeded build"
+!ENDIF
+
+clean:
+    @if exist $O\*.obj del /F /Q $O\*.obj
+    @if exist $O\*.exp del /F /Q $O\*.exp
+    @if exist $O\*.lib del /F /Q $O\*.lib
+    @if exist $O\*.exe del /F /Q $O\*.exe
+    @if exist $O\*.dll del /F /Q $O\*.dll
+    @if exist $T\*.obj del /F /Q $T\*.obj
+    @if exist $T\*.exp del /F /Q $T\*.exp
+    @if exist $T\*.lib del /F /Q $T\*.lib
+    @if exist $T\*.exe del /F /Q $T\*.exe
+    @if exist $T\*.dll del /F /Q $T\*.dll
+
+cleanup:
+    @if exist $O\*.obj del /F /Q $O\*.obj
+    @if exist $O\*.exp del /F /Q $O\*.exp
+    @if exist $O\*.lib del /F /Q $O\*.lib
+    @if exist $T\*.obj del /F /Q $T\*.obj
+    @if exist $T\*.exp del /F /Q $T\*.exp
+    @if exist $T\*.lib del /F /Q $T\*.lib

@@ -255,6 +255,8 @@ DPI_NIF_FUN(dpiData_get)
     if (data->isNull)
         return ATOM_NULL;
 
+    ErlNifBinary bin;
+    
     switch (dataRes->type)
     {
     case DPI_NATIVE_TYPE_INT64:
@@ -270,7 +272,6 @@ DPI_NIF_FUN(dpiData_get)
         dataRet = enif_make_double(env, data->value.asDouble);
         break;
     case DPI_NATIVE_TYPE_BYTES:
-        ErlNifBinary bin;
         enif_alloc_binary(data->value.asBytes.length, &bin);
         memcpy(bin.data, data->value.asBytes.ptr, data->value.asBytes.length);
         dataRet = enif_make_binary(env, &bin);

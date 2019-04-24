@@ -254,7 +254,7 @@ DPI_NIF_FUN(dpiData_get)
     // if NULL, no further processing of data is necessary
     if (data->isNull)
         return ATOM_NULL;
-
+    
     switch (dataRes->type)
     {
     case DPI_NATIVE_TYPE_INT64:
@@ -269,11 +269,12 @@ DPI_NIF_FUN(dpiData_get)
     case DPI_NATIVE_TYPE_DOUBLE:
         dataRet = enif_make_double(env, data->value.asDouble);
         break;
-    case DPI_NATIVE_TYPE_BYTES:
-        ErlNifBinary bin;
-        enif_alloc_binary(data->value.asBytes.length, &bin);
-        memcpy(bin.data, data->value.asBytes.ptr, data->value.asBytes.length);
-        dataRet = enif_make_binary(env, &bin);
+    case DPI_NATIVE_TYPE_BYTES:{
+            ErlNifBinary bin;
+            enif_alloc_binary(data->value.asBytes.length, &bin);
+            memcpy(bin.data, data->value.asBytes.ptr, data->value.asBytes.length);
+            dataRet = enif_make_binary(env, &bin);
+        }
         break;
     case DPI_NATIVE_TYPE_TIMESTAMP:
         dataRet = enif_make_new_map(env);

@@ -79,15 +79,15 @@ extern ERL_NIF_TERM ATOM_UNIMPLEMENTED;
 
 #define DEF_NIF(_fun, _arity)            \
     {                                    \
-#_fun "_nif", _arity, _fun##_nif \
+#_fun , _arity, _fun \
     }
 #define IOB_NIF(_fun, _arity)                                        \
     {                                                                \
-#_fun "_nif", _arity, _fun##_nif, ERL_NIF_DIRTY_JOB_IO_BOUND \
+#_fun, _arity, _fun, ERL_NIF_DIRTY_JOB_IO_BOUND \
     }
 
 #define DPI_NIF_FUN(_fun)    \
-    ERL_NIF_TERM _fun##_nif( \
+    ERL_NIF_TERM _fun( \
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 #define UNIMPLEMENTED(_fun)                                           \

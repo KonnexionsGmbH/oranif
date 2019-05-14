@@ -10,7 +10,7 @@ void dpiObjectType_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiObjectType destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiObjectType_release)
+DPI_NIF_FUN(objectType_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -22,7 +22,7 @@ DPI_NIF_FUN(dpiObjectType_release)
     return ATOM_OK;
 }
 
-UNIMPLEMENTED(dpiObjectType_addRef);
-UNIMPLEMENTED(dpiObjectType_createObject);
-UNIMPLEMENTED(dpiObjectType_getAttributes);
-UNIMPLEMENTED(dpiObjectType_getInfo);
+UNIMPLEMENTED(objectType_addRef);
+UNIMPLEMENTED(objectType_createObject);
+UNIMPLEMENTED(objectType_getAttributes);
+UNIMPLEMENTED(objectType_getInfo);

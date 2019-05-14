@@ -15,7 +15,7 @@ void dpiConn_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiConn destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiConn_create)
+DPI_NIF_FUN(conn_create)
 {
     CHECK_ARGCOUNT(6);
 
@@ -46,7 +46,7 @@ DPI_NIF_FUN(dpiConn_create)
     return connResTerm;
 }
 
-DPI_NIF_FUN(dpiConn_prepareStmt)
+DPI_NIF_FUN(conn_prepareStmt)
 {
     CHECK_ARGCOUNT(4);
 
@@ -77,7 +77,7 @@ DPI_NIF_FUN(dpiConn_prepareStmt)
     return stmtResTerm;
 }
 
-DPI_NIF_FUN(dpiConn_newVar)
+DPI_NIF_FUN(conn_newVar)
 {
     CHECK_ARGCOUNT(8);
 
@@ -143,7 +143,7 @@ DPI_NIF_FUN(dpiConn_newVar)
     return ret;
 }
 
-DPI_NIF_FUN(dpiConn_commit)
+DPI_NIF_FUN(conn_commit)
 {
     CHECK_ARGCOUNT(1);
 
@@ -156,7 +156,7 @@ DPI_NIF_FUN(dpiConn_commit)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_rollback)
+DPI_NIF_FUN(conn_rollback)
 {
     CHECK_ARGCOUNT(1);
 
@@ -170,7 +170,7 @@ DPI_NIF_FUN(dpiConn_rollback)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_ping)
+DPI_NIF_FUN(conn_ping)
 {
     CHECK_ARGCOUNT(1);
 
@@ -184,7 +184,7 @@ DPI_NIF_FUN(dpiConn_ping)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_release)
+DPI_NIF_FUN(conn_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -198,7 +198,7 @@ DPI_NIF_FUN(dpiConn_release)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_close)
+DPI_NIF_FUN(conn_close)
 {
     CHECK_ARGCOUNT(3);
 
@@ -236,7 +236,7 @@ DPI_NIF_FUN(dpiConn_close)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_getServerVersion)
+DPI_NIF_FUN(conn_getServerVersion)
 {
     CHECK_ARGCOUNT(1);
 
@@ -288,39 +288,39 @@ DPI_NIF_FUN(dpiConn_getServerVersion)
     return map;
 }
 
-UNIMPLEMENTED(dpiConn_addRef)
-UNIMPLEMENTED(dpiConn_beginDistribTrans)
-UNIMPLEMENTED(dpiConn_breakExecution)
-UNIMPLEMENTED(dpiConn_changePassword)
-UNIMPLEMENTED(dpiConn_deqObject)
-UNIMPLEMENTED(dpiConn_enqObject)
-UNIMPLEMENTED(dpiConn_getCallTimeout)
-UNIMPLEMENTED(dpiConn_getCurrentSchema)
-UNIMPLEMENTED(dpiConn_getEdition)
-UNIMPLEMENTED(dpiConn_getEncodingInfo)
-UNIMPLEMENTED(dpiConn_getExternalName)
-UNIMPLEMENTED(dpiConn_getHandle)
-UNIMPLEMENTED(dpiConn_getInternalName)
-UNIMPLEMENTED(dpiConn_getLTXID)
-UNIMPLEMENTED(dpiConn_getObjectType)
-UNIMPLEMENTED(dpiConn_getSodaDb)
-UNIMPLEMENTED(dpiConn_getStmtCacheSize)
-UNIMPLEMENTED(dpiConn_newDeqOptions)
-UNIMPLEMENTED(dpiConn_newEnqOptions)
-UNIMPLEMENTED(dpiConn_newMsgProps)
-UNIMPLEMENTED(dpiConn_newTempLob)
-UNIMPLEMENTED(dpiConn_prepareDistribTrans)
-UNIMPLEMENTED(dpiConn_setAction)
-UNIMPLEMENTED(dpiConn_setCallTimeout)
-UNIMPLEMENTED(dpiConn_setClientIdentifier)
-UNIMPLEMENTED(dpiConn_setClientInfo)
-UNIMPLEMENTED(dpiConn_setCurrentSchema)
-UNIMPLEMENTED(dpiConn_setDbOp)
-UNIMPLEMENTED(dpiConn_setExternalName)
-UNIMPLEMENTED(dpiConn_setInternalName)
-UNIMPLEMENTED(dpiConn_setModule)
-UNIMPLEMENTED(dpiConn_setStmtCacheSize)
-UNIMPLEMENTED(dpiConn_shutdownDatabase)
-UNIMPLEMENTED(dpiConn_startupDatabase)
-UNIMPLEMENTED(dpiConn_subscribe)
-UNIMPLEMENTED(dpiConn_unsubscribe)
+UNIMPLEMENTED(conn_addRef)
+UNIMPLEMENTED(conn_beginDistribTrans)
+UNIMPLEMENTED(conn_breakExecution)
+UNIMPLEMENTED(conn_changePassword)
+UNIMPLEMENTED(conn_deqObject)
+UNIMPLEMENTED(conn_enqObject)
+UNIMPLEMENTED(conn_getCallTimeout)
+UNIMPLEMENTED(conn_getCurrentSchema)
+UNIMPLEMENTED(conn_getEdition)
+UNIMPLEMENTED(conn_getEncodingInfo)
+UNIMPLEMENTED(conn_getExternalName)
+UNIMPLEMENTED(conn_getHandle)
+UNIMPLEMENTED(conn_getInternalName)
+UNIMPLEMENTED(conn_getLTXID)
+UNIMPLEMENTED(conn_getObjectType)
+UNIMPLEMENTED(conn_getSodaDb)
+UNIMPLEMENTED(conn_getStmtCacheSize)
+UNIMPLEMENTED(conn_newDeqOptions)
+UNIMPLEMENTED(conn_newEnqOptions)
+UNIMPLEMENTED(conn_newMsgProps)
+UNIMPLEMENTED(conn_newTempLob)
+UNIMPLEMENTED(conn_prepareDistribTrans)
+UNIMPLEMENTED(conn_setAction)
+UNIMPLEMENTED(conn_setCallTimeout)
+UNIMPLEMENTED(conn_setClientIdentifier)
+UNIMPLEMENTED(conn_setClientInfo)
+UNIMPLEMENTED(conn_setCurrentSchema)
+UNIMPLEMENTED(conn_setDbOp)
+UNIMPLEMENTED(conn_setExternalName)
+UNIMPLEMENTED(conn_setInternalName)
+UNIMPLEMENTED(conn_setModule)
+UNIMPLEMENTED(conn_setStmtCacheSize)
+UNIMPLEMENTED(conn_shutdownDatabase)
+UNIMPLEMENTED(conn_startupDatabase)
+UNIMPLEMENTED(conn_subscribe)
+UNIMPLEMENTED(conn_unsubscribe)

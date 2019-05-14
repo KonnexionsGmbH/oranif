@@ -13,31 +13,31 @@ extern ErlNifResourceType *dpiVar_type;
 
 extern void dpiVar_res_dtor(ErlNifEnv *env, void *resource);
 
-extern DPI_NIF_FUN(dpiVar_addRef);
-extern DPI_NIF_FUN(dpiVar_copyData);
-extern DPI_NIF_FUN(dpiVar_getNumElementsInArray);
-extern DPI_NIF_FUN(dpiVar_getReturnedData);
-extern DPI_NIF_FUN(dpiVar_getSizeInBytes);
-extern DPI_NIF_FUN(dpiVar_release);
-extern DPI_NIF_FUN(dpiVar_setFromBytes);
-extern DPI_NIF_FUN(dpiVar_setFromLob);
-extern DPI_NIF_FUN(dpiVar_setFromObject);
-extern DPI_NIF_FUN(dpiVar_setFromRowid);
-extern DPI_NIF_FUN(dpiVar_setFromStmt);
-extern DPI_NIF_FUN(dpiVar_setNumElementsInArray);
+extern DPI_NIF_FUN(var_addRef);
+extern DPI_NIF_FUN(var_copyData);
+extern DPI_NIF_FUN(var_getNumElementsInArray);
+extern DPI_NIF_FUN(var_getReturnedData);
+extern DPI_NIF_FUN(var_getSizeInBytes);
+extern DPI_NIF_FUN(var_release);
+extern DPI_NIF_FUN(var_setFromBytes);
+extern DPI_NIF_FUN(var_setFromLob);
+extern DPI_NIF_FUN(var_setFromObject);
+extern DPI_NIF_FUN(var_setFromRowid);
+extern DPI_NIF_FUN(var_setFromStmt);
+extern DPI_NIF_FUN(var_setNumElementsInArray);
 
 #define DPIVAR_NIFS                               \
-    DEF_NIF(dpiVar_addRef, 1),                    \
-        DEF_NIF(dpiVar_copyData, 4),              \
-        DEF_NIF(dpiVar_getNumElementsInArray, 1), \
-        DEF_NIF(dpiVar_getReturnedData, 2),       \
-        DEF_NIF(dpiVar_getSizeInBytes, 1),        \
-        DEF_NIF(dpiVar_release, 1),               \
-        DEF_NIF(dpiVar_setFromBytes, 3),          \
-        DEF_NIF(dpiVar_setFromLob, 3),            \
-        DEF_NIF(dpiVar_setFromObject, 3),         \
-        DEF_NIF(dpiVar_setFromRowid, 3),          \
-        DEF_NIF(dpiVar_setFromStmt, 3),           \
-        DEF_NIF(dpiVar_setNumElementsInArray, 2)
+    DEF_NIF(var_addRef, 1),                    \
+        DEF_NIF(var_copyData, 4),              \
+        DEF_NIF(var_getNumElementsInArray, 1), \
+        DEF_NIF(var_getReturnedData, 2),       \
+        DEF_NIF(var_getSizeInBytes, 1),        \
+        DEF_NIF(var_release, 1),               \
+        DEF_NIF(var_setFromBytes, 3),          \
+        DEF_NIF(var_setFromLob, 3),            \
+        DEF_NIF(var_setFromObject, 3),         \
+        DEF_NIF(var_setFromRowid, 3),          \
+        DEF_NIF(var_setFromStmt, 3),           \
+        DEF_NIF(var_setNumElementsInArray, 2)
 
 #endif // _DPIVAR_NIF_H_

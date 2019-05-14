@@ -9,7 +9,7 @@ void dpiVar_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiVar destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiVar_setNumElementsInArray)
+DPI_NIF_FUN(var_setNumElementsInArray)
 {
     CHECK_ARGCOUNT(2);
 
@@ -27,7 +27,7 @@ DPI_NIF_FUN(dpiVar_setNumElementsInArray)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiVar_setFromBytes)
+DPI_NIF_FUN(var_setFromBytes)
 {
     CHECK_ARGCOUNT(3);
 
@@ -48,7 +48,7 @@ DPI_NIF_FUN(dpiVar_setFromBytes)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiVar_release)
+DPI_NIF_FUN(var_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -60,12 +60,12 @@ DPI_NIF_FUN(dpiVar_release)
     return ATOM_OK;
 }
 
-UNIMPLEMENTED(dpiVar_addRef);
-UNIMPLEMENTED(dpiVar_copyData);
-UNIMPLEMENTED(dpiVar_getNumElementsInArray);
-UNIMPLEMENTED(dpiVar_getReturnedData);
-UNIMPLEMENTED(dpiVar_getSizeInBytes);
-UNIMPLEMENTED(dpiVar_setFromLob);
-UNIMPLEMENTED(dpiVar_setFromObject);
-UNIMPLEMENTED(dpiVar_setFromRowid);
-UNIMPLEMENTED(dpiVar_setFromStmt);
+UNIMPLEMENTED(var_addRef);
+UNIMPLEMENTED(var_copyData);
+UNIMPLEMENTED(var_getNumElementsInArray);
+UNIMPLEMENTED(var_getReturnedData);
+UNIMPLEMENTED(var_getSizeInBytes);
+UNIMPLEMENTED(var_setFromLob);
+UNIMPLEMENTED(var_setFromObject);
+UNIMPLEMENTED(var_setFromRowid);
+UNIMPLEMENTED(var_setFromStmt);

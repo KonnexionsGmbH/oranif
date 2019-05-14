@@ -1,7 +1,7 @@
 -module(odpi_eunit).
 -include_lib("eunit/include/eunit.hrl").
 
-
+-define(SLAVE_NAME, dpi_slave).
 %% performs a call with the given SQL statement. Also handles releasing the
 %% statement resource that has been made and includes basic error handling
 callS(Conn, Context, SQL) -> 
@@ -893,7 +893,8 @@ start() ->
 
 s() ->
      ?debugMsg("Performing setup."),
-     {ok, _} = dpi:load(),
+     %ok = dpi:load(?SLAVE_NAME),
+     ok = dpi:load_unsafe(),
      ?debugMsg("Performed setup."),
      ok.
 
@@ -938,8 +939,7 @@ eunit_test_() ->
         fun data_is_null/1,
         fun var_array/1,
         fun client_server_version/1
-    ]},
-    ?_assertEqual(0, length(sys:get_state({dpi, get(dpi_slave)})))
+    ]}
 ]
 .
 

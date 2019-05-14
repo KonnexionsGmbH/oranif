@@ -2,7 +2,7 @@
 -compile({parse_transform, dpi_transform}).
 -behavior(gen_server).
 
--export([load/0, unload/0]).
+-export([load/1, unload/1]).
 
 -export([load_unsafe/0]).
 
@@ -21,31 +21,40 @@
 %   Slave Node APIs
 %===============================================================================
 
-load() ->
-    case get(dpi_slave) of
+load(SlaveNodeName) when is_atom(SlaveNodeName) ->
+    io:format("calling load ~p ~n",[SlaveNodeName]),
+    case get(SlaveNodeName) of
         undefined ->
+            io:format("pass ~p ~n",[0]),
             case is_alive() of
                 false -> {error, not_distributed};
                 true ->
-                    case start_slave() of
+                    io:format("pass ~p ~n",[1]),
+                    case start_slave(SlaveNodeName) of
                         {ok, Slave} ->
-                            put(dpi_slave, Slave),
+                            io:format("pass ~p ~n",[2]),
+                            put(SlaveNodeName, Slave),
+                            io:format("pass ~p ~n",[3]),
                             ok = rpc_call(
                                 Slave, code, add_paths, [code:get_path()]
                             ),
-                            gen_server_rpc_start(Slave);
+                            io:format("pass ~p ~n",[4]),
+                            %gen_server_rpc_start(Slave);
+                        ok;
                         {error, {already_running, Slave}} ->
-                            put(dpi_slave, Slave),
-                            gen_server_rpc_start(Slave);
+                            io:format("pass ~p ~n",[5]),
+                            put(SlaveNodeName, Slave),
+                            %gen_server_rpc_start(Slave);
+                            ok;
                         Error -> Error
                     end
             end;
-        Slave ->
-            gen_server_rpc_start(Slave)
+        Slave -> ok
+            %gen_server_rpc_start(Slave)
     end.
 
-unload() ->
-    Slave = erase(dpi_slave),
+unload(SlaveNodeName) ->
+    Slave = erase(SlaveNodeName),
     slave:stop(Slave).
 
 %===============================================================================
@@ -89,7 +98,7 @@ load_unsafe() ->
 %   local helper functions
 %===============================================================================
 
-start_slave() ->
+start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
     [_,SlaveHost] = string:tokens(atom_to_list(node()), "@"),
     ExtraArgs =
         case {init:get_argument(pa), init:get_argument(boot)} of
@@ -110,7 +119,7 @@ start_slave() ->
         {error, _} = Error -> Error;
         ExtraArgs ->
             slave:start(
-                SlaveHost, 'dpi_slave',
+                SlaveHost, SlaveNodeName,
                 lists:concat([
                     " -hidden ",
                     "-setcookie ", erlang:get_cookie(),
@@ -121,11 +130,12 @@ start_slave() ->
 
 rpc_call(undefined, _Mod, _Fun, _Args) -> {error, slave_down};
 rpc_call(Node, Mod, Fun, Args) ->
+    io:format("pass ~p Node ~p Mod ~p Fun ~p Args ~p ~n",[10,Node, Mod, Fun, Args]),
     case (catch rpc:call(Node, Mod, Fun, Args)) of
         {badrpc, {'EXIT', Error}} ->
             error(Error);
         {badrpc, nodedown} ->
-            erase(dpi_slave),
+            erase(Node),
             error({slave_down_internal, Node, Mod, Fun, Args});
         Result ->
             Result
@@ -150,10 +160,12 @@ refList(_Input) -> [].
 %% to {ok, Pid} instead. This way the calling function doesn't have to handle
 %% this extra case every time
 gen_server_rpc_start(Slave) ->
+    io:format("pass ~p ~n",[20]),
     Res = rpc_call(
         Slave, gen_server, start_link,
         [{local, ?MODULE}, ?MODULE, [], []]
     ),
+    io:format("pass ~p res ~p ~n",[21, Res]),
     case Res of
         {ok, Pid} -> {ok, Pid};
         {error, {already_started, Pid}} -> {ok, Pid};

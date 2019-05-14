@@ -53,7 +53,7 @@ parse_transform(Forms, Options) ->
             Forms1 = lists:keyreplace(nifs, 3, Forms, Exports),
             ?N("NIF exports inserted~n"),
 
-            Forms2 = insert_nif_fa(Forms1, NifDefns),
+            Forms2 = Forms1, %insert_nif_fa(Forms1, NifDefns),
             ?N("fa/2 clauses for this NIF are added~n"),
 
             % generate and append the function stubs to forms
@@ -139,7 +139,7 @@ nif_exports([{Fun, FunNif, Arity, _Args, _Mode}
          | NifDefns],
         Line, NewNifDefns) ->
     nif_exports(NifDefns, Line,
-        [{Fun, Arity}, {FunNif, Arity}
+        [{Fun, Arity}
          | NewNifDefns]).
 
 nif_stubs([], _Line) -> [];
@@ -148,24 +148,14 @@ nif_stubs([{Fun, FunNif, Arity, Args, Mode} | Rest], Line) ->
     FunGuards = guards(Args, FunParams, Line + 1),
     FunNifParams = params(Args, Line + 3),
     FunNifGuards = guards(Args, FunNifParams, Line + 3),
-    ?N("constructing ~p\n", [FunNif]),
+    ?N("constructing ~p\n", [Fun]),
 
     [
-    % -spec(Fun(Arg, ...) -> term()).
-    {attribute, Line, spec,
-        {{Fun, Arity},
-            [{type, Line, 'fun',
-                [
-                    {type, Line, product, specparams(Args, Line)},
-                    {type, Line, term, []}
-                ]
-            }]
-        }
-    },
+
 
     % -spec(FunNif(Arg, ...) -> term()).
     {attribute, Line + 2, spec,
-        {{FunNif, Arity},
+        {{Fun, Arity},
             [{type, Line + 2, 'fun',
                 [
                     {type, Line + 2, product, specparams(Args, Line + 2)},
@@ -176,26 +166,23 @@ nif_stubs([{Fun, FunNif, Arity, Args, Mode} | Rest], Line) ->
     },
 
     % FunNif(Arg1, ...) when is_X(Arg1), ... -> ?NIF_NOT_LOADED.
-    {function, Line + 3, FunNif, Arity,
-        [{clause, Line + 3, FunNifParams,
-            case FunNifGuards of
+    {function, Line + 3, Fun, Arity,
+        [{clause, Line + 3, FunParams,
+            case FunGuards of
                 [] -> [];
-                _ -> [FunNifGuards]
+                _ -> [FunGuards]
             end,
             [{call, Line + 3, {atom, Line + 3, exit},
                 [{tuple, Line + 3,
                     [
                         {atom, Line + 3, nif_library_not_loaded},
                         {atom, Line + 3, dpi},
-                        {atom, Line + 3, FunNif}
+                        {atom, Line + 3, Fun}
                     ]
                 }]
             }]
         }]
-    },
-
-    {function, Line, Fun, Arity,
-     [rpc_or_gen(Mode, Line, FunNif, FunParams, FunGuards)]}
+    }
      | nif_stubs(Rest, Line + 4)].
 
 % Fun(Arg1, ...) ->

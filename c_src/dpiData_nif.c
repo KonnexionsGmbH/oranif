@@ -24,7 +24,7 @@ void dpiDataPtr_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiDataPtr destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiData_ctor)
+DPI_NIF_FUN(data_ctor)
 {
     CHECK_ARGCOUNT(0);
 
@@ -40,7 +40,7 @@ DPI_NIF_FUN(dpiData_ctor)
     return dpiDataRes;
 }
 
-DPI_NIF_FUN(dpiData_setTimestamp)
+DPI_NIF_FUN(data_setTimestamp)
 {
     CHECK_ARGCOUNT(10);
 
@@ -83,7 +83,7 @@ DPI_NIF_FUN(dpiData_setTimestamp)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_setIntervalDS)
+DPI_NIF_FUN(data_setIntervalDS)
 {
     CHECK_ARGCOUNT(6);
 
@@ -121,7 +121,7 @@ DPI_NIF_FUN(dpiData_setIntervalDS)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_setIntervalYM)
+DPI_NIF_FUN(data_setIntervalYM)
 {
     CHECK_ARGCOUNT(3);
 
@@ -152,7 +152,7 @@ DPI_NIF_FUN(dpiData_setIntervalYM)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_setInt64)
+DPI_NIF_FUN(data_setInt64)
 {
     CHECK_ARGCOUNT(2);
 
@@ -181,7 +181,7 @@ DPI_NIF_FUN(dpiData_setInt64)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_setBytes)
+DPI_NIF_FUN(data_setBytes)
 {
     CHECK_ARGCOUNT(2);
 
@@ -211,7 +211,7 @@ DPI_NIF_FUN(dpiData_setBytes)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_setIsNull)
+DPI_NIF_FUN(data_setIsNull)
 {
     CHECK_ARGCOUNT(2);
 
@@ -239,7 +239,7 @@ DPI_NIF_FUN(dpiData_setIsNull)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiData_get)
+DPI_NIF_FUN(data_get)
 {
     CHECK_ARGCOUNT(1);
 
@@ -351,7 +351,7 @@ DPI_NIF_FUN(dpiData_get)
     return dataRet;
 }
 
-DPI_NIF_FUN(dpiData_getInt64) // TODO: unit test
+DPI_NIF_FUN(data_getInt64) // TODO: unit test
 {
     CHECK_ARGCOUNT(1);
 
@@ -377,7 +377,7 @@ DPI_NIF_FUN(dpiData_getInt64) // TODO: unit test
     return enif_make_int64(env, result);
 }
 
-DPI_NIF_FUN(dpiData_getBytes) // TODO: unit test
+DPI_NIF_FUN(data_getBytes) // TODO: unit test
 {
     CHECK_ARGCOUNT(1);
 
@@ -402,7 +402,7 @@ DPI_NIF_FUN(dpiData_getBytes) // TODO: unit test
     return enif_make_binary(env, &bin);
 }
 
-DPI_NIF_FUN(dpiData_release)
+DPI_NIF_FUN(data_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -425,20 +425,20 @@ DPI_NIF_FUN(dpiData_release)
     return ATOM_OK;
 }
 
-UNIMPLEMENTED(dpiData_getBool);
-UNIMPLEMENTED(dpiData_getDouble);
-UNIMPLEMENTED(dpiData_getFloat);
-UNIMPLEMENTED(dpiData_getIntervalDS);
-UNIMPLEMENTED(dpiData_getIntervalYM);
-UNIMPLEMENTED(dpiData_getLOB);
-UNIMPLEMENTED(dpiData_getObject);
-UNIMPLEMENTED(dpiData_getStmt);
-UNIMPLEMENTED(dpiData_getTimestamp);
-UNIMPLEMENTED(dpiData_getUint64);
-UNIMPLEMENTED(dpiData_setBool);
-UNIMPLEMENTED(dpiData_setDouble);
-UNIMPLEMENTED(dpiData_setFloat);
-UNIMPLEMENTED(dpiData_setLOB);
-UNIMPLEMENTED(dpiData_setObject);
-UNIMPLEMENTED(dpiData_setStmt);
-UNIMPLEMENTED(dpiData_setUint64);
+UNIMPLEMENTED(data_getBool);
+UNIMPLEMENTED(data_getDouble);
+UNIMPLEMENTED(data_getFloat);
+UNIMPLEMENTED(data_getIntervalDS);
+UNIMPLEMENTED(data_getIntervalYM);
+UNIMPLEMENTED(data_getLOB);
+UNIMPLEMENTED(data_getObject);
+UNIMPLEMENTED(data_getStmt);
+UNIMPLEMENTED(data_getTimestamp);
+UNIMPLEMENTED(data_getUint64);
+UNIMPLEMENTED(data_setBool);
+UNIMPLEMENTED(data_setDouble);
+UNIMPLEMENTED(data_setFloat);
+UNIMPLEMENTED(data_setLOB);
+UNIMPLEMENTED(data_setObject);
+UNIMPLEMENTED(data_setStmt);
+UNIMPLEMENTED(data_setUint64);

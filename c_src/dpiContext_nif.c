@@ -11,7 +11,7 @@ void dpiContext_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiContext destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiContext_create)
+DPI_NIF_FUN(context_create)
 {
     CHECK_ARGCOUNT(2);
 
@@ -43,7 +43,7 @@ DPI_NIF_FUN(dpiContext_create)
     return contextResTerm;
 }
 
-DPI_NIF_FUN(dpiContext_getError)
+DPI_NIF_FUN(context_getError)
 {
     CHECK_ARGCOUNT(1);
 
@@ -58,7 +58,7 @@ DPI_NIF_FUN(dpiContext_getError)
     return dpiErrorInfoMap(env, error);
 }
 
-DPI_NIF_FUN(dpiContext_destroy)
+DPI_NIF_FUN(context_destroy)
 {
     CHECK_ARGCOUNT(1);
 
@@ -72,7 +72,7 @@ DPI_NIF_FUN(dpiContext_destroy)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiContext_getClientVersion)
+DPI_NIF_FUN(context_getClientVersion)
 {
     CHECK_ARGCOUNT(1);
 
@@ -118,11 +118,11 @@ DPI_NIF_FUN(dpiContext_getClientVersion)
     return map;
 }
 
-UNIMPLEMENTED(dpiContext_initCommonCreateParams);
-UNIMPLEMENTED(dpiContext_initConnCreateParams);
-UNIMPLEMENTED(dpiContext_initPoolCreateParams);
-UNIMPLEMENTED(dpiContext_initSodaOperOptions);
-UNIMPLEMENTED(dpiContext_initSubscrCreateParams);
+UNIMPLEMENTED(context_initCommonCreateParams);
+UNIMPLEMENTED(context_initConnCreateParams);
+UNIMPLEMENTED(context_initPoolCreateParams);
+UNIMPLEMENTED(context_initSodaOperOptions);
+UNIMPLEMENTED(context_initSubscrCreateParams);
 
 /*******************************************************************************
  * Helper internal functions

@@ -7,7 +7,7 @@
 -export([load_unsafe/0]).
 
 % gen_server apis
--export([handle_call/3, handle_cast/2, init/1, fa/2, safe/1, safe/2, safe/3]).
+-export([handle_call/3, handle_cast/2, init/1, safe/1, safe/2, safe/3]).
 
 -include("dpiContext.hrl").
 -include("dpiConn.hrl").
@@ -69,9 +69,9 @@ init(_) ->
 
 %% takes the function, arguments and OP, returns result of the odpi query
 handle_call({Fun, Args, Op}, _From, State) ->
-    Result = (catch fa(Fun, Args)),
-    NewState = process_res(Op, State, Args, Result),
-    {reply, Result, NewState}.
+    %Result = (catch fa(Fun, Args)),
+    NewState = process_res(Op, State, Args, qewqrewr),
+    {reply, qwert, NewState}.
 
 handle_cast(Request, State) ->
     {stop, {unimplemented, cast, Request}, State}.
@@ -175,7 +175,3 @@ gen_server_rpc_start(Slave) ->
 safe(Module, Fun, Args) -> rpc:call(get(dpi_node), Module, Fun, Args).
 safe(Fun, Args) -> rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
 safe(Fun) -> rpc:call(get(dpi_node), erlang, apply, [Fun, []]).
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This function stub MUST be present and always at the end of file
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fa(Fun, Args) -> error({unsupported, Fun, Args}).

@@ -7,7 +7,7 @@
 -export([load_unsafe/0]).
 
 % gen_server apis
--export([handle_call/3, handle_cast/2, init/1, fa/2]).
+-export([handle_call/3, handle_cast/2, init/1, fa/2, safe/1, safe/2, safe/3]).
 
 -include("dpiContext.hrl").
 -include("dpiConn.hrl").
@@ -172,6 +172,9 @@ gen_server_rpc_start(Slave) ->
         Else -> error({start_link_load, Else})
     end.
 
+safe(Module, Fun, Args) -> rpc:call(get(dpi_node), Module, Fun, Args).
+safe(Fun, Args) -> rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
+safe(Fun) -> rpc:call(get(dpi_node), erlang, apply, [Fun, []]).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This function stub MUST be present and always at the end of file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

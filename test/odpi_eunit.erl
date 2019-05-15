@@ -889,7 +889,7 @@ var_bind_no_assert([Context, Conn]) ->
     dpi:stmt_fetch(Stmt2),
     Assert_getQueryValue(Stmt2, 1, 1.0),
     Assert_getQueryValue(Stmt2, 2, 2.0),
-    Assert_getQueryValue(Stmt2, 8, 3.0),
+    Assert_getQueryValue(Stmt2, 3, 3.0),
     Assert_getQueryValue(Stmt2, 4, 5.0),
     Assert_getQueryValue(Stmt2, 5, 7.0),
 
@@ -908,8 +908,8 @@ distributed([_, _]) ->
     ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
 
     {Tns, User, Password} = getTnsUserPass(),
-    Context = rpc:call(get(dpi_node), dpi, context_create, [3, 0]),
-    Conn = rpc:call(get(dpi_node), dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
+    Context = dpi:safe(dpi, context_create, [3, 0]),
+    Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
     ok = rpc:call(get(dpi_node), erlang, apply, [fun simple_fetch_no_assert/1,[[Context, Conn]]]),
     ok = rpc:call(get(dpi_node), erlang, apply, [fun var_bind_no_assert/1,[[Context, Conn]]]),

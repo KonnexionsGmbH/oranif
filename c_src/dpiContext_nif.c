@@ -38,7 +38,6 @@ DPI_NIF_FUN(context_create)
                 dpiErrorInfoMap(env, error)));
 
     ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);
-    enif_release_resource(contextRes);
 
     return contextResTerm;
 }
@@ -68,7 +67,7 @@ DPI_NIF_FUN(context_destroy)
         return BADARG_EXCEPTION(0, "resource context");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(dpiContext_destroy(contextRes->context));
-
+    enif_release_resource(contextRes);
     return ATOM_OK;
 }
 

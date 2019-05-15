@@ -2,7 +2,7 @@
 -compile({parse_transform, dpi_transform}).
 -behavior(gen_server).
 
--export([load/1, unload/1]).
+-export([load/1, unload/0]).
 
 -export([load_unsafe/0]).
 
@@ -33,28 +33,28 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
                     case start_slave(SlaveNodeName) of
                         {ok, Slave} ->
                             io:format("pass ~p ~n",[2]),
-                            put(SlaveNodeName, Slave),
+                            put(dpi_node, Slave),
                             io:format("pass ~p ~n",[3]),
                             ok = rpc_call(
                                 Slave, code, add_paths, [code:get_path()]
                             ),
                             io:format("pass ~p ~n",[4]),
-                            %gen_server_rpc_start(Slave);
-                        ok;
+                            gen_server_rpc_start(Slave);
+                        
                         {error, {already_running, Slave}} ->
                             io:format("pass ~p ~n",[5]),
                             put(SlaveNodeName, Slave),
-                            %gen_server_rpc_start(Slave);
-                            ok;
+                            gen_server_rpc_start(Slave);
+                            
                         Error -> Error
                     end
             end;
-        Slave -> ok
-            %gen_server_rpc_start(Slave)
+        Slave ->
+            gen_server_rpc_start(Slave)
     end.
 
-unload(SlaveNodeName) ->
-    Slave = erase(SlaveNodeName),
+unload() ->
+    Slave = erase(spi_node),
     slave:stop(Slave).
 
 %===============================================================================

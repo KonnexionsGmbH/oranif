@@ -41,7 +41,6 @@ DPI_NIF_FUN(conn_create)
             &connRes->conn));
 
     ERL_NIF_TERM connResTerm = enif_make_resource(env, connRes);
-    enif_release_resource(connRes);
 
     return connResTerm;
 }
@@ -72,7 +71,6 @@ DPI_NIF_FUN(conn_prepareStmt)
             tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt));
 
     ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);
-    enif_release_resource(stmtRes);
 
     return stmtResTerm;
 }
@@ -121,7 +119,6 @@ DPI_NIF_FUN(conn_newVar)
             objType ? objType->objectType : NULL, &varRes->var, &data));
 
     ERL_NIF_TERM varResTerm = enif_make_resource(env, varRes);
-    enif_release_resource(varRes);
 
     ERL_NIF_TERM dataList = enif_make_list(env, 0);
 
@@ -194,7 +191,7 @@ DPI_NIF_FUN(conn_release)
         return BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_release(connRes->conn));
-
+    enif_release_resource(connRes);
     return ATOM_OK;
 }
 

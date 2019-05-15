@@ -35,7 +35,6 @@ DPI_NIF_FUN(data_ctor)
     data->env = enif_alloc_env();
 
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
-    enif_release_resource(data);
 
     return dpiDataRes;
 }
@@ -414,10 +413,12 @@ DPI_NIF_FUN(data_release)
     if (enif_get_resource(env, argv[0], dpiData_type, &res.dataRes))
     {
         // nothing to set to NULL
+        enif_release_resource(res.dataRes);
     }
     else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
     {
         res.dataPtrRes->dpiDataPtr = NULL;
+        //enif_release_resource(res.dataPtrRes);
     }
     else
         return BADARG_EXCEPTION(0, "resource data");

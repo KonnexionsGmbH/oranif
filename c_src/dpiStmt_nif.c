@@ -98,7 +98,7 @@ DPI_NIF_FUN(stmt_getQueryValue)
 
     data->type = nativeTypeNum;
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
-    enif_release_resource(data);
+
 
     ERL_NIF_TERM nativeTypeNumAtom;
     DPI_NATIVE_TYPE_NUM_TO_ATOM(nativeTypeNum, nativeTypeNumAtom);
@@ -133,7 +133,6 @@ DPI_NIF_FUN(stmt_getQueryInfo)
         dpiStmt_getQueryInfo(stmtRes->stmt, pos, &(infoPointer->queryInfo)));
 
     ERL_NIF_TERM infoRes = enif_make_resource(env, infoPointer);
-    enif_release_resource(infoPointer);
 
     return infoRes;
 }
@@ -239,8 +238,7 @@ DPI_NIF_FUN(stmt_release)
         return BADARG_EXCEPTION(0, "resource statement");
 
     dpiStmt_release(stmtRes->stmt);
-    stmtRes->stmt;
-
+    enif_release_resource(stmtRes);
     return ATOM_OK;
 }
 

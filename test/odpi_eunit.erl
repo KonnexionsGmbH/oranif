@@ -911,8 +911,9 @@ distributed([_, _]) ->
     Context = dpi:safe(dpi, context_create, [3, 0]),
     Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
-    ok = rpc:call(get(dpi_node), erlang, apply, [fun simple_fetch_no_assert/1,[[Context, Conn]]]),
-    ok = rpc:call(get(dpi_node), erlang, apply, [fun var_bind_no_assert/1,[[Context, Conn]]]),
+    ok = dpi:safe(fun simple_fetch_no_assert/1,[[Context, Conn]]),
+    ok = dpi:safe(fun var_bind_no_assert/1,[[Context, Conn]]),
+
     ?_assert(true).
 
 %% create table                              ✓

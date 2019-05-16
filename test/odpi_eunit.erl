@@ -904,7 +904,7 @@ var_bind_no_assert([Context, Conn]) ->
     ok.
 
 distributed([_, _]) -> 
-    {ok, _} = dpi:load(slave),
+    ok = dpi:load(slave),
     ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
 
     {Tns, User, Password} = getTnsUserPass(),

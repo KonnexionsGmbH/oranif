@@ -1,13 +1,10 @@
 -module(dpi).
 -compile({parse_transform, dpi_transform}).
--behavior(gen_server).
 
 -export([load/1, unload/0]).
 
 -export([load_unsafe/0]).
-
-% gen_server apis
--export([handle_call/3, handle_cast/2, init/1, safe/1, safe/2, safe/3]).
+-export([safe/1, safe/2, safe/3]).
 
 -include("dpiContext.hrl").
 -include("dpiConn.hrl").
@@ -39,42 +36,26 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
                                 Slave, code, add_paths, [code:get_path()]
                             ),
                             io:format("pass ~p ~n",[4]),
-                            gen_server_rpc_start(Slave);
+                            rpc_call(
+                                Slave, dpi, load_unsafe, []
+                            ),
+                            ok;
                         
                         {error, {already_running, Slave}} ->
                             io:format("pass ~p ~n",[5]),
                             put(SlaveNodeName, Slave),
-                            gen_server_rpc_start(Slave);
+                            ok;
                             
                         Error -> Error
                     end
             end;
         Slave ->
-            gen_server_rpc_start(Slave)
+            ok
     end.
 
 unload() ->
     Slave = erase(spi_node),
     slave:stop(Slave).
-
-%===============================================================================
-%   gen_server mandatory callbacks
-%===============================================================================
-
-init(_) ->
-    case load_unsafe() of
-        ok -> {ok, []};
-        {error, Error} -> {stop, {error, Error}}
-    end.
-
-%% takes the function, arguments and OP, returns result of the odpi query
-handle_call({Fun, Args, Op}, _From, State) ->
-    %Result = (catch fa(Fun, Args)),
-    NewState = process_res(Op, State, Args, qewqrewr),
-    {reply, qwert, NewState}.
-
-handle_cast(Request, State) ->
-    {stop, {unimplemented, cast, Request}, State}.
 
 %===============================================================================
 %   NIF test / debug interface (DO NOT use in production)
@@ -159,18 +140,7 @@ refList(_Input) -> [].
 %% in which case there would be a different value that is however transformed
 %% to {ok, Pid} instead. This way the calling function doesn't have to handle
 %% this extra case every time
-gen_server_rpc_start(Slave) ->
-    io:format("pass ~p ~n",[20]),
-    Res = rpc_call(
-        Slave, gen_server, start_link,
-        [{local, ?MODULE}, ?MODULE, [], []]
-    ),
-    io:format("pass ~p res ~p ~n",[21, Res]),
-    case Res of
-        {ok, Pid} -> {ok, Pid};
-        {error, {already_started, Pid}} -> {ok, Pid};
-        Else -> error({start_link_load, Else})
-    end.
+
 
 safe(Module, Fun, Args) -> rpc:call(get(dpi_node), Module, Fun, Args).
 safe(Fun, Args) -> rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).

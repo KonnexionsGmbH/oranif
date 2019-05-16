@@ -1,0 +1,37 @@
+MKDIR_P = mkdir -p
+
+O = priv
+S = c_src
+T = test
+ODPI_LIB_DIR = $(S)/odpi/lib
+
+OBJS = $(O)/dpi_nif.o $(O)/dpiContext_nif.o $(O)/dpiConn_nif.o $(O)/dpiStmt_nif.o $(O)/dpiData_nif.o $(O)/dpiQueryInfo_nif.o $(O)/dpiVar_nif.o $(O)/dpiObjectType_nif.o
+TARGETS = $(O)/dpi_nif.dylib
+
+TEST_OBJS = test/odpi_test.o
+TEST_TARGETS = test/odpi_test
+
+CXXFLAGS = -ggdb -Wall -fPIC -dynamiclib -shared -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTPROOT)/erts-9.2/include" -I"$(S)/odpi/include"
+LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(ODPI_LIB_DIR)
+LINKFLAGS = -lerl_interface -lei -lodpic -flat_namespace -undefined suppress
+
+#all: priv $(TEST_TARGETS) $(TARGETS) cleanup
+all: priv $(TARGETS)
+
+ORANIF_SRCS = $(OBJS:$(O)/%.o=$(S)/%.c)
+
+#$(TARGETS): odpi $(OBJS)
+$(TARGETS): odpi $(ORANIF_SRCS)
+	gcc -o $@ $(CXXFLAGS) $(LINKDIRS) $(LINKFLAGS) $(ORANIF_SRCS)
+
+#$(TEST_TARGETS): odpi $(TEST_OBJS)
+
+priv:
+	$(MKDIR_P) $(O)
+
+odpi:
+	@if [ ! -d "c_src/odpi" ] ; then cd c_src && (git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi) fi
+	cd c_src/odpi && make
+
+clean:
+	rm -rf priv

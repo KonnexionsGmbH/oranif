@@ -49,7 +49,7 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
                         Error -> Error
                     end
             end;
-        Slave ->
+        _Slave ->
             ok
     end.
 
@@ -121,26 +121,6 @@ rpc_call(Node, Mod, Fun, Args) ->
         Result ->
             Result
     end.
-
-process_res(create, State, _Args , Result) -> State ++ refList(Result);
-process_res(delete, State, Args, _Result) -> State -- refList(Args);
-process_res(_, _, _, _) -> error.
-
-refList(Input) when is_map(Input)-> refList(maps:values(Input));
-refList(Input) when is_reference(Input)-> [Input];
-refList(Input) when is_list(Input)->
-    lists:filter(
-        fun is_reference/1,
-        lists:flatten([refList(X) || X <- Input])
-    );
-refList(_Input) -> [].
-
-%% starts the gen_server and "standardizes" the return value.
-%% on success, it will always be {ok, Pid}, even if it already exsits,
-%% in which case there would be a different value that is however transformed
-%% to {ok, Pid} instead. This way the calling function doesn't have to handle
-%% this extra case every time
-
 
 safe(Module, Fun, Args) -> rpc:call(get(dpi_node), Module, Fun, Args).
 safe(Fun, Args) -> rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).

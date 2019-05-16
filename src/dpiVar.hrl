@@ -6,18 +6,18 @@
 % see: https://oracle.github.io/odpi/doc/public_functions/dpiVar.html
 
 -nifs({dpiVar, [
-    ?VF(ar_addRef, [reference]),
-    ?VF(ar_copyData, [reference, integer, reference, integer]),
-    ?VF(ar_getNumElementsInArray, [reference]),
-    ?VF(ar_getReturnedData, [reference, integer]),
-    ?VF(ar_getSizeInBytes, [reference]),
-    ?VF(ar_release, [reference], delete),
-    ?VF(ar_setFromBytes, [reference, integer, binary]),
-    ?VF(ar_setFromLob, [reference, integer, reference]),
-    ?VF(ar_setFromObject, [reference, integer, reference]),
-    ?VF(ar_setFromRowid, [reference, integer, reference]),
-    ?VF(ar_setFromStmt, [reference, integer, reference]),
-    ?VF(ar_setNumElementsInArray, [reference, integer])
+    {var_addRef, [reference]},
+    {var_copyData, [reference, integer, reference, integer]},
+    {var_getNumElementsInArray, [reference]},
+    {var_getReturnedData, [reference, integer]},
+    {var_getSizeInBytes, [reference]},
+    {var_release, [reference]},
+    {var_setFromBytes, [reference, integer, binary]},
+    {var_setFromLob, [reference, integer, reference]},
+    {var_setFromObject, [reference, integer, reference]},
+    {var_setFromRowid, [reference, integer, reference]},
+    {var_setFromStmt, [reference, integer, reference]},
+    {var_setNumElementsInArray, [reference, integer]}
 ]}).
 
 -endif. % _DPI_VAR_HRL_

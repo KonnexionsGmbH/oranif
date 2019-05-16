@@ -71,9 +71,9 @@ parse_transform(Forms, Options) ->
 % to
 %	[{'FN', 'FN_nif', Arity, ArgsList}, ...]
 process_nif(NifDefns) ->
-    [{list_to_atom(Fun), list_to_atom(FunNif), length(Args),
-      Args, Mode}
-     || {Fun, FunNif, Args, Mode} <- NifDefns].
+    [{Fun, length(Args),
+      Args}
+     || {Fun, Args} <- NifDefns].
 
 % generating
 %  	code : -export([FN/Arity, FN_nif/Arity, ...]).
@@ -85,7 +85,7 @@ nif_exports(NifDefns, Line) ->
 
 nif_exports([], Line, NewNifDefns) ->
     {attribute, Line, export, NewNifDefns};
-nif_exports([{Fun, FunNif, Arity, _Args, _Mode}
+nif_exports([{Fun, Arity, _Args}
          | NifDefns],
         Line, NewNifDefns) ->
     nif_exports(NifDefns, Line,
@@ -93,7 +93,7 @@ nif_exports([{Fun, FunNif, Arity, _Args, _Mode}
          | NewNifDefns]).
 
 nif_stubs([], _Line) -> [];
-nif_stubs([{Fun, FunNif, Arity, Args, Mode} | Rest], Line) ->
+nif_stubs([{Fun, Arity, Args} | Rest], Line) ->
     FunParams = params(Args, Line + 1),
     FunGuards = guards(Args, FunParams, Line + 1),
 

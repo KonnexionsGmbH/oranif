@@ -6,11 +6,11 @@
 % see: https://oracle.github.io/odpi/doc/public_functions/dpiObjectType.html
 
 -nifs({dpiQueryInfo, [
-    ?OF(bjectType_addRef, [reference]),
-    ?OF(bjectType_createObject, [reference], create),
-    ?OF(bjectType_getAttributes, [reference, integer]),
-    ?OF(bjectType_getInfo, [reference]),
-    ?OF(bjectType_release, [reference], delete)
+    {objectType_addRef, [reference]},
+    {objectType_createObject, [reference]},
+    {objectType_getAttributes, [reference, integer]},
+    {objectType_getInfo, [reference]},
+    {objectType_release, [reference]}
 ]}).
 
 -endif. % _DPI_OBJECTTYPE_HRL_

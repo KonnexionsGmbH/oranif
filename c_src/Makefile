@@ -11,9 +11,17 @@ TARGETS = $(O)/dpi_nif.so
 TEST_OBJS = test/odpi_test.o
 TEST_TARGETS = test/odpi_test
 
-CXXFLAGS = -ggdb -Wall -fPIC -dynamiclib -shared -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTPROOT)/erts-9.2/include" -I"$(S)/odpi/include"
+BASECXXFLAGS = -ggdb -Wall -fPIC -shared -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(ODPI_LIB_DIR)
-LINKFLAGS = -lerl_interface -lei -lodpic -flat_namespace -undefined suppress
+BASELINKFLAGS = -lerl_interface -lei -lodpic
+
+ifeq ($(shell uname -s), Darwin)
+	CXXFLAGS = $(BASECXXFLAGS) -dynamiclib 
+	LINKFLAGS = $(BASELINKFLAGS) -flat_namespace -undefined suppress
+else
+	CXXFLAGS = $(BASECXXFLAGS)
+	LINKFLAGS = $(BASELINKFLAGS)
+endif
 
 #all: priv $(TEST_TARGETS) $(TARGETS) cleanup
 all: priv $(TARGETS)

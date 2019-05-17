@@ -12,14 +12,30 @@ Todo:
 - [ ] Tests
 
 ## Development
-Currently builds in windows and OS X
+Currently builds in Window, Linux and OS X
 ### Windows
 ```sh
 rebar3 compile
 ```
-### OSX
+### OSX/Linux
 
-- Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html#macos for installation instructions.
+- Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
+
+
+#### Create Environment variables
+```
+OTP_ERTS_DIR       = path to erlang run time system
+ERL_INTERFACE_DIR  = path to erl_interface or erlang installation
+```
+Example `.bashrc` snippet:
+```sh
+...
+export OTP_ERTS_DIR=$(find /usr/lib/erlang/ -maxdepth 1 -type d -name erts-*)
+export ERL_INTERFACE_DIR=$(find /usr/lib/erlang/lib/ -maxdepth 1 -type d -name erl_interface-*)
+...
+```
+
+#### Compile
 
 ```sh
 rebar3 compile

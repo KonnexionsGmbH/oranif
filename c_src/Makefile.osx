@@ -6,7 +6,7 @@ T = test
 ODPI_LIB_DIR = $(S)/odpi/lib
 
 OBJS = $(O)/dpi_nif.o $(O)/dpiContext_nif.o $(O)/dpiConn_nif.o $(O)/dpiStmt_nif.o $(O)/dpiData_nif.o $(O)/dpiQueryInfo_nif.o $(O)/dpiVar_nif.o $(O)/dpiObjectType_nif.o
-TARGETS = $(O)/dpi_nif.dylib
+TARGETS = $(O)/dpi_nif.so
 
 TEST_OBJS = test/odpi_test.o
 TEST_TARGETS = test/odpi_test

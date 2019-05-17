@@ -12,8 +12,15 @@ Todo:
 - [ ] Tests
 
 ## Development
-Currently only builds in windows
+Currently builds in windows and OS X
 ### Windows
+```sh
+rebar3 compile
+```
+### OSX
+
+- Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html#macos for installation instructions.
+
 ```sh
 rebar3 compile
 ```

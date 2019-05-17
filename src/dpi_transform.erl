@@ -85,12 +85,8 @@ nif_exports(NifDefns, Line) ->
 
 nif_exports([], Line, NewNifDefns) ->
     {attribute, Line, export, NewNifDefns};
-nif_exports([{Fun, Arity, _Args}
-         | NifDefns],
-        Line, NewNifDefns) ->
-    nif_exports(NifDefns, Line,
-        [{Fun, Arity}
-         | NewNifDefns]).
+nif_exports([{Fun, Arity, _Args} | NifDefns], Line, NewNifDefns) ->
+    nif_exports(NifDefns, Line, [{Fun, Arity} | NewNifDefns]).
 
 nif_stubs([], _Line) -> [];
 nif_stubs([{Fun, Arity, Args} | Rest], Line) ->
@@ -100,7 +96,6 @@ nif_stubs([{Fun, Arity, Args} | Rest], Line) ->
     ?N("constructing ~p\n", [Fun]),
 
     [
-
 
     % -spec(FunNif(Arg, ...) -> term()).
     {attribute, Line + 2, spec,
@@ -132,7 +127,7 @@ nif_stubs([{Fun, Arity, Args} | Rest], Line) ->
             }]
         }]
     }
-     | nif_stubs(Rest, Line + 4)].
+    | nif_stubs(Rest, Line + 4)].
 
 specparams([], _L) -> [];
 specparams([{T, A} | Types], L) ->

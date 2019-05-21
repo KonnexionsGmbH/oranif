@@ -118,8 +118,6 @@ rpc_call(Node, Mod, Fun, Args) ->
 -spec safe(atom(), atom(),     list()) -> term().
 -spec safe(        function(), list()) -> term().
 -spec safe(        function()        ) -> term().
-
-
 safe(Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
     rpc:call(get(dpi_node), Module, Fun, Args).
 

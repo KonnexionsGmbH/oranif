@@ -19,30 +19,23 @@
 %===============================================================================
 
 load(SlaveNodeName) when is_atom(SlaveNodeName) ->
-    io:format("calling load ~p ~n",[SlaveNodeName]),
     case get(SlaveNodeName) of
         undefined ->
-            io:format("pass ~p ~n",[0]),
             case is_alive() of
                 false -> {error, not_distributed};
                 true ->
-                    io:format("pass ~p ~n",[1]),
                     case start_slave(SlaveNodeName) of
                         {ok, Slave} ->
-                            io:format("pass ~p ~n",[2]),
                             put(dpi_node, Slave),
-                            io:format("pass ~p ~n",[3]),
                             ok = rpc_call(
                                 Slave, code, add_paths, [code:get_path()]
                             ),
-                            io:format("pass ~p ~n",[4]),
                             rpc_call(
                                 Slave, dpi, load_unsafe, []
                             ),
                             ok;
                         
                         {error, {already_running, Slave}} ->
-                            io:format("pass ~p ~n",[5]),
                             put(SlaveNodeName, Slave),
                             ok;
                             
@@ -111,7 +104,6 @@ start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
 
 rpc_call(undefined, _Mod, _Fun, _Args) -> {error, slave_down};
 rpc_call(Node, Mod, Fun, Args) ->
-    io:format("pass ~p Node ~p Mod ~p Fun ~p Args ~p ~n",[10,Node, Mod, Fun, Args]),
     case (catch rpc:call(Node, Mod, Fun, Args)) of
         {badrpc, {'EXIT', Error}} ->
             error(Error);
@@ -122,6 +114,17 @@ rpc_call(Node, Mod, Fun, Args) ->
             Result
     end.
 
-safe(Module, Fun, Args) -> rpc:call(get(dpi_node), Module, Fun, Args).
-safe(Fun, Args) -> rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
-safe(Fun) -> rpc:call(get(dpi_node), erlang, apply, [Fun, []]).
+%%         module  fun         args       result of the call
+-spec safe(atom(), atom(),     list()) -> term().
+-spec safe(        function(), list()) -> term().
+-spec safe(        function()        ) -> term().
+
+
+safe(Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
+    rpc:call(get(dpi_node), Module, Fun, Args).
+
+safe(Fun, Args) when is_function(Fun), is_list(Args) ->
+    rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
+
+safe(Fun) when is_function(Fun)->
+    rpc:call(get(dpi_node), erlang, apply, [Fun, []]).

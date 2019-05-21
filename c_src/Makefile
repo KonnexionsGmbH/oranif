@@ -11,7 +11,8 @@ TARGETS = $(O)/dpi_nif.so
 TEST_OBJS = test/odpi_test.o
 TEST_TARGETS = test/odpi_test
 
-BASECXXFLAGS = -ggdb -Wall -fPIC -shared -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
+BASECXXFLAGS = -ggdb -Wall -fPIC -shared
+INCLUDEDIRS = -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(ODPI_LIB_DIR)
 BASELINKFLAGS = -lerl_interface -lei -lodpic
 
@@ -23,14 +24,13 @@ else
 	LINKFLAGS = $(BASELINKFLAGS)
 endif
 
-#all: priv $(TEST_TARGETS) $(TARGETS) cleanup
+#all: priv $(TEST_TARGETS) $(TARGETS)
 all: priv $(TARGETS)
 
 ORANIF_SRCS = $(OBJS:$(O)/%.o=$(S)/%.c)
 
-#$(TARGETS): odpi $(OBJS)
 $(TARGETS): odpi $(ORANIF_SRCS)
-	gcc -o $@ $(CXXFLAGS) $(LINKDIRS) $(LINKFLAGS) $(ORANIF_SRCS)
+	gcc -o $@ $(CXXFLAGS) $(INCLUDEDIRS) $(LINKDIRS) $(LINKFLAGS) $(ORANIF_SRCS)
 
 #$(TEST_TARGETS): odpi $(TEST_OBJS)
 
@@ -38,7 +38,10 @@ priv:
 	$(MKDIR_P) $(O)
 
 odpi:
-	@if [ ! -d "c_src/odpi" ] ; then cd c_src && (git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi) fi
+	@if [ ! -d "c_src/odpi" ] ;\
+	then \
+		cd c_src && (git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi) \
+	fi
 	cd c_src/odpi && make
 
 clean:

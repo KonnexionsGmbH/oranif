@@ -114,15 +114,14 @@ rpc_call(Node, Mod, Fun, Args) ->
             Result
     end.
 
-%%         module  fun         args       result of the call
--spec safe(atom(), atom(),     list()) -> term().
--spec safe(        function(), list()) -> term().
--spec safe(        function()        ) -> term().
+-spec safe(atom(), atom(), list()) -> term().
 safe(Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
     rpc:call(get(dpi_node), Module, Fun, Args).
 
+-spec safe(function(), list()) -> term().
 safe(Fun, Args) when is_function(Fun), is_list(Args) ->
     rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
 
+-spec safe(function()) -> term().
 safe(Fun) when is_function(Fun)->
     rpc:call(get(dpi_node), erlang, apply, [Fun, []]).

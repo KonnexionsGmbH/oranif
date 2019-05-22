@@ -11,7 +11,7 @@ TARGETS = $(O)/dpi_nif.so
 TEST_OBJS = test/odpi_test.o
 TEST_TARGETS = test/odpi_test
 
-BASECXXFLAGS = -ggdb -Wall -fPIC -shared
+BASECXXFLAGS = -ggdb -Wall -fPIC -shared -std=c11
 INCLUDEDIRS = -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(ODPI_LIB_DIR)
 BASELINKFLAGS = -lerl_interface -lei -lodpic

@@ -49,16 +49,16 @@ extern DPI_NIF_FUN(stmt_setFetchArraySize);
 
 #define DPISTMT_NIFS                            \
     DEF_NIF(stmt_addRef, 1),                 \
-        DEF_NIF(stmt_bindByName, 3),         \
-        DEF_NIF(stmt_bindByPos, 3),          \
-        DEF_NIF(stmt_bindValueByName, 4),    \
-        DEF_NIF(stmt_bindValueByPos, 4),     \
+        IOB_NIF(stmt_bindByName, 3),         \
+        IOB_NIF(stmt_bindByPos, 3),          \
+        IOB_NIF(stmt_bindValueByName, 4),    \
+        IOB_NIF(stmt_bindValueByPos, 4),     \
         DEF_NIF(stmt_close, 2),              \
-        DEF_NIF(stmt_define, 3),             \
-        DEF_NIF(stmt_defineValue, 7),        \
-        DEF_NIF(stmt_execute, 2),            \
+        IOB_NIF(stmt_define, 3),             \
+        IOB_NIF(stmt_defineValue, 7),        \
+        IOB_NIF(stmt_execute, 2),            \
         DEF_NIF(stmt_executeMany, 3),        \
-        DEF_NIF(stmt_fetch, 1),              \
+        IOB_NIF(stmt_fetch, 1),              \
         DEF_NIF(stmt_fetchRows, 2),          \
         DEF_NIF(stmt_getBatchErrorCount, 1), \
         DEF_NIF(stmt_getBatchErrors, 3),     \
@@ -68,8 +68,8 @@ extern DPI_NIF_FUN(stmt_setFetchArraySize);
         DEF_NIF(stmt_getImplicitResult, 1),  \
         DEF_NIF(stmt_getInfo, 1),            \
         DEF_NIF(stmt_getNumQueryColumns, 1), \
-        DEF_NIF(stmt_getQueryInfo, 2),       \
-        DEF_NIF(stmt_getQueryValue, 2),      \
+        IOB_NIF(stmt_getQueryInfo, 2),       \
+        IOB_NIF(stmt_getQueryValue, 2),      \
         DEF_NIF(stmt_getRowCount, 1),        \
         DEF_NIF(stmt_getSubscrQueryId, 1),   \
         DEF_NIF(stmt_release, 1),            \

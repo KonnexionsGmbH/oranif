@@ -33,11 +33,12 @@ extern DPI_NIF_FUN(var_setNumElementsInArray);
         DEF_NIF(var_getReturnedData, 2),       \
         DEF_NIF(var_getSizeInBytes, 1),        \
         DEF_NIF(var_release, 1),               \
-        DEF_NIF(var_setFromBytes, 3),          \
+        IOB_NIF(var_setFromBytes, 3),          \
         DEF_NIF(var_setFromLob, 3),            \
         DEF_NIF(var_setFromObject, 3),         \
         DEF_NIF(var_setFromRowid, 3),          \
         DEF_NIF(var_setFromStmt, 3),           \
         DEF_NIF(var_setNumElementsInArray, 2)
+        
 
 #endif // _DPIVAR_NIF_H_

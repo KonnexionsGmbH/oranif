@@ -65,7 +65,7 @@ extern DPI_NIF_FUN(conn_unsubscribe);
         DEF_NIF(conn_changePassword, 4),      \
         DEF_NIF(conn_close, 3),               \
         DEF_NIF(conn_commit, 1),              \
-        DEF_NIF(conn_create, 6),              \
+        IOB_NIF(conn_create, 6),              \
         DEF_NIF(conn_deqObject, 5),           \
         DEF_NIF(conn_enqObject, 5),           \
         DEF_NIF(conn_getCallTimeout, 1),      \
@@ -87,7 +87,7 @@ extern DPI_NIF_FUN(conn_unsubscribe);
         DEF_NIF(conn_newVar, 8),              \
         DEF_NIF(conn_ping, 1),                \
         DEF_NIF(conn_prepareDistribTrans, 1), \
-        DEF_NIF(conn_prepareStmt, 4),         \
+        IOB_NIF(conn_prepareStmt, 4),         \
         DEF_NIF(conn_release, 1),             \
         DEF_NIF(conn_rollback, 1),            \
         DEF_NIF(conn_setAction, 2),           \

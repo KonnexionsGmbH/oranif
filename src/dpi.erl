@@ -19,26 +19,24 @@
 %===============================================================================
 
 load(SlaveNodeName) when is_atom(SlaveNodeName) ->
-    case get(SlaveNodeName) of
+    case get(dpi_node) of
         undefined ->
             case is_alive() of
                 false -> {error, not_distributed};
                 true ->
                     case start_slave(SlaveNodeName) of
-                        {ok, Slave} ->
-                            put(dpi_node, Slave),
+                        {ok, SlaveNode} ->
+                            put(dpi_node, SlaveNode),
                             ok = rpc_call(
-                                Slave, code, add_paths, [code:get_path()]
+                                SlaveNode, code, add_paths, [code:get_path()]
                             ),
                             rpc_call(
-                                Slave, dpi, load_unsafe, []
+                                SlaveNode, dpi, load_unsafe, []
                             ),
                             ok;
-                        
-                        {error, {already_running, Slave}} ->
-                            put(SlaveNodeName, Slave),
+                        {error, {already_running, SlaveNode}} ->
+                            put(dpi_node, SlaveNode),
                             ok;
-                            
                         Error -> Error
                     end
             end;
@@ -47,8 +45,8 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
     end.
 
 unload() ->
-    Slave = erase(spi_node),
-    slave:stop(Slave).
+    SlaveNode = erase(dpi_node),
+    slave:stop(SlaveNode).
 
 %===============================================================================
 %   NIF test / debug interface (DO NOT use in production)

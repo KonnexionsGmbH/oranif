@@ -122,14 +122,24 @@ DPI_NIF_FUN(conn_newVar)
 
     ERL_NIF_TERM dataList = enif_make_list(env, 0);
 
+    dpiDataPtr_res *dataRes;
+    varRes->head = NULL;
     for (int i = maxArraySize - 1; i >= 0; i--)
     {
-        dpiDataPtr_res *dataRes = enif_alloc_resource(dpiDataPtr_type,
-                                                      sizeof(dpiDataPtr_res));
+        dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
+        dataRes->next = NULL;
+        if (varRes->head == NULL)
+        {
+            varRes->head = dataRes;
+        }
+        else
+        {
+            dataRes->next = varRes->head;
+            varRes->head = dataRes;
+        }
         dataRes->dpiDataPtr = data + i;
         dataRes->type = nativeTypeNum;
         ERL_NIF_TERM dataResTerm = enif_make_resource(env, dataRes);
-        enif_release_resource(dataRes);
         dataList = enif_make_list_cell(env, dataResTerm, dataList);
     }
     ERL_NIF_TERM ret = enif_make_new_map(env);

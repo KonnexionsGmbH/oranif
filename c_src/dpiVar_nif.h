@@ -3,10 +3,12 @@
 
 #include "dpi_nif.h"
 #include "dpi.h"
+#include "dpiData_nif.h"
 
 typedef struct
 {
     dpiVar *var;
+    dpiDataPtr_res *head;
 } dpiVar_res;
 
 extern ErlNifResourceType *dpiVar_type;

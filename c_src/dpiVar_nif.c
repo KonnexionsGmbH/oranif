@@ -56,6 +56,14 @@ DPI_NIF_FUN(var_release)
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
         return BADARG_EXCEPTION(0, "resource var");
+
+    dpiDataPtr_res *t_itr;
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr) {
+        t_itr = itr;
+        itr = itr->next;
+        enif_release_resource(t_itr);
+    }
+
     enif_release_resource(vRes);
     return ATOM_OK;
 }

@@ -966,11 +966,6 @@ getTnsUserPass () ->
          {Tns, User, Password}.
 start() ->
      {Tns, User, Password} = getTnsUserPass(),
-     %?debugMsg("started the test!"),
-     User = <<"scott">>,
-     Password = <<"regit">>,
-     Tns = <<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))">>,
-     %{ok, _} = dpi:load(),
      Context = dpi:context_create(3, 0),
      Conn = dpi:conn_create(Context, User, Password, Tns, #{}, #{}),    
 [Context, Conn].

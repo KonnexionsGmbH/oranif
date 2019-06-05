@@ -1,4 +1,5 @@
 #include "dpiVar_nif.h"
+#include "dpiData_nif.h"
 
 ErlNifResourceType *dpiVar_type;
 

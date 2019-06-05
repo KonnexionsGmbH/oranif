@@ -14,7 +14,7 @@ typedef struct
 {
     dpiData *dpiDataPtr;
     dpiNativeTypeNum type;
-    struct dpiDataPtr_res *next;
+    void *next;
 } dpiDataPtr_res;
 
 extern ErlNifResourceType *dpiData_type;

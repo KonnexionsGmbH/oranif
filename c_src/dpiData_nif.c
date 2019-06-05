@@ -424,21 +424,3 @@ DPI_NIF_FUN(data_release)
 
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(data_getBool);
-UNIMPLEMENTED(data_getDouble);
-UNIMPLEMENTED(data_getFloat);
-UNIMPLEMENTED(data_getIntervalDS);
-UNIMPLEMENTED(data_getIntervalYM);
-UNIMPLEMENTED(data_getLOB);
-UNIMPLEMENTED(data_getObject);
-UNIMPLEMENTED(data_getStmt);
-UNIMPLEMENTED(data_getTimestamp);
-UNIMPLEMENTED(data_getUint64);
-UNIMPLEMENTED(data_setBool);
-UNIMPLEMENTED(data_setDouble);
-UNIMPLEMENTED(data_setFloat);
-UNIMPLEMENTED(data_setLOB);
-UNIMPLEMENTED(data_setObject);
-UNIMPLEMENTED(data_setStmt);
-UNIMPLEMENTED(data_setUint64);

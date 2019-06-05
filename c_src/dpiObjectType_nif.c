@@ -21,8 +21,3 @@ DPI_NIF_FUN(objectType_release)
 
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(objectType_addRef);
-UNIMPLEMENTED(objectType_createObject);
-UNIMPLEMENTED(objectType_getAttributes);
-UNIMPLEMENTED(objectType_getInfo);

@@ -117,12 +117,6 @@ DPI_NIF_FUN(context_getClientVersion)
     return map;
 }
 
-UNIMPLEMENTED(context_initCommonCreateParams);
-UNIMPLEMENTED(context_initConnCreateParams);
-UNIMPLEMENTED(context_initPoolCreateParams);
-UNIMPLEMENTED(context_initSodaOperOptions);
-UNIMPLEMENTED(context_initSubscrCreateParams);
-
 /*******************************************************************************
  * Helper internal functions
  ******************************************************************************/

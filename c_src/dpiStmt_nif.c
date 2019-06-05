@@ -294,20 +294,3 @@ DPI_NIF_FUN(stmt_defineValue)
 
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(stmt_addRef);
-UNIMPLEMENTED(stmt_close);
-UNIMPLEMENTED(stmt_executeMany);
-UNIMPLEMENTED(stmt_fetchRows);
-UNIMPLEMENTED(stmt_getBatchErrorCount);
-UNIMPLEMENTED(stmt_getBatchErrors);
-UNIMPLEMENTED(stmt_getBindCount);
-UNIMPLEMENTED(stmt_getBindNames);
-UNIMPLEMENTED(stmt_getFetchArraySize);
-UNIMPLEMENTED(stmt_getImplicitResult);
-UNIMPLEMENTED(stmt_getInfo);
-UNIMPLEMENTED(stmt_getNumQueryColumns);
-UNIMPLEMENTED(stmt_getRowCount);
-UNIMPLEMENTED(stmt_getSubscrQueryId);
-UNIMPLEMENTED(stmt_scroll);
-UNIMPLEMENTED(stmt_setFetchArraySize);

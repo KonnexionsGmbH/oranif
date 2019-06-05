@@ -60,7 +60,7 @@ DPI_NIF_FUN(var_release)
     dpiDataPtr_res *t_itr;
     for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr) {
         t_itr = itr;
-        itr = itr->next;
+        itr = (dpiDataPtr_res*)itr->next;
         enif_release_resource(t_itr);
     }
 

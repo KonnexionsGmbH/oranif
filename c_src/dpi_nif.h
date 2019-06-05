@@ -75,7 +75,6 @@ extern ERL_NIF_TERM ATOM_TRUE;
 extern ERL_NIF_TERM ATOM_FALSE;
 extern ERL_NIF_TERM ATOM_ERROR;
 extern ERL_NIF_TERM ATOM_ENOMEM;
-extern ERL_NIF_TERM ATOM_UNIMPLEMENTED;
 
 #define DEF_NIF(_fun, _arity)            \
     {                                    \
@@ -89,12 +88,6 @@ extern ERL_NIF_TERM ATOM_UNIMPLEMENTED;
 #define DPI_NIF_FUN(_fun)    \
     ERL_NIF_TERM _fun( \
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-
-#define UNIMPLEMENTED(_fun)                                           \
-    DPI_NIF_FUN(_fun)                                                 \
-    {                                                                 \
-        return enif_make_tuple2(env, ATOM_ERROR, ATOM_UNIMPLEMENTED); \
-    }
 
 #define RAISE_EXCEPTION_ON_DPI_ERROR(_exprn) \
     if (DPI_FAILURE == (_exprn))             \

@@ -68,13 +68,3 @@ DPI_NIF_FUN(var_release)
     enif_release_resource(vRes);
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(var_addRef);
-UNIMPLEMENTED(var_copyData);
-UNIMPLEMENTED(var_getNumElementsInArray);
-UNIMPLEMENTED(var_getReturnedData);
-UNIMPLEMENTED(var_getSizeInBytes);
-UNIMPLEMENTED(var_setFromLob);
-UNIMPLEMENTED(var_setFromObject);
-UNIMPLEMENTED(var_setFromRowid);
-UNIMPLEMENTED(var_setFromStmt);

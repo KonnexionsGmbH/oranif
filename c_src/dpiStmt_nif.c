@@ -3,6 +3,7 @@
 #include "dpiQueryInfo_nif.h"
 #include "dpiData_nif.h"
 #include "dpiVar_nif.h"
+#include "dpiContext_nif.h"
 #include <stdio.h>
 
 ErlNifResourceType *dpiStmt_type;
@@ -14,7 +15,80 @@ void dpiStmt_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiStmt destroyed\r\n");
 }
 
-DPI_NIF_FUN(stmt_execute)
+DPI_NIF_FUN(stmt_execute_default)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiStmt_res *stmtRes;
+    uint32_t numCols = 0;
+    unsigned int len;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
+        return BADARG_EXCEPTION(0, "resource statement");
+
+    ERL_NIF_TERM head, tail;
+    if (!enif_is_list(env, argv[1]) &&
+        !enif_get_list_cell(env, argv[1], &head, &tail))
+        return BADARG_EXCEPTION(1, "atom list modes");
+
+    enif_get_list_length(env, argv[1], &len);
+    dpiExecMode m;
+    dpiExecMode mode = 0;
+    if (len > 0)
+        do
+        {
+            if (!enif_is_atom(env, head))
+                return RAISE_EXCEPTION("Mode is list from arg is not atom");
+            DPI_EXEC_MODE_FROM_ATOM(head, m);
+            mode |= m;
+        } while (enif_get_list_cell(env, tail, &head, &tail));
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        dpiStmt_execute(stmtRes->stmt, mode, &numCols));
+
+    return enif_make_uint(env, numCols);
+}
+
+
+DPI_NIF_FUN(stmt_execute_no_exceptions)
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiStmt_res *stmtRes;
+    uint32_t numCols = 0;
+    unsigned int len;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
+        return BADARG_EXCEPTION(0, "resource statement");
+
+    ERL_NIF_TERM head, tail;
+    if (!enif_is_list(env, argv[1]) &&
+        !enif_get_list_cell(env, argv[1], &head, &tail))
+        return BADARG_EXCEPTION(1, "atom list modes");
+
+    enif_get_list_length(env, argv[1], &len);
+    dpiExecMode m;
+    dpiExecMode mode = 0;
+    if (len > 0)
+        do
+        {
+            if (!enif_is_atom(env, head))
+                return RAISE_EXCEPTION("Mode is list from arg is not atom");
+            DPI_EXEC_MODE_FROM_ATOM(head, m);
+            mode |= m;
+        } while (enif_get_list_cell(env, tail, &head, &tail));
+    if (-1 == dpiStmt_execute(stmtRes->stmt, mode, &numCols)){
+        dpiErrorInfo error;
+        dpiContext_res *contextRes;
+        if (!enif_get_resource(env, argv[2], dpiContext_type, &contextRes))
+            return ATOM_ERROR;
+        dpiContext_getError(contextRes->context, &error);
+        return dpiErrorInfoMap(env, error);
+    }
+    return enif_make_uint(env, numCols);
+}
+
+DPI_NIF_FUN(stmt_execute_io)
 {
     CHECK_ARGCOUNT(2);
 
@@ -293,4 +367,53 @@ DPI_NIF_FUN(stmt_defineValue)
             ));
 
     return ATOM_OK;
+}
+
+
+ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
+{
+    TRACE;
+
+    ERL_NIF_TERM map = enif_make_new_map(env);
+
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "code"), enif_make_int(env, e.code), &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "offset"), enif_make_uint(env, e.offset), &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "message"),
+        enif_make_string_len(env, e.message, e.messageLength, ERL_NIF_LATIN1),
+        &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "encoding"),
+        enif_make_string(env, e.encoding, ERL_NIF_LATIN1),
+        &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "fnName"),
+        enif_make_string(env, e.fnName, ERL_NIF_LATIN1),
+        &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "action"),
+        enif_make_string(env, e.action, ERL_NIF_LATIN1),
+        &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "sqlState"),
+        enif_make_string(env, e.sqlState, ERL_NIF_LATIN1),
+        &map);
+    enif_make_map_put(
+        env, map,
+        enif_make_atom(env, "isRecoverable"),
+        (e.isRecoverable == 0 ? ATOM_FALSE : ATOM_TRUE), &map);
+
+    /* #{ code => integer(), offset => integer(), message => string(),
+          encoding => string(), fnName => string(), action => string(),
+          sqlState => string, isRecoverable => true | false } */
+    return map;
 }

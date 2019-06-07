@@ -4,6 +4,8 @@
 #include "dpi_nif.h"
 #include "dpi.h"
 
+ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e);
+
 typedef struct
 {
     dpiContext *context;

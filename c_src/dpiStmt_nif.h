@@ -25,7 +25,9 @@ extern DPI_NIF_FUN(stmt_bindValueByName);
 extern DPI_NIF_FUN(stmt_bindValueByPos);
 extern DPI_NIF_FUN(stmt_define);
 extern DPI_NIF_FUN(stmt_defineValue);
-extern DPI_NIF_FUN(stmt_execute);
+extern DPI_NIF_FUN(stmt_execute_io);
+extern DPI_NIF_FUN(stmt_execute_no_exceptions);
+extern DPI_NIF_FUN(stmt_execute_default);
 extern DPI_NIF_FUN(stmt_fetch);
 extern DPI_NIF_FUN(stmt_getQueryInfo);
 extern DPI_NIF_FUN(stmt_getQueryValue);
@@ -38,7 +40,9 @@ extern DPI_NIF_FUN(stmt_release);
         IOB_NIF(stmt_bindValueByPos, 4),     \
         IOB_NIF(stmt_define, 3),             \
         IOB_NIF(stmt_defineValue, 7),        \
-        IOB_NIF(stmt_execute, 2),            \
+        IOB_NIF(stmt_execute_io, 2),         \
+        IOB_NIF(stmt_execute_no_exceptions, 3),         \
+        DEF_NIF(stmt_execute_default, 2),    \
         IOB_NIF(stmt_fetch, 1),              \
         IOB_NIF(stmt_getQueryInfo, 2),       \
         IOB_NIF(stmt_getQueryValue, 2),      \

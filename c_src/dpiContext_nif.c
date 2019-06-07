@@ -121,7 +121,7 @@ DPI_NIF_FUN(context_getClientVersion)
  * Helper internal functions
  ******************************************************************************/
 
-static ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
+ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
 {
     TRACE;
 

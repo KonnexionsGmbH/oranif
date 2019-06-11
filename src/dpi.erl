@@ -15,7 +15,6 @@
 -include("dpiQueryInfo.hrl").
 -include("dpiData.hrl").
 -include("dpiVar.hrl").
--include("dpiObjectType.hrl").
 
 %===============================================================================
 %   Slave Node APIs

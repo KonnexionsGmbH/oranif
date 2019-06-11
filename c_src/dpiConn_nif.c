@@ -4,7 +4,6 @@
 #include "dpiVar_nif.h"
 #include "dpiData_nif.h"
 #include "dpiQueryInfo_nif.h"
-#include "dpiObjectType_nif.h"
 #include "stdio.h"
 
 ErlNifResourceType *dpiConn_type;
@@ -87,11 +86,8 @@ DPI_NIF_FUN(dpiConn_newVar)
     uint32_t maxArraySize = 0;
     uint32_t size = 0;
     char sizeIsBytesBuf[32];
-    int sizeIsBytes = 0;
-    char isArrayBuf[32];
-    int isArray = 0;
+    int sizeIsBytes = 0, isArray = 0;
     dpiData *data;
-    dpiObjectType_res *objType = NULL;
 
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
@@ -101,15 +97,23 @@ DPI_NIF_FUN(dpiConn_newVar)
         return BADARG_EXCEPTION(3, "uint size");
     if (!enif_get_uint(env, argv[4], &size))
         return BADARG_EXCEPTION(4, "uint size");
-    if (!enif_get_atom(env, argv[5], sizeIsBytesBuf, 32, ERL_NIF_LATIN1))
-        return BADARG_EXCEPTION(5, "atom sizeIsBytes");
-    sizeIsBytes = strcmp(sizeIsBytesBuf, "false");
-    if (!enif_get_atom(env, argv[6], sizeIsBytesBuf, 32, ERL_NIF_LATIN1))
-        return BADARG_EXCEPTION(6, "atom isArray");
-    isArray = strcmp(sizeIsBytesBuf, "false");
 
-    // optional parameter: if it fails to get the object, just ignore it
-    enif_get_resource(env, argv[7], dpiObjectType_type, &objType);
+    if (enif_compare(argv[5], ATOM_TRUE))
+        sizeIsBytes = 1;
+    else if (enif_compare(argv[5], ATOM_FALSE))
+        sizeIsBytes = 0;
+    else
+        return BADARG_EXCEPTION(5, "atom sizeIsBytes");
+
+    if (enif_compare(argv[6], ATOM_TRUE))
+        isArray = 1;
+    else if (enif_compare(argv[6], ATOM_FALSE))
+        isArray = 0;
+    else
+        return BADARG_EXCEPTION(6, "atom isArray");
+
+    if (enif_compare(argv[7], ATOM_NULL))
+        return BADARG_EXCEPTION(7, "atom objType");
 
     dpiVar_res *varRes =
         enif_alloc_resource(dpiVar_type, sizeof(dpiVar_res));
@@ -118,7 +122,7 @@ DPI_NIF_FUN(dpiConn_newVar)
         dpiConn_newVar(
             connRes->conn, oracleTypeNum, nativeTypeNum, maxArraySize, size,
             sizeIsBytes, isArray,
-            objType ? objType->objectType : NULL, &varRes->var, &data));
+            NULL, &varRes->var, &data));
 
     ERL_NIF_TERM varResTerm = enif_make_resource(env, varRes);
     enif_release_resource(varRes);

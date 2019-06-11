@@ -9,7 +9,6 @@
 #include "dpiQueryInfo_nif.h"
 #include "dpiData_nif.h"
 #include "dpiVar_nif.h"
-#include "dpiObjectType_nif.h"
 
 ERL_NIF_TERM ATOM_OK;
 ERL_NIF_TERM ATOM_NULL;
@@ -25,8 +24,7 @@ static ErlNifFunc nif_funcs[] = {
     DPISTMT_NIFS,
     DPIQUERYINFO_NIFS,
     DPIDATA_NIFS,
-    DPIVAR_NIFS,
-    DPIOBJECTTYPE_NIFS,
+    DPIVAR_NIFS
 };
 
 static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
@@ -40,7 +38,6 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     DEF_RES(dpiData);
     DEF_RES(dpiDataPtr);
     DEF_RES(dpiVar);
-    DEF_RES(dpiObjectType);
 
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_NULL = enif_make_atom(env, "null");

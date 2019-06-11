@@ -2,9 +2,6 @@
 
 ErlNifResourceType *dpiContext_type;
 
-// local functions
-static ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
-
 void dpiContext_res_dtor(ErlNifEnv *env, void *resource)
 {
     TRACE;
@@ -31,11 +28,14 @@ DPI_NIF_FUN(context_create)
     // RAISE_EXCEPTION can't be used since we want to throw the error map
     if (DPI_FAILURE ==
         dpiContext_create(major, minor, &contextRes->context, &error))
+    {
+        enif_release_resource(contextRes);
         return enif_raise_exception(
             env,
             enif_make_tuple2(
                 env, ATOM_ERROR,
                 dpiErrorInfoMap(env, error)));
+    }
 
     ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);
 
@@ -66,7 +66,11 @@ DPI_NIF_FUN(context_destroy)
     if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
         return BADARG_EXCEPTION(0, "resource context");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(dpiContext_destroy(contextRes->context));
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        contextRes->context,
+        dpiContext_destroy(contextRes->context),
+        NULL);
+
     enif_release_resource(contextRes);
     return ATOM_OK;
 }
@@ -83,7 +87,9 @@ DPI_NIF_FUN(context_getClientVersion)
     dpiVersionInfo version;
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        dpiContext_getClientVersion(contextRes->context, &version));
+        contextRes->context,
+        dpiContext_getClientVersion(contextRes->context, &version),
+        NULL);
 
     ERL_NIF_TERM map = enif_make_new_map(env);
 
@@ -114,57 +120,5 @@ DPI_NIF_FUN(context_getClientVersion)
     /* #{versionNum => integer, releaseNum => integer, updateNum => integer,
          portReleaseNum => integer, portUpdateNum => integer,
          fullVersionNum => integer} */
-    return map;
-}
-
-/*******************************************************************************
- * Helper internal functions
- ******************************************************************************/
-
-static ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
-{
-    TRACE;
-
-    ERL_NIF_TERM map = enif_make_new_map(env);
-
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "code"), enif_make_int(env, e.code), &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "offset"), enif_make_uint(env, e.offset), &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "message"),
-        enif_make_string_len(env, e.message, e.messageLength, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "encoding"),
-        enif_make_string(env, e.encoding, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "fnName"),
-        enif_make_string(env, e.fnName, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "action"),
-        enif_make_string(env, e.action, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "sqlState"),
-        enif_make_string(env, e.sqlState, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "isRecoverable"),
-        (e.isRecoverable == 0 ? ATOM_FALSE : ATOM_TRUE), &map);
-
-    /* #{ code => integer(), offset => integer(), message => string(),
-          encoding => string(), fnName => string(), action => string(),
-          sqlState => string, isRecoverable => true | false } */
     return map;
 }

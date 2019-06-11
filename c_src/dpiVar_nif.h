@@ -7,6 +7,7 @@
 typedef struct
 {
     dpiVar *var;
+    dpiContext *context;
     void *head;
 } dpiVar_res;
 
@@ -18,10 +19,9 @@ extern DPI_NIF_FUN(var_release);
 extern DPI_NIF_FUN(var_setFromBytes);
 extern DPI_NIF_FUN(var_setNumElementsInArray);
 
-#define DPIVAR_NIFS                               \
-        DEF_NIF(var_release, 1),               \
-        IOB_NIF(var_setFromBytes, 3),          \
+#define DPIVAR_NIFS                   \
+    DEF_NIF(var_release, 1),          \
+        IOB_NIF(var_setFromBytes, 3), \
         DEF_NIF(var_setNumElementsInArray, 2)
-        
 
 #endif // _DPIVAR_NIF_H_

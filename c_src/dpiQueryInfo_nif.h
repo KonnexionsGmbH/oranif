@@ -78,7 +78,7 @@ extern DPI_NIF_FUN(queryInfo_delete);
         M2A(DPI_ORACLE_TYPE_LONG_VARCHAR, _assign);                     \
         M2A(DPI_ORACLE_TYPE_LONG_RAW, _assign);                         \
     default:                                                            \
-        return RAISE_EXCEPTION("dpiOracleTypeNum value not supported"); \
+        return RAISE_STR_EXCEPTION("dpiOracleTypeNum value not supported"); \
     }
 
 #endif // _DPIQUERYINFO_NIF_H_

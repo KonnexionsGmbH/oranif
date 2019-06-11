@@ -345,7 +345,7 @@ DPI_NIF_FUN(data_get)
             &dataRet);
         break;
     default:
-        return RAISE_EXCEPTION("Unsupported nativeTypeNum");
+        return RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
     }
 
     return dataRet;

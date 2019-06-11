@@ -96,16 +96,16 @@ DPI_NIF_FUN(conn_newVar)
     if (!enif_get_uint(env, argv[4], &size))
         return BADARG_EXCEPTION(4, "uint size");
 
-    if (enif_compare(argv[5], ATOM_TRUE))
+    if (enif_compare(argv[5], ATOM_TRUE) == 0)
         sizeIsBytes = 1;
-    else if (enif_compare(argv[5], ATOM_FALSE))
+    else if (enif_compare(argv[5], ATOM_FALSE) == 0)
         sizeIsBytes = 0;
     else
         return BADARG_EXCEPTION(5, "atom sizeIsBytes");
 
-    if (enif_compare(argv[6], ATOM_TRUE))
+    if (enif_compare(argv[6], ATOM_TRUE) == 0)
         isArray = 1;
-    else if (enif_compare(argv[6], ATOM_FALSE))
+    else if (enif_compare(argv[6], ATOM_FALSE) == 0)
         isArray = 0;
     else
         return BADARG_EXCEPTION(6, "atom isArray");

@@ -602,11 +602,11 @@ ping_close([Context, Conn]) ->
 var_define([Context, Conn]) -> 
     %% the variables need to be of at least size 100 when used with stmt_fetch
     %% because it will try to fetch 100 rows per default, even if there aren't as many
-    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var3, data := DataRep3} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var4, data := DataRep4} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var5, data := DataRep5} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
+    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var3, data := DataRep3} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var4, data := DataRep4} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var5, data := DataRep5} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
 
     ?CALL(<<"drop table test_dpi14">>), %% remake table, fill with test data
     ?CALL(<<"create table test_dpi14(a integer, b integer, c integer, d integer, e integer)">>), 
@@ -664,8 +664,8 @@ var_define([Context, Conn]) ->
     ?_assert(true).
 
 var_bind([Context, Conn]) -> 
-    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
+    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
 
     ?CALL(<<"drop table test_dpi15">>), 
     ?CALL(<<"create table test_dpi15(a integer, b integer, c integer, d integer, e integer)">>), 
@@ -712,7 +712,7 @@ var_bind([Context, Conn]) ->
     ?_assert(true).
 
 var_setFromBytes([Context, Conn]) -> 
-    #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, undefined),
+    #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null),
 
     ?CALL(<<"drop table test_dpi16">>), 
     ?CALL(<<"create table test_dpi16(a integer, b varchar(32))">>), 
@@ -739,31 +739,31 @@ var_setFromBytes([Context, Conn]) ->
 
 set_get_data_ptr([Context, Conn]) -> 
 
-    #{var := IntVar, data := [IntData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, undefined),
+    #{var := IntVar, data := [IntData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null),
     dpi:data_setInt64(IntData, 12345),
     12345 = dpi:data_get(IntData),
     dpi:var_release(IntVar),
     dpi:data_release(IntData),
 
-    #{var := DSVar, data := [DSData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 0, true, false, undefined),
+    #{var := DSVar, data := [DSData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 0, true, false, null),
     dpi:data_setIntervalDS(DSData, 12, 5, 4, 3, 2),
     #{days := 12, hours := 5, minutes := 4, seconds := 3, fseconds := 2 } = dpi:data_get(DSData),
     dpi:var_release(DSVar),
     dpi:data_release(DSData),
 
-    #{var := YMVar, data := [YMData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 0, true, false, undefined),
+    #{var := YMVar, data := [YMData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 0, true, false, null),
     dpi:data_setIntervalYM(YMData, 1990, 8),
     #{years := 1990, months := 8} = dpi:data_get(YMData),
     dpi:var_release(YMVar),
     dpi:data_release(YMData),
 
-    #{var := TSVar, data := [TSData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 0, true, false, undefined),
+    #{var := TSVar, data := [TSData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 0, true, false, null),
     dpi:data_setTimestamp(TSData, 1990, 8, 22, 22, 12, 54, 3, 4, 5),
     #{year := 1990, month := 8, day := 22, hour := 22, minute := 12, second := 54, fsecond := 3, tzHourOffset := 4, tzMinuteOffset := 5} = dpi:data_get(TSData),
     dpi:var_release(TSVar),
     dpi:data_release(TSData),
 
-    #{var := StrVar, data := [StrData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, undefined),
+    #{var := StrVar, data := [StrData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null),
     %% according to https://oracle.github.io/odpi/doc/functions/dpiData.html dpiData_setBytes should NOT be used for vars, so var_setFromBytes is used instead
     dpi:var_setFromBytes(StrVar, 0, <<"abc">>),
     <<"abc">> = dpi:data_get(StrData),
@@ -774,7 +774,7 @@ set_get_data_ptr([Context, Conn]) ->
 
 data_is_null([Context, Conn]) -> 
 
-    #{var := Var, data := [Data]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, undefined),
+    #{var := Var, data := [Data]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null),
 
     dpi:data_setInt64(Data, 12345),
     12345 = dpi:data_get(Data),  %% confirm that "Data" works correctly with actual values
@@ -794,7 +794,7 @@ data_is_null([Context, Conn]) ->
 
 var_array([Context, Conn]) ->
     
-    #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100, true, true, undefined),
+    #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100, true, true, null),
     ok = dpi:var_setNumElementsInArray(Var, 100),
 
     dpi:var_setFromBytes(Var, 0, <<"abc">>),
@@ -856,8 +856,8 @@ var_bind_no_assert([Context, Conn]) ->
 	    dpi:data_release(QueryValueRef),
         ok end,
 
-    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
-    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
+    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
 
     ?CALL(<<"drop table test_dpi15">>), 
     ?CALL(<<"create table test_dpi15(a integer, b integer, c integer, d integer, e integer)">>), 

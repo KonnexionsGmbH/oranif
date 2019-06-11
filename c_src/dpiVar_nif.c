@@ -1,4 +1,5 @@
 #include "dpiVar_nif.h"
+#include "dpiData_nif.h"
 
 ErlNifResourceType *dpiVar_type;
 
@@ -9,7 +10,7 @@ void dpiVar_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiVar destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiVar_setNumElementsInArray)
+DPI_NIF_FUN(var_setNumElementsInArray)
 {
     CHECK_ARGCOUNT(2);
 
@@ -27,7 +28,7 @@ DPI_NIF_FUN(dpiVar_setNumElementsInArray)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiVar_setFromBytes)
+DPI_NIF_FUN(var_setFromBytes)
 {
     CHECK_ARGCOUNT(3);
 
@@ -48,7 +49,7 @@ DPI_NIF_FUN(dpiVar_setFromBytes)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiVar_release)
+DPI_NIF_FUN(var_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -57,15 +58,13 @@ DPI_NIF_FUN(dpiVar_release)
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
         return BADARG_EXCEPTION(0, "resource var");
 
+    dpiDataPtr_res *t_itr;
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr) {
+        t_itr = itr;
+        itr = itr->next;
+        enif_release_resource(t_itr);
+    }
+
+    enif_release_resource(vRes);
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(dpiVar_addRef);
-UNIMPLEMENTED(dpiVar_copyData);
-UNIMPLEMENTED(dpiVar_getNumElementsInArray);
-UNIMPLEMENTED(dpiVar_getReturnedData);
-UNIMPLEMENTED(dpiVar_getSizeInBytes);
-UNIMPLEMENTED(dpiVar_setFromLob);
-UNIMPLEMENTED(dpiVar_setFromObject);
-UNIMPLEMENTED(dpiVar_setFromRowid);
-UNIMPLEMENTED(dpiVar_setFromStmt);

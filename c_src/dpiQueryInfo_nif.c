@@ -13,7 +13,7 @@ void dpiQueryInfo_res_dtor(ErlNifEnv *env, void *resource)
 
 /** just gets everything, including the TypeInfo contained within,
  * and returns it all as a map */
-DPI_NIF_FUN(dpiQueryInfo_get)
+DPI_NIF_FUN(queryInfo_get)
 {
     CHECK_ARGCOUNT(1);
 
@@ -77,7 +77,7 @@ DPI_NIF_FUN(dpiQueryInfo_get)
     return resultMap;
 }
 
-DPI_NIF_FUN(dpiQueryInfo_delete)
+DPI_NIF_FUN(queryInfo_delete)
 {
     CHECK_ARGCOUNT(1);
 
@@ -85,6 +85,6 @@ DPI_NIF_FUN(dpiQueryInfo_delete)
 
     if ((!enif_get_resource(env, argv[0], dpiQueryInfo_type, &qRes)))
         return BADARG_EXCEPTION(0, "resource queryInfo");
-
+    enif_release_resource(qRes);
     return ATOM_OK;
 }

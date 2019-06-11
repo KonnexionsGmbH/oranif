@@ -11,7 +11,7 @@ void dpiContext_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiContext destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiContext_create)
+DPI_NIF_FUN(context_create)
 {
     CHECK_ARGCOUNT(2);
 
@@ -38,12 +38,11 @@ DPI_NIF_FUN(dpiContext_create)
                 dpiErrorInfoMap(env, error)));
 
     ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);
-    enif_release_resource(contextRes);
 
     return contextResTerm;
 }
 
-DPI_NIF_FUN(dpiContext_getError)
+DPI_NIF_FUN(context_getError)
 {
     CHECK_ARGCOUNT(1);
 
@@ -58,7 +57,7 @@ DPI_NIF_FUN(dpiContext_getError)
     return dpiErrorInfoMap(env, error);
 }
 
-DPI_NIF_FUN(dpiContext_destroy)
+DPI_NIF_FUN(context_destroy)
 {
     CHECK_ARGCOUNT(1);
 
@@ -68,11 +67,11 @@ DPI_NIF_FUN(dpiContext_destroy)
         return BADARG_EXCEPTION(0, "resource context");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(dpiContext_destroy(contextRes->context));
-
+    enif_release_resource(contextRes);
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiContext_getClientVersion)
+DPI_NIF_FUN(context_getClientVersion)
 {
     CHECK_ARGCOUNT(1);
 
@@ -117,12 +116,6 @@ DPI_NIF_FUN(dpiContext_getClientVersion)
          fullVersionNum => integer} */
     return map;
 }
-
-UNIMPLEMENTED(dpiContext_initCommonCreateParams);
-UNIMPLEMENTED(dpiContext_initConnCreateParams);
-UNIMPLEMENTED(dpiContext_initPoolCreateParams);
-UNIMPLEMENTED(dpiContext_initSodaOperOptions);
-UNIMPLEMENTED(dpiContext_initSubscrCreateParams);
 
 /*******************************************************************************
  * Helper internal functions

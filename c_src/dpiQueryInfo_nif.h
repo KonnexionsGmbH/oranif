@@ -13,11 +13,11 @@ extern ErlNifResourceType *dpiQueryInfo_type;
 
 extern void dpiQueryInfo_res_dtor(ErlNifEnv *env, void *resource);
 
-extern DPI_NIF_FUN(dpiQueryInfo_get);
-extern DPI_NIF_FUN(dpiQueryInfo_delete);
+extern DPI_NIF_FUN(queryInfo_get);
+extern DPI_NIF_FUN(queryInfo_delete);
 
-#define DPIQUERYINFO_NIFS DEF_NIF(dpiQueryInfo_get, 1),                 \
-                          DEF_NIF(dpiQueryInfo_delete, 1)
+#define DPIQUERYINFO_NIFS DEF_NIF(queryInfo_get, 1),                 \
+                          DEF_NIF(queryInfo_delete, 1)
 
 #define DPI_ORACLE_TYPE_NUM_FROM_ATOM(_atom, _assign)        \
     A2M(DPI_ORACLE_TYPE_VARCHAR, _atom, _assign);            \

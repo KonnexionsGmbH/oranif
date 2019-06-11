@@ -14,7 +14,7 @@ void dpiConn_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiConn destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiConn_create)
+DPI_NIF_FUN(conn_create)
 {
     CHECK_ARGCOUNT(6);
 
@@ -40,12 +40,11 @@ DPI_NIF_FUN(dpiConn_create)
             &connRes->conn));
 
     ERL_NIF_TERM connResTerm = enif_make_resource(env, connRes);
-    enif_release_resource(connRes);
 
     return connResTerm;
 }
 
-DPI_NIF_FUN(dpiConn_prepareStmt)
+DPI_NIF_FUN(conn_prepareStmt)
 {
     CHECK_ARGCOUNT(4);
 
@@ -71,12 +70,11 @@ DPI_NIF_FUN(dpiConn_prepareStmt)
             tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt));
 
     ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);
-    enif_release_resource(stmtRes);
 
     return stmtResTerm;
 }
 
-DPI_NIF_FUN(dpiConn_newVar)
+DPI_NIF_FUN(conn_newVar)
 {
     CHECK_ARGCOUNT(8);
 
@@ -125,18 +123,27 @@ DPI_NIF_FUN(dpiConn_newVar)
             NULL, &varRes->var, &data));
 
     ERL_NIF_TERM varResTerm = enif_make_resource(env, varRes);
-    enif_release_resource(varRes);
 
     ERL_NIF_TERM dataList = enif_make_list(env, 0);
 
+    dpiDataPtr_res *dataRes;
+    varRes->head = NULL;
     for (int i = maxArraySize - 1; i >= 0; i--)
     {
-        dpiDataPtr_res *dataRes = enif_alloc_resource(dpiDataPtr_type,
-                                                      sizeof(dpiDataPtr_res));
+        dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
+        dataRes->next = NULL;
+        if (varRes->head == NULL)
+        {
+            varRes->head = dataRes;
+        }
+        else
+        {
+            dataRes->next = varRes->head;
+            varRes->head = dataRes;
+        }
         dataRes->dpiDataPtr = data + i;
         dataRes->type = nativeTypeNum;
         ERL_NIF_TERM dataResTerm = enif_make_resource(env, dataRes);
-        enif_release_resource(dataRes);
         dataList = enif_make_list_cell(env, dataResTerm, dataList);
     }
     ERL_NIF_TERM ret = enif_make_new_map(env);
@@ -147,7 +154,7 @@ DPI_NIF_FUN(dpiConn_newVar)
     return ret;
 }
 
-DPI_NIF_FUN(dpiConn_commit)
+DPI_NIF_FUN(conn_commit)
 {
     CHECK_ARGCOUNT(1);
 
@@ -160,7 +167,7 @@ DPI_NIF_FUN(dpiConn_commit)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_rollback)
+DPI_NIF_FUN(conn_rollback)
 {
     CHECK_ARGCOUNT(1);
 
@@ -174,7 +181,7 @@ DPI_NIF_FUN(dpiConn_rollback)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_ping)
+DPI_NIF_FUN(conn_ping)
 {
     CHECK_ARGCOUNT(1);
 
@@ -188,7 +195,7 @@ DPI_NIF_FUN(dpiConn_ping)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_release)
+DPI_NIF_FUN(conn_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -198,11 +205,11 @@ DPI_NIF_FUN(dpiConn_release)
         return BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_release(connRes->conn));
-
+    enif_release_resource(connRes);
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_close)
+DPI_NIF_FUN(conn_close)
 {
     CHECK_ARGCOUNT(3);
 
@@ -240,7 +247,7 @@ DPI_NIF_FUN(dpiConn_close)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiConn_getServerVersion)
+DPI_NIF_FUN(conn_getServerVersion)
 {
     CHECK_ARGCOUNT(1);
 
@@ -291,40 +298,3 @@ DPI_NIF_FUN(dpiConn_getServerVersion)
          fullVersionNum => integer} */
     return map;
 }
-
-UNIMPLEMENTED(dpiConn_addRef)
-UNIMPLEMENTED(dpiConn_beginDistribTrans)
-UNIMPLEMENTED(dpiConn_breakExecution)
-UNIMPLEMENTED(dpiConn_changePassword)
-UNIMPLEMENTED(dpiConn_deqObject)
-UNIMPLEMENTED(dpiConn_enqObject)
-UNIMPLEMENTED(dpiConn_getCallTimeout)
-UNIMPLEMENTED(dpiConn_getCurrentSchema)
-UNIMPLEMENTED(dpiConn_getEdition)
-UNIMPLEMENTED(dpiConn_getEncodingInfo)
-UNIMPLEMENTED(dpiConn_getExternalName)
-UNIMPLEMENTED(dpiConn_getHandle)
-UNIMPLEMENTED(dpiConn_getInternalName)
-UNIMPLEMENTED(dpiConn_getLTXID)
-UNIMPLEMENTED(dpiConn_getObjectType)
-UNIMPLEMENTED(dpiConn_getSodaDb)
-UNIMPLEMENTED(dpiConn_getStmtCacheSize)
-UNIMPLEMENTED(dpiConn_newDeqOptions)
-UNIMPLEMENTED(dpiConn_newEnqOptions)
-UNIMPLEMENTED(dpiConn_newMsgProps)
-UNIMPLEMENTED(dpiConn_newTempLob)
-UNIMPLEMENTED(dpiConn_prepareDistribTrans)
-UNIMPLEMENTED(dpiConn_setAction)
-UNIMPLEMENTED(dpiConn_setCallTimeout)
-UNIMPLEMENTED(dpiConn_setClientIdentifier)
-UNIMPLEMENTED(dpiConn_setClientInfo)
-UNIMPLEMENTED(dpiConn_setCurrentSchema)
-UNIMPLEMENTED(dpiConn_setDbOp)
-UNIMPLEMENTED(dpiConn_setExternalName)
-UNIMPLEMENTED(dpiConn_setInternalName)
-UNIMPLEMENTED(dpiConn_setModule)
-UNIMPLEMENTED(dpiConn_setStmtCacheSize)
-UNIMPLEMENTED(dpiConn_shutdownDatabase)
-UNIMPLEMENTED(dpiConn_startupDatabase)
-UNIMPLEMENTED(dpiConn_subscribe)
-UNIMPLEMENTED(dpiConn_unsubscribe)

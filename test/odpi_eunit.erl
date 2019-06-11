@@ -1,7 +1,7 @@
 -module(odpi_eunit).
 -include_lib("eunit/include/eunit.hrl").
 
-
+-define(SLAVE_NAME, dpi_slave).
 %% performs a call with the given SQL statement. Also handles releasing the
 %% statement resource that has been made and includes basic error handling
 callS(Conn, Context, SQL) -> 
@@ -835,6 +835,87 @@ client_server_version([Context, Conn]) ->
     RS = "Oracle Database 11g Express Edition Release 11.2.0.2.0 - 64bit Production",
     ?_assert(true).
 
+simple_fetch_no_assert([Context, Conn]) -> 
+    SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
+    Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
+    Query_cols = dpi:stmt_execute(Stmt, []),
+    dpi:stmt_fetch(Stmt),
+    #{nativeTypeNum := Type, data := Result} = dpi:stmt_getQueryValue(Stmt, 1),
+    12345.0 = dpi:data_get(Result),
+    Type = 'DPI_NATIVE_TYPE_DOUBLE',
+    Query_cols = 5,
+    dpi:data_release(Result),
+    dpi:stmt_release(Stmt),
+    ok.
+
+var_bind_no_assert([Context, Conn]) -> 
+
+    Assert_getQueryValue = fun (Stmt, Index, Value) ->
+        QueryValueRef = maps:get(data, (dpi:stmt_getQueryValue(Stmt, Index))),
+        Value = dpi:data_get(QueryValueRef),
+	    dpi:data_release(QueryValueRef),
+        ok end,
+
+    #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
+    #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, undefined),
+
+    ?CALL(<<"drop table test_dpi15">>), 
+    ?CALL(<<"create table test_dpi15(a integer, b integer, c integer, d integer, e integer)">>), 
+    ?CALL(<<"insert into test_dpi15 values(1, 2, 3, 4, 5)">>), 
+    ?CALL(<<"insert into test_dpi15 values(6, 7, 8, 9, 10)">>),
+    ?CALL(<<"insert into test_dpi15 values(1, 2, 4, 8, 16)">>), 
+    ?CALL(<<"insert into test_dpi15 values(1, 2, 3, 5, 7)">>), 
+
+    Stmt = dpi:conn_prepareStmt(Conn, false, <<"select 2, 3 from dual">>, <<"">>),
+    dpi:stmt_execute(Stmt, []),
+    ok = dpi:stmt_define(Stmt, 1, Var1),
+    ok = dpi:stmt_define(Stmt, 2, Var2),
+    dpi:stmt_fetch(Stmt),
+    2.0 = dpi:data_get(lists:nth(1, DataRep1)),
+    3.0 = dpi:data_get(lists:nth(1, DataRep2)),
+
+    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"select * from test_dpi15 where b = :A and c = :B">>, <<"">>),
+
+    ok = dpi:stmt_bindByName(Stmt2, <<"A">>, Var1),
+    ok = dpi:stmt_bindByPos(Stmt2, 2, Var2),
+    5 = dpi:stmt_execute(Stmt2, []),
+    dpi:stmt_fetch(Stmt2),
+    Assert_getQueryValue(Stmt2, 1, 1.0),
+    Assert_getQueryValue(Stmt2, 2, 2.0),
+    Assert_getQueryValue(Stmt2, 3, 3.0),
+    Assert_getQueryValue(Stmt2, 4, 4.0),
+    Assert_getQueryValue(Stmt2, 5, 5.0),
+
+    dpi:stmt_fetch(Stmt2),
+    Assert_getQueryValue(Stmt2, 1, 1.0),
+    Assert_getQueryValue(Stmt2, 2, 2.0),
+    Assert_getQueryValue(Stmt2, 3, 3.0),
+    Assert_getQueryValue(Stmt2, 4, 5.0),
+    Assert_getQueryValue(Stmt2, 5, 7.0),
+
+    dpi:var_release(Var1),
+    [dpi:data_release(X) || X <- DataRep1],
+    dpi:var_release(Var2),
+    [dpi:data_release(X) || X <- DataRep2],
+    
+    dpi:stmt_release(Stmt),
+    dpi:stmt_release(Stmt2),
+
+    ok.
+
+distributed([_, _]) -> 
+    ok = dpi:load(slave),
+    ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
+
+    {Tns, User, Password} = getTnsUserPass(),
+    Context = dpi:safe(dpi, context_create, [3, 0]),
+    Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
+
+    ok = dpi:safe(fun simple_fetch_no_assert/1,[[Context, Conn]]),
+    ok = dpi:safe(fun var_bind_no_assert/1,[[Context, Conn]]),
+
+    ?_assert(true).
+
 %% create table                              ✓
 %% drop table                                ✓
 %% truncate table                            ✓
@@ -861,8 +942,8 @@ client_server_version([Context, Conn]) ->
 %% PLSQL table
 %% PLSQL associative array
 
-start() ->
-     #{tns := Tns, user := User, password := Password} =
+getTnsUserPass () ->
+    #{tns := Tns, user := User, password := Password} =
          case file:get_cwd() of
              {ok, Cwd} ->
                  ConnectConfigFile =
@@ -882,18 +963,17 @@ start() ->
                  ?debugFmt("~p", [Reason]),
                  error(Reason)
          end,
-     %?debugMsg("started the test!"),
-     User = <<"scott">>,
-     Password = <<"regit">>,
-     Tns = <<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))">>,
-     %{ok, _} = dpi:load(),
+         {Tns, User, Password}.
+start() ->
+     {Tns, User, Password} = getTnsUserPass(),
      Context = dpi:context_create(3, 0),
      Conn = dpi:conn_create(Context, User, Password, Tns, #{}, #{}),    
 [Context, Conn].
 
 s() ->
      ?debugMsg("Performing setup."),
-     {ok, _} = dpi:load(),
+     %ok = dpi:load(?SLAVE_NAME),
+     ok = dpi:load_unsafe(),
      ?debugMsg("Performed setup."),
      ok.
 
@@ -937,9 +1017,9 @@ eunit_test_() ->
         fun set_get_data_ptr/1,
         fun data_is_null/1,
         fun var_array/1,
-        fun client_server_version/1
-    ]},
-    ?_assertEqual(0, length(sys:get_state({dpi, get(dpi_slave)})))
+        fun client_server_version/1,
+        fun distributed/1
+    ]}
 ]
 .
 

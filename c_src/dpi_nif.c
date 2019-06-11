@@ -16,7 +16,6 @@ ERL_NIF_TERM ATOM_TRUE;
 ERL_NIF_TERM ATOM_FALSE;
 ERL_NIF_TERM ATOM_ERROR;
 ERL_NIF_TERM ATOM_ENOMEM;
-ERL_NIF_TERM ATOM_UNIMPLEMENTED;
 
 static ErlNifFunc nif_funcs[] = {
     DPICONTEXT_NIFS,
@@ -45,7 +44,6 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     ATOM_FALSE = enif_make_atom(env, "false");
     ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
-    ATOM_UNIMPLEMENTED = enif_make_atom(env, "unimplemented");
 
     return 0;
 }

@@ -14,7 +14,7 @@ void dpiStmt_res_dtor(ErlNifEnv *env, void *resource)
     L("dpiStmt destroyed\r\n");
 }
 
-DPI_NIF_FUN(dpiStmt_execute)
+DPI_NIF_FUN(stmt_execute)
 {
     CHECK_ARGCOUNT(2);
 
@@ -48,7 +48,7 @@ DPI_NIF_FUN(dpiStmt_execute)
     return enif_make_uint(env, numCols);
 }
 
-DPI_NIF_FUN(dpiStmt_fetch)
+DPI_NIF_FUN(stmt_fetch)
 {
     CHECK_ARGCOUNT(1);
 
@@ -76,7 +76,7 @@ DPI_NIF_FUN(dpiStmt_fetch)
     return map;
 }
 
-DPI_NIF_FUN(dpiStmt_getQueryValue)
+DPI_NIF_FUN(stmt_getQueryValue)
 {
     CHECK_ARGCOUNT(2);
 
@@ -98,7 +98,7 @@ DPI_NIF_FUN(dpiStmt_getQueryValue)
 
     data->type = nativeTypeNum;
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
-    enif_release_resource(data);
+
 
     ERL_NIF_TERM nativeTypeNumAtom;
     DPI_NATIVE_TYPE_NUM_TO_ATOM(nativeTypeNum, nativeTypeNumAtom);
@@ -115,7 +115,7 @@ DPI_NIF_FUN(dpiStmt_getQueryValue)
     return map;
 }
 
-DPI_NIF_FUN(dpiStmt_getQueryInfo)
+DPI_NIF_FUN(stmt_getQueryInfo)
 {
     CHECK_ARGCOUNT(2);
 
@@ -133,12 +133,11 @@ DPI_NIF_FUN(dpiStmt_getQueryInfo)
         dpiStmt_getQueryInfo(stmtRes->stmt, pos, &(infoPointer->queryInfo)));
 
     ERL_NIF_TERM infoRes = enif_make_resource(env, infoPointer);
-    enif_release_resource(infoPointer);
 
     return infoRes;
 }
 
-DPI_NIF_FUN(dpiStmt_bindValueByPos)
+DPI_NIF_FUN(stmt_bindValueByPos)
 {
     CHECK_ARGCOUNT(4);
 
@@ -163,7 +162,7 @@ DPI_NIF_FUN(dpiStmt_bindValueByPos)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_bindValueByName)
+DPI_NIF_FUN(stmt_bindValueByName)
 {
     CHECK_ARGCOUNT(4);
 
@@ -188,7 +187,7 @@ DPI_NIF_FUN(dpiStmt_bindValueByName)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_bindByPos)
+DPI_NIF_FUN(stmt_bindByPos)
 {
     CHECK_ARGCOUNT(3);
 
@@ -209,7 +208,7 @@ DPI_NIF_FUN(dpiStmt_bindByPos)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_bindByName)
+DPI_NIF_FUN(stmt_bindByName)
 {
     CHECK_ARGCOUNT(3);
 
@@ -229,7 +228,7 @@ DPI_NIF_FUN(dpiStmt_bindByName)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_release)
+DPI_NIF_FUN(stmt_release)
 {
     CHECK_ARGCOUNT(1);
 
@@ -239,12 +238,11 @@ DPI_NIF_FUN(dpiStmt_release)
         return BADARG_EXCEPTION(0, "resource statement");
 
     dpiStmt_release(stmtRes->stmt);
-    stmtRes->stmt;
-
+    enif_release_resource(stmtRes);
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_define)
+DPI_NIF_FUN(stmt_define)
 {
     CHECK_ARGCOUNT(3);
 
@@ -265,7 +263,7 @@ DPI_NIF_FUN(dpiStmt_define)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(dpiStmt_defineValue)
+DPI_NIF_FUN(stmt_defineValue)
 {
     CHECK_ARGCOUNT(7);
 
@@ -296,20 +294,3 @@ DPI_NIF_FUN(dpiStmt_defineValue)
 
     return ATOM_OK;
 }
-
-UNIMPLEMENTED(dpiStmt_addRef);
-UNIMPLEMENTED(dpiStmt_close);
-UNIMPLEMENTED(dpiStmt_executeMany);
-UNIMPLEMENTED(dpiStmt_fetchRows);
-UNIMPLEMENTED(dpiStmt_getBatchErrorCount);
-UNIMPLEMENTED(dpiStmt_getBatchErrors);
-UNIMPLEMENTED(dpiStmt_getBindCount);
-UNIMPLEMENTED(dpiStmt_getBindNames);
-UNIMPLEMENTED(dpiStmt_getFetchArraySize);
-UNIMPLEMENTED(dpiStmt_getImplicitResult);
-UNIMPLEMENTED(dpiStmt_getInfo);
-UNIMPLEMENTED(dpiStmt_getNumQueryColumns);
-UNIMPLEMENTED(dpiStmt_getRowCount);
-UNIMPLEMENTED(dpiStmt_getSubscrQueryId);
-UNIMPLEMENTED(dpiStmt_scroll);
-UNIMPLEMENTED(dpiStmt_setFetchArraySize);

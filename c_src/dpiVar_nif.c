@@ -63,7 +63,7 @@ DPI_NIF_FUN(var_release)
     RAISE_EXCEPTION_ON_DPI_ERROR(vRes->context, dpiVar_release(vRes->var), NULL);
 
     dpiDataPtr_res *t_itr;
-    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; )
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr)
     {
         t_itr = itr;
         itr = itr->next;

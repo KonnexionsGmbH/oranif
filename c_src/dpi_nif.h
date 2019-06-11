@@ -83,7 +83,6 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
     {                         \
 #_fun, _arity, _fun   \
     }
-
 #define IOB_NIF(_fun, _arity)                           \
     {                                                   \
 #_fun, _arity, _fun, ERL_NIF_DIRTY_JOB_IO_BOUND \
@@ -93,7 +92,7 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
     ERL_NIF_TERM _fun(    \
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
+extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv*, dpiErrorInfo);
 #define RAISE_EXCEPTION_ON_DPI_ERROR(_ctx, _exprn, _opt_res) \
     if (DPI_FAILURE == (_exprn))                             \
     {                                                        \

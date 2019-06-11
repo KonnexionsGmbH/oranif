@@ -48,14 +48,20 @@ DPI_NIF_FUN(conn_prepareStmt)
 {
     CHECK_ARGCOUNT(4);
 
-    char atomBuf[32];
+    int scrollable = 0;
     dpiConn_res *connRes;
     ErlNifBinary sql, tag;
 
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
-    if (!enif_get_atom(env, argv[1], atomBuf, 31, ERL_NIF_LATIN1))
+
+    if (enif_compare(argv[1], ATOM_TRUE) == 0)
+        scrollable = 1;
+    else if (enif_compare(argv[1], ATOM_FALSE) == 0)
+        scrollable = 0;
+    else
         return BADARG_EXCEPTION(1, "bool/atom scrollable");
+
     if (!enif_inspect_binary(env, argv[2], &sql))
         return BADARG_EXCEPTION(2, "binary/string sql");
     if (!enif_inspect_binary(env, argv[3], &tag))
@@ -66,7 +72,7 @@ DPI_NIF_FUN(conn_prepareStmt)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         dpiConn_prepareStmt(
-            connRes->conn, !strcmp(atomBuf, "true"), sql.data, sql.size,
+            connRes->conn, scrollable, sql.data, sql.size,
             tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt));
 
     ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);

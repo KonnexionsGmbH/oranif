@@ -271,7 +271,6 @@ DPI_NIF_FUN(stmt_defineValue)
     uint32_t pos = 0, size = 0;
     dpiOracleTypeNum oraType;
     dpiNativeTypeNum nativeType;
-    char sizeIsBytesBuf[32];
     int sizeIsBytes = 0;
 
     if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
@@ -282,9 +281,13 @@ DPI_NIF_FUN(stmt_defineValue)
     DPI_NATIVE_TYPE_NUM_FROM_ATOM(argv[3], nativeType);
     if (!enif_get_uint(env, argv[4], &size))
         return BADARG_EXCEPTION(4, "uint size");
-    if (!enif_get_atom(env, argv[5], sizeIsBytesBuf, 32, ERL_NIF_LATIN1))
-        return BADARG_EXCEPTION(5, "atom sizeIsBytes");
-    sizeIsBytes = strcmp(sizeIsBytesBuf, "false");
+
+    if (enif_compare(argv[5], ATOM_TRUE) == 0)
+        sizeIsBytes = 1;
+    else if (enif_compare(argv[5], ATOM_FALSE) == 0)
+        sizeIsBytes = 0;
+    else
+        return BADARG_EXCEPTION(5, "bool/atom sizeIsBytes");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         dpiStmt_defineValue(

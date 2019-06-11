@@ -228,12 +228,13 @@ DPI_NIF_FUN(data_setIsNull)
     }
     else
         return BADARG_EXCEPTION(0, "resource data/ptr");
-
-    char isNullBuf[32];
-
-    if (!enif_get_atom(env, argv[1], isNullBuf, 32, ERL_NIF_LATIN1))
-        return BADARG_EXCEPTION(1, "atom isNull");
-    data->isNull = strcmp(isNullBuf, "false");
+        
+    if (enif_compare(argv[1], ATOM_TRUE) == 0)
+        data->isNull = 1;
+    else if (enif_compare(argv[1], ATOM_FALSE) == 0)
+        data->isNull = 0;
+    else
+        return BADARG_EXCEPTION(1, "bool/atom isNull");
 
     return ATOM_OK;
 }

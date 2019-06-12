@@ -928,140 +928,10 @@ catch_error_message([Context, Conn]) ->
     catch
         _Class:Error ->
             {error, _File, _Line, ErrTuple} = Error,
+            ?debugFmt("Catch Pass Message", []),
             ?assertEqual("ORA-00942: table or view does not exist", maps:get(message, ErrTuple)),
             ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
     end.
-
-catch_error_message_conn([_, _]) -> 
-    try
-        {_Tns, User, Password, _Encoding} = getTnsUserPass(),
-        Context = dpi:context_create(3, 0),
-        Conn = dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{}),    
-        ?_assert(false)
-    catch
-        _Class:Error ->
-            {error, _File, _Line, ErrTuple} = Error,
-            ?assertEqual("ORA-12154: TNS:could not resolve the connect identifier specified", maps:get(message, ErrTuple)),
-            ?_assertEqual("dpiConn_create", maps:get(fnName, ErrTuple))
-    end.
-
-get_num_query_cols([Context, Conn]) -> 
-    Stmt = dpi:conn_prepareStmt(Conn, false, <<"select 12345 from dual">>, <<"">>),
-    1 = dpi:stmt_execute(Stmt, []),
-    ?assertEqual(1, dpi:stmt_getNumQueryColumns(Stmt)),
-    dpi:stmt_release(Stmt),
-
-    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"select 1, 2, 3, 4, 5 from dual">>, <<"">>),
-    5 = dpi:stmt_execute(Stmt2, []),
-    ?assertEqual(5, dpi:stmt_getNumQueryColumns(Stmt2)),
-    dpi:stmt_release(Stmt2),
-    ?_assert(true).
-
--define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
-stored_procedure([Context, Conn]) -> 
-
-    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
-    #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, null),
-    #{var := Var3, data := [DataRep3]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
-
-    dpi:data_setInt64(DataRep1, 50),
-    dpi:var_setFromBytes(Var2, 0, <<"1             ">>),
-    dpi:data_setInt64(DataRep3, 3),
-    
-    Stmt = dpi:conn_prepareStmt(Conn, false, <<"
-        create or replace procedure "
-        ?TESTPROCEDURE
-        "(p_first in number, p_second in out varchar2, p_result out number)
-        is
-        begin
-            p_result := p_first + to_number(p_second);
-            p_second := 'The sum is ' || to_char(p_result);
-        end "?TESTPROCEDURE";
-        ">>, <<"">>),
-    0 = dpi:stmt_execute(Stmt, []),
-    dpi:conn_commit(Conn),
-    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>, <<"">>),
-    ok = dpi:stmt_bindByName(Stmt2, <<"p_first">>, Var1),
-    ok = dpi:stmt_bindByName(Stmt2, <<"p_second">>, Var2),
-    ok = dpi:stmt_bindByName(Stmt2, <<"p_result">>, Var3),
-
-    ?assertEqual(3,dpi:data_get(DataRep3)), %% before executing the procedure, hast the old value
-    dpi:stmt_execute(Stmt2, []),
-    ?assertEqual(51,dpi:data_get(DataRep3)), %% now has the new value of 50 added to the char value of "1             "
-    dpi:stmt_release(Stmt),
-    dpi:stmt_release(Stmt2),
- 
-    dpi:var_release(Var1),
-    dpi:data_release(DataRep1),
-    dpi:var_release(Var2),
-    dpi:data_release(DataRep2),
-    dpi:var_release(Var3),
-    dpi:data_release(DataRep3),
-    ?_assert(true).
-
-ref_cursor([Context, Conn]) -> 
-    Get_column_values =
-        fun Get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
-            Get_column_values(Stmt, ColIdx, Limit) ->
-                #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
-                [dpi:data_get(Data)
-                | Get_column_values(Stmt, ColIdx + 1, Limit)]
-        end,
-    CreateStmt = dpi:conn_prepareStmt(
-        Conn, false,
-        <<"create or replace procedure "?TESTPROCEDURE"
-            (p_cur out sys_refcursor)
-                is
-                begin
-                    open p_cur for select CURRENT_TIMESTAMP from dual;
-            end "?TESTPROCEDURE";">>,
-        <<"">>
-    ),
-    ?assertEqual(0, dpi:stmt_execute(CreateStmt, [])),
-    ?assertEqual(ok, dpi:stmt_release(CreateStmt)),
-
-    #{var := VarStmt, data := [DataStmt]} = dpi:conn_newVar(
-        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
-        false, false, null
-    ),
-    Stmt = dpi:conn_prepareStmt(
-        Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>
-    ),
-    ok = dpi:stmt_bindByName(Stmt, <<"cursor">>, VarStmt),
-
-    dpi:stmt_execute(Stmt, []),
-    RefCursor = dpi:data_get(DataStmt),
-    ?assertMatch(#{found := true}, dpi:stmt_fetch(RefCursor)),
-    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor)),
-    Result = Get_column_values(RefCursor, 1, 1),
-    ?assertMatch(
-        [#{
-            day := _, fsecond := _, hour := _, minute := _, month := _,
-            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
-        } | _ ],
-        Result
-    ),
-
-    dpi:stmt_execute(Stmt, []),
-    RefCursor1 = dpi:data_get(DataStmt),
-    ?assertMatch(#{found := false}, dpi:stmt_fetch(RefCursor1)),
-    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor1)),
-    Result1 = Get_column_values(RefCursor1, 1, 1),
-    ?assertMatch(
-        [#{
-            day := _, fsecond := _, hour := _, minute := _, month := _,
-            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
-        } | _ ],
-        Result1
-    ),
-
-    ?assertEqual(RefCursor, RefCursor1),
-    ?assertEqual(Result, Result1),
-
-    dpi:data_release(DataStmt),
-    dpi:var_release(VarStmt),
-    dpi:stmt_release(Stmt),
-    ?_assert(true).
 
 %% create table                              ✓
 %% drop table                                ✓
@@ -1175,9 +1045,8 @@ eunit_test_() ->
         fun var_array/1,
         fun client_server_version/1,
         fun distributed/1,
-        fun catch_error_message/1,
-        fun catch_error_message_conn/1,
-        fun get_num_query_cols/1,
-        fun stored_procedure/1,
-        fun ref_cursor/1
-    ]}].
+        fun catch_error_message/1
+    ]}
+]
+.
+

@@ -916,6 +916,98 @@ distributed([_, _]) ->
 
     ?_assert(true).
 
+get_num_query_cols([Context, Conn]) -> 
+    Stmt = dpi:conn_prepareStmt(Conn, false, <<"select 12345 from dual">>, <<"">>),
+    1 = dpi:stmt_execute(Stmt, []),
+    ?assertEqual(1, dpi:stmt_getNumQueryColumns(Stmt)),
+    dpi:stmt_release(Stmt),
+
+    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"select 1, 2, 3, 4, 5 from dual">>, <<"">>),
+    5 = dpi:stmt_execute(Stmt2, []),
+    ?assertEqual(5, dpi:stmt_getNumQueryColumns(Stmt2)),
+    dpi:stmt_release(Stmt2),
+    ?_assert(true).
+
+-define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
+stored_procedure([Context, Conn]) -> 
+
+    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, undefined),
+    #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, undefined),
+    #{var := Var3, data := [DataRep3]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, undefined),
+
+    dpi:data_setInt64(DataRep1, 50),
+    dpi:var_setFromBytes(Var2, 0, <<"1             ">>),
+    dpi:data_setInt64(DataRep3, 3),
+    
+    Stmt = dpi:conn_prepareStmt(Conn, false, <<"
+        create or replace procedure "
+        ?TESTPROCEDURE
+        "(p_first in number, p_second in out varchar2, p_result out number)
+        is
+        begin
+            p_result := p_first + to_number(p_second);
+            p_second := 'The sum is ' || to_char(p_result);
+        end "?TESTPROCEDURE";
+        ">>, <<"">>),
+    0 = dpi:stmt_execute(Stmt, []),
+    dpi:conn_commit(Conn),
+    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>, <<"">>),
+    ok = dpi:stmt_bindByName(Stmt2, <<"p_first">>, Var1),
+    ok = dpi:stmt_bindByName(Stmt2, <<"p_second">>, Var2),
+    ok = dpi:stmt_bindByName(Stmt2, <<"p_result">>, Var3),
+
+    ?assertEqual(3,dpi:data_get(DataRep3)), %% before executing the procedure, hast the old value
+    dpi:stmt_execute(Stmt2, []),
+    ?assertEqual(51,dpi:data_get(DataRep3)), %% now has the new value of 50 added to the char value of "1             "
+    dpi:stmt_release(Stmt),
+    dpi:stmt_release(Stmt2),
+ 
+    dpi:var_release(Var1),
+    dpi:data_release(DataRep1),
+    dpi:var_release(Var2),
+    dpi:data_release(DataRep2),
+    dpi:var_release(Var3),
+    dpi:data_release(DataRep3),
+    ?_assert(true).
+
+ref_cursor([Context, Conn]) -> 
+    Get_column_values = fun Get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
+                            Get_column_values(Stmt, ColIdx, Limit) ->
+                                #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
+                                [dpi:data_get(Data) | Get_column_values(Stmt, ColIdx + 1, Limit)] end,
+    
+    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0, false, false, undefined),
+    Stmt = dpi:conn_prepareStmt(Conn, false, <<"
+       create or replace procedure "
+        ?TESTPROCEDURE
+        "(p_cur out sys_refcursor)
+        is
+        begin
+            open p_cur for select 123 from dual;
+        end "?TESTPROCEDURE";
+        ">>, <<"">>),
+    0 = dpi:stmt_execute(Stmt, []),
+    dpi:conn_commit(Conn),
+    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>),
+    ok = dpi:stmt_bindByName(Stmt2, <<"cursor">>, Var1),
+    dpi:stmt_execute(Stmt2, []),
+    RefCursor = dpi:data_get(DataRep1),
+    {true, [Result]} = 
+        case dpi:stmt_fetch(RefCursor) of
+            #{found := true} ->
+                NumCols = dpi:stmt_getNumQueryColumns(RefCursor),
+                {true, Get_column_values(RefCursor, 1, NumCols)};
+            #{found := false} ->
+                {false, []}
+        end,
+    ?assertEqual(123.0, Result),
+    
+    dpi:stmt_release(Stmt),
+    dpi:stmt_release(Stmt2),
+    dpi:var_release(Var1),
+    dpi:data_release(DataRep1),
+    ?_assert(true).
+
 %% create table                              ✓
 %% drop table                                ✓
 %% truncate table                            ✓
@@ -1018,7 +1110,10 @@ eunit_test_() ->
         fun data_is_null/1,
         fun var_array/1,
         fun client_server_version/1,
-        fun distributed/1
+        fun distributed/1,
+        fun get_num_query_cols/1,
+        fun stored_procedure/1,
+        fun ref_cursor/1
     ]}
 ]
 .

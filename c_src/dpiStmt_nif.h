@@ -29,6 +29,7 @@ extern DPI_NIF_FUN(stmt_execute);
 extern DPI_NIF_FUN(stmt_fetch);
 extern DPI_NIF_FUN(stmt_getQueryInfo);
 extern DPI_NIF_FUN(stmt_getQueryValue);
+extern DPI_NIF_FUN(stmt_getNumQueryColumns);
 extern DPI_NIF_FUN(stmt_release);
 
 #define DPISTMT_NIFS                            \
@@ -42,6 +43,7 @@ extern DPI_NIF_FUN(stmt_release);
         IOB_NIF(stmt_fetch, 1),              \
         IOB_NIF(stmt_getQueryInfo, 2),       \
         IOB_NIF(stmt_getQueryValue, 2),      \
+        IOB_NIF(stmt_getNumQueryColumns, 1), \
         DEF_NIF(stmt_release, 1)             \
 
 #define DPI_EXEC_MODE_FROM_ATOM(_atom, _assign)                \

@@ -20,6 +20,7 @@ rebar3 compile
 ### OSX/Linux
 
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
+- For OSX use `basic` as `basic-lite` didn't work in our tests.
 - Requires a C compiler supporting the c11 standard.
 
 #### Create Environment variables

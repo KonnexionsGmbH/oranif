@@ -156,7 +156,9 @@ DPI_NIF_FUN(stmt_getNumQueryColumns)
         return BADARG_EXCEPTION(0, "resource statement");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        dpiStmt_getNumQueryColumns(stmtRes->stmt, &numQueryColumns));
+        stmtRes->context,
+        dpiStmt_getNumQueryColumns(stmtRes->stmt, &numQueryColumns),
+        NULL);
 
     return enif_make_uint(env, numQueryColumns);
 }

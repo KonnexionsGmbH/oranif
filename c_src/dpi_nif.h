@@ -56,10 +56,10 @@
                 ERL_NIF_LATIN1));                                    \
     }
 
-#define BADARG_EXCEPTION(_idx, _type)                       \
-    enif_raise_exception(                                   \
-        env,                                                \
-        enif_make_string(                                   \
+#define BADARG_EXCEPTION(_idx, _type)                           \
+    enif_raise_exception(                                       \
+        env,                                                    \
+        enif_make_string(                                       \
             env, "Unable to retrieve " _type " from arg" #_idx, \
             ERL_NIF_LATIN1))
 
@@ -81,11 +81,11 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
 
 #define DEF_NIF(_fun, _arity) \
     {                         \
-#_fun, _arity, _fun           \
+#_fun, _arity, _fun   \
     }
 
-#define IOB_NIF(_fun, _arity)                   \
-    {                                           \
+#define IOB_NIF(_fun, _arity)                           \
+    {                                                   \
 #_fun, _arity, _fun, ERL_NIF_DIRTY_JOB_IO_BOUND \
     }
 
@@ -93,7 +93,7 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
     ERL_NIF_TERM _fun(    \
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv*, dpiErrorInfo);
+extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
 #define RAISE_EXCEPTION_ON_DPI_ERROR(_ctx, _exprn, _opt_res) \
     if (DPI_FAILURE == (_exprn))                             \
     {                                                        \

@@ -145,6 +145,22 @@ DPI_NIF_FUN(stmt_getQueryInfo)
     return infoRes;
 }
 
+DPI_NIF_FUN(stmt_getNumQueryColumns)
+{
+    CHECK_ARGCOUNT(1);
+
+    dpiStmt_res *stmtRes;
+    uint32_t numQueryColumns;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
+        return BADARG_EXCEPTION(0, "resource statement");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        dpiStmt_getNumQueryColumns(stmtRes->stmt, &numQueryColumns));
+
+    return enif_make_uint(env, numQueryColumns);
+}
+
 DPI_NIF_FUN(stmt_bindValueByPos)
 {
     CHECK_ARGCOUNT(4);

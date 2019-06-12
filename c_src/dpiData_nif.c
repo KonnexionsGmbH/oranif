@@ -1,4 +1,5 @@
 #include "dpiData_nif.h"
+#include "dpiStmt_nif.h"
 
 ErlNifResourceType *dpiData_type;
 ErlNifResourceType *dpiDataPtr_type;
@@ -343,6 +344,12 @@ DPI_NIF_FUN(data_get)
             env, dataRet, enif_make_atom(env, "years"),
             enif_make_uint(env, data->value.asIntervalYM.years),
             &dataRet);
+        break;
+    case DPI_NATIVE_TYPE_STMT: {
+            dpiStmt_res *stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+            stmtRes->stmt = data->value.asStmt;
+            dataRet = enif_make_resource(env, stmtRes);
+        }
         break;
     default:
         return RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");

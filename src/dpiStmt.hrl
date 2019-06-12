@@ -16,7 +16,8 @@
     {stmt_fetch, [reference]},
     {stmt_getQueryInfo, [reference, integer]},
     {stmt_getQueryValue, [reference, integer]},
-    {stmt_release, [reference]}
+    {stmt_release, [reference]},
+    {stmt_getNumQueryColumns, [reference]}
 ]}).
 
 -endif. % _DPI_STMT_HRL_

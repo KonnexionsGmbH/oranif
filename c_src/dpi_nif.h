@@ -60,7 +60,7 @@
     enif_raise_exception(                                   \
         env,                                                \
         enif_make_string(                                   \
-            env, "Unable retrive " _type " from arg" #_idx, \
+            env, "Unable to retrieve " _type " from arg" #_idx, \
             ERL_NIF_LATIN1))
 
 #define DEF_RES(_res)                                                \
@@ -81,10 +81,11 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
 
 #define DEF_NIF(_fun, _arity) \
     {                         \
-#_fun, _arity, _fun   \
+#_fun, _arity, _fun           \
     }
-#define IOB_NIF(_fun, _arity)                           \
-    {                                                   \
+
+#define IOB_NIF(_fun, _arity)                   \
+    {                                           \
 #_fun, _arity, _fun, ERL_NIF_DIRTY_JOB_IO_BOUND \
     }
 

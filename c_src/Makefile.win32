@@ -3,7 +3,7 @@ S = c_src
 T = test
 L = $S\odpi\lib\odpic.lib
 
-OBJS = $O\dpi_nif.obj $O\dpiContext_nif.obj $O\dpiConn_nif.obj $O\dpiStmt_nif.obj $O\dpiData_nif.obj $O\dpiQueryInfo_nif.obj $O\dpiVar_nif.obj $O\dpiObjectType_nif.obj
+OBJS = $O\dpi_nif.obj $O\dpiContext_nif.obj $O\dpiConn_nif.obj $O\dpiStmt_nif.obj $O\dpiData_nif.obj $O\dpiQueryInfo_nif.obj $O\dpiVar_nif.obj
 TARGETS = $O\dpi_nif.dll
 
 TEST_OBJS = test\odpi_test.obj

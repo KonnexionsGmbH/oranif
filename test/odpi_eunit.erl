@@ -1018,7 +1018,7 @@ eunit_test_() ->
      
 [   
      ?_assertEqual(ok, s()),
-     {inparallel, fun start/0, fun stop/1, [
+     {foreach, fun start/0, fun stop/1, [
         fun simple_fetch/1,
         fun create_insert_select_drop/1, 
         fun truncate_table/1,

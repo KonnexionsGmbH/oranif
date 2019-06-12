@@ -916,6 +916,24 @@ distributed([_, _]) ->
 
     ?_assert(true).
 
+
+catch_error_message([Context, Conn]) -> 
+    try
+        #{var := SomeVar, data := SomeData} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+        dpi:var_release(SomeVar),
+        [dpi:data_release(X) || X <- SomeData],
+        SQL = <<"select 'miaumiau' from unexistingTable">>,
+        Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
+        dpi:stmt_execute(Stmt, []),
+        ?_assert(false)
+    catch
+        _Class:Error ->
+            {error, _File, _Line, ErrTuple} = Error,
+            ?debugFmt("Catch Pass Message", []),
+            ?assertEqual("ORA-00942: table or view does not exist", maps:get(message, ErrTuple)),
+            ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
+    end.
+
 %% create table                              ✓
 %% drop table                                ✓
 %% truncate table                            ✓
@@ -1018,7 +1036,8 @@ eunit_test_() ->
         fun data_is_null/1,
         fun var_array/1,
         fun client_server_version/1,
-        fun distributed/1
+        fun distributed/1,
+        fun catch_error_message/1
     ]}
 ]
 .

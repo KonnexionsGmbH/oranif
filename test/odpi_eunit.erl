@@ -929,7 +929,6 @@ catch_error_message([Context, Conn]) ->
     catch
         _Class:Error ->
             {error, _File, _Line, ErrTuple} = Error,
-            ?debugFmt("Catch Pass Message", []),
             ?assertEqual("ORA-00942: table or view does not exist", maps:get(message, ErrTuple)),
             ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
     end.
@@ -943,7 +942,6 @@ catch_error_message_conn([_, _]) ->
     catch
         _Class:Error ->
             {error, _File, _Line, ErrTuple} = Error,
-            ?debugFmt("Catch Pass Message", []),
             ?assertEqual("ORA-12154: TNS:could not resolve the connect identifier specified", maps:get(message, ErrTuple)),
             ?_assertEqual("dpiConn_create", maps:get(fnName, ErrTuple))
     end.

@@ -934,6 +934,20 @@ catch_error_message([Context, Conn]) ->
             ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
     end.
 
+catch_error_message_conn([_, _]) -> 
+    try
+        {_Tns, User, Password} = getTnsUserPass(),
+        Context = dpi:context_create(3, 0),
+        Conn = dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{}),    
+        ?_assert(false)
+    catch
+        _Class:Error ->
+            {error, _File, _Line, ErrTuple} = Error,
+            ?debugFmt("Catch Pass Message", []),
+            ?assertEqual("ORA-12154: TNS:could not resolve the connect identifier specified", maps:get(message, ErrTuple)),
+            ?_assertEqual("dpiConn_create", maps:get(fnName, ErrTuple))
+    end.
+
 %% create table                              ✓
 %% drop table                                ✓
 %% truncate table                            ✓
@@ -1006,7 +1020,7 @@ eunit_test_() ->
      
 [   
      ?_assertEqual(ok, s()),
-     {foreach, fun start/0, fun stop/1, [
+     {inparallel, fun start/0, fun stop/1, [
         fun simple_fetch/1,
         fun create_insert_select_drop/1, 
         fun truncate_table/1,
@@ -1037,7 +1051,8 @@ eunit_test_() ->
         fun var_array/1,
         fun client_server_version/1,
         fun distributed/1,
-        fun catch_error_message/1
+        fun catch_error_message/1,
+        fun catch_error_message_conn/1
     ]}
 ]
 .

@@ -32,6 +32,43 @@ DPI_NIF_FUN(conn_create)
         return BADARG_EXCEPTION(2, "string/binary password");
     if (!enif_inspect_binary(env, argv[3], &connectString))
         return BADARG_EXCEPTION(3, "string/binary connectString");
+    if (!enif_get_map_size(env, argv[4], &commonParamsMapSize))
+        return BADARG_EXCEPTION(4, "map commonParams");
+
+    dpiCommonCreateParams commonParams;
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        contextRes->context,
+        dpiContext_initCommonCreateParams(contextRes->context, &commonParams),
+        NULL);
+
+    if (commonParamsMapSize > 0)
+    {
+        // lazy create
+        if (!(ATOM_encoding | ATOM_nencoding))
+        {
+            ATOM_encoding = enif_make_atom(env, "encoding");
+            ATOM_nencoding = enif_make_atom(env, "nencoding");
+        }
+
+        ERL_NIF_TERM mapval;
+        char encodeStr[128];
+        if (enif_get_map_value(env, argv[4], ATOM_encoding, &mapval)) {
+            if(
+                !enif_get_string(
+                env, mapval, encodeStr, sizeof(encodeStr), ERL_NIF_LATIN1)
+            ) return BADARG_EXCEPTION(4, "string\0 commonParams.encoding");
+            commonParams.encoding = encodeStr;
+        }
+
+        char nencodeStr[128];
+        if (enif_get_map_value(env, argv[4], ATOM_nencoding, &mapval)) {
+            if(
+                !enif_get_string(
+                env, mapval, nencodeStr, sizeof(nencodeStr), ERL_NIF_LATIN1)
+            ) return BADARG_EXCEPTION(4, "string\0 commonParams.nencoding");
+            commonParams.nencoding = nencodeStr;
+        }
+    }
 
     dpiConn_res *connRes =
         enif_alloc_resource(dpiConn_type, sizeof(dpiConn_res));
@@ -42,8 +79,8 @@ DPI_NIF_FUN(conn_create)
             contextRes->context, userName.data, userName.size,
             password.data, password.size, connectString.data,
             connectString.size,
-            NULL, // TODO implement commonParams
-            NULL, // TODO implement createParams
+            &commonParams,
+            NULL, // TODO implement connCreateParams
             &connRes->conn),
         connRes);
 

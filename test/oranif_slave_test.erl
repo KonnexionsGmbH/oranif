@@ -837,11 +837,7 @@ distributed(_) ->
     ok = dpi:load(slave),
     ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
 
-<<<<<<< HEAD:test/odpi_eunit.erl
-    {Tns, User, Password, _Encoding} = getTnsUserPass(),
-=======
     #{tns := Tns, user := User, password := Password} = getConfig(),
->>>>>>> re-work, clean WIP:test/oranif_slave_test.erl
     Context = dpi:safe(dpi, context_create, [3, 0]),
     Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
@@ -965,17 +961,38 @@ ref_cursor({_Context, Conn}) ->
     dpi:data_release(DataRep1).
 
 start() ->
-    #{tns := Tns, user := User, password := Password} = getConfig(),
-    ok = dpi:load_unsafe(),
-    Context = dpi:context_create(3, 0),
-    Connnnection = dpi:conn_create(
+     {Tns, User, Password} = getTnsUserPass(),
+     Context = dpi:context_create(3, 0),
+     try
+        Conn = dpi:conn_create(
             Context, User, Password, Tns,
-            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
-    ),
-    {Context, Connnnection}.
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"},
+            #{}
+        ),
+        [Context, Conn]
+    catch
+        error:{error, CSrc, Line, Details} ->
+            ?debugFmt(
+                "[~s:~p] ERROR ~p", [CSrc, Line, Details]),
+            throw(Details#{csrc => CSrc, line => Line});
+        Class:Exception ->
+            ?debugFmt(
+                "Class ~p, Exception ~p, Context ~p",
+                [Class, Exception, Context]
+            ),
+            throw({Class, Exception})
+    end.
 
-stop({Context, Connnnection}) ->
-    dpi:conn_release(Connnnection),
+s() ->
+     ?debugMsg("Performing setup."),
+     %ok = dpi:load(?SLAVE_NAME),
+     ok = dpi:load_unsafe(),
+     ?debugMsg("Performed setup."),
+     ok.
+
+stop([Context, Conn]) ->
+    %?debugMsg("Teardown of test, but there is nothing to do (dtors should take care of freeing the resources)"),
+    dpi:conn_release(Conn),
     dpi:context_destroy(Context),
     ok.
 

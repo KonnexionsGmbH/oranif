@@ -931,9 +931,9 @@ get_num_query_cols([Context, Conn]) ->
 -define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
 stored_procedure([Context, Conn]) -> 
 
-    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, undefined),
-    #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, undefined),
-    #{var := Var3, data := [DataRep3]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, undefined),
+    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
+    #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, null),
+    #{var := Var3, data := [DataRep3]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
 
     dpi:data_setInt64(DataRep1, 50),
     dpi:var_setFromBytes(Var2, 0, <<"1             ">>),
@@ -976,7 +976,7 @@ ref_cursor([Context, Conn]) ->
                                 #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
                                 [dpi:data_get(Data) | Get_column_values(Stmt, ColIdx + 1, Limit)] end,
     
-    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0, false, false, undefined),
+    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0, false, false, null),
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"
        create or replace procedure "
         ?TESTPROCEDURE

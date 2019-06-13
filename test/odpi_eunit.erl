@@ -1088,8 +1088,25 @@ getTnsUserPass () ->
 start() ->
      {Tns, User, Password} = getTnsUserPass(),
      Context = dpi:context_create(3, 0),
-     Conn = dpi:conn_create(Context, User, Password, Tns, #{}, #{}),    
-[Context, Conn].
+     try
+        Conn = dpi:conn_create(
+            Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"},
+            #{}
+        ),
+        [Context, Conn]
+    catch
+        error:{error, CSrc, Line, Details} ->
+            ?debugFmt(
+                "[~s:~p] ERROR ~p", [CSrc, Line, Details]),
+            throw(Details#{csrc => CSrc, line => Line});
+        Class:Exception ->
+            ?debugFmt(
+                "Class ~p, Exception ~p, Context ~p",
+                [Class, Exception, Context]
+            ),
+            throw({Class, Exception})
+    end.
 
 s() ->
      ?debugMsg("Performing setup."),

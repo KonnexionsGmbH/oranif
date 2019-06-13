@@ -11,7 +11,8 @@ typedef struct
 
 typedef struct
 {
-    dpiStmt *stmt;
+    dpiStmt *stmt;    
+    dpiContext *context;
 } dpiStmt_res;
 
 extern ErlNifResourceType *dpiStmt_type;

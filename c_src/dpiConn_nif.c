@@ -28,16 +28,23 @@ DPI_NIF_FUN(conn_create)
         return BADARG_EXCEPTION(2, "string/binary password");
     if (!enif_inspect_binary(env, argv[3], &connectString))
         return BADARG_EXCEPTION(3, "string/binary connectString");
+
     dpiConn_res *connRes =
         enif_alloc_resource(dpiConn_type, sizeof(dpiConn_res));
+
     RAISE_EXCEPTION_ON_DPI_ERROR(
+        contextRes->context,
         dpiConn_create(
             contextRes->context, userName.data, userName.size,
             password.data, password.size, connectString.data,
             connectString.size,
             NULL, // TODO implement commonParams
             NULL, // TODO implement createParams
-            &connRes->conn));
+            &connRes->conn),
+        connRes);
+
+    // Save context into connection for access from dpiError
+    connRes->context = contextRes->context;
 
     ERL_NIF_TERM connResTerm = enif_make_resource(env, connRes);
 
@@ -71,9 +78,13 @@ DPI_NIF_FUN(conn_prepareStmt)
         enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
         dpiConn_prepareStmt(
             connRes->conn, scrollable, sql.data, sql.size,
-            tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt));
+            tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt),
+        stmtRes);
+
+    stmtRes->context = connRes->context;
 
     ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);
 
@@ -123,10 +134,14 @@ DPI_NIF_FUN(conn_newVar)
         enif_alloc_resource(dpiVar_type, sizeof(dpiVar_res));
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
         dpiConn_newVar(
             connRes->conn, oracleTypeNum, nativeTypeNum, maxArraySize, size,
             sizeIsBytes, isArray,
-            NULL, &varRes->var, &data));
+            NULL, &varRes->var, &data),
+        varRes);
+
+    varRes->context = connRes->context;
 
     ERL_NIF_TERM varResTerm = enif_make_resource(env, varRes);
 
@@ -169,7 +184,11 @@ DPI_NIF_FUN(conn_commit)
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_commit(connRes->conn));
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_commit(connRes->conn),
+        NULL);
+
     return ATOM_OK;
 }
 
@@ -182,7 +201,10 @@ DPI_NIF_FUN(conn_rollback)
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_rollback(connRes->conn));
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_rollback(connRes->conn),
+        NULL);
 
     return ATOM_OK;
 }
@@ -196,7 +218,10 @@ DPI_NIF_FUN(conn_ping)
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_ping(connRes->conn));
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_ping(connRes->conn),
+        NULL);
 
     return ATOM_OK;
 }
@@ -210,7 +235,11 @@ DPI_NIF_FUN(conn_release)
     if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
         return BADARG_EXCEPTION(0, "resource connection");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(dpiConn_release(connRes->conn));
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_release(connRes->conn),
+        NULL);
+
     enif_release_resource(connRes);
     return ATOM_OK;
 }
@@ -245,10 +274,12 @@ DPI_NIF_FUN(conn_close)
         } while (enif_get_list_cell(env, tail, &head, &tail));
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
         dpiConn_close(
             connRes->conn, mode,
             tag.size > 0 ? tag.data : NULL,
-            tag.size));
+            tag.size),
+        NULL);
 
     return ATOM_OK;
 }

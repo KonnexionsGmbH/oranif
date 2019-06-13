@@ -80,7 +80,7 @@ extern DPI_NIF_FUN(data_release);
         M2A(DPI_NATIVE_TYPE_BOOLEAN, _assign);                       \
         M2A(DPI_NATIVE_TYPE_ROWID, _assign);                         \
     default:                                                         \
-        return RAISE_EXCEPTION("dpiNativeType value not supported"); \
+        return RAISE_STR_EXCEPTION("dpiNativeType value not supported"); \
     }
 
 #endif // _data_NIF_H_

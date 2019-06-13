@@ -519,7 +519,7 @@ define_type([Context, Conn]) ->
 
     Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"select a from test_dpi11">>, <<"">>),
     dpi:stmt_execute(Stmt2, []),
-    dpi:stmt_defineValue(Stmt2, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, undefined),
+    dpi:stmt_defineValue(Stmt2, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null),
     dpi:stmt_fetch(Stmt2),
     assert_getQueryValue(Stmt2, 1, 123),
     dpi:stmt_release(Stmt2),
@@ -549,7 +549,7 @@ iterate([Context, Conn]) ->
 
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"select * from test_dpi12">>, <<"">>),
     Length = dpi:stmt_execute(Stmt, []),
-    [dpi:stmt_defineValue(Stmt, X, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, undefined)
+    [dpi:stmt_defineValue(Stmt, X, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null)
     || X <- iota(Length)],    
     Rec = fun Rec(Result) ->
         case maps:get(found,dpi:stmt_fetch(Stmt)) of
@@ -916,6 +916,35 @@ distributed([_, _]) ->
 
     ?_assert(true).
 
+catch_error_message([Context, Conn]) -> 
+    try
+        #{var := SomeVar, data := SomeData} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
+        dpi:var_release(SomeVar),
+        [dpi:data_release(X) || X <- SomeData],
+        SQL = <<"select 'miaumiau' from unexistingTable">>,
+        Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
+        dpi:stmt_execute(Stmt, []),
+        ?_assert(false)
+    catch
+        _Class:Error ->
+            {error, _File, _Line, ErrTuple} = Error,
+            ?assertEqual("ORA-00942: table or view does not exist", maps:get(message, ErrTuple)),
+            ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
+    end.
+
+catch_error_message_conn([_, _]) -> 
+    try
+        {_Tns, User, Password} = getTnsUserPass(),
+        Context = dpi:context_create(3, 0),
+        Conn = dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{}),    
+        ?_assert(false)
+    catch
+        _Class:Error ->
+            {error, _File, _Line, ErrTuple} = Error,
+            ?assertEqual("ORA-12154: TNS:could not resolve the connect identifier specified", maps:get(message, ErrTuple)),
+            ?_assertEqual("dpiConn_create", maps:get(fnName, ErrTuple))
+    end.
+
 get_num_query_cols([Context, Conn]) -> 
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"select 12345 from dual">>, <<"">>),
     1 = dpi:stmt_execute(Stmt, []),
@@ -1111,6 +1140,8 @@ eunit_test_() ->
         fun var_array/1,
         fun client_server_version/1,
         fun distributed/1,
+        fun catch_error_message/1,
+        fun catch_error_message_conn/1,
         fun get_num_query_cols/1,
         fun stored_procedure/1,
         fun ref_cursor/1

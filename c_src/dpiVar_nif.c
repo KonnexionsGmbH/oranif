@@ -23,7 +23,8 @@ DPI_NIF_FUN(var_setNumElementsInArray)
         return BADARG_EXCEPTION(1, "uint numElements");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        dpiVar_setNumElementsInArray(vRes->var, numElements));
+        vRes->context,
+        dpiVar_setNumElementsInArray(vRes->var, numElements), NULL);
 
     return ATOM_OK;
 }
@@ -44,7 +45,8 @@ DPI_NIF_FUN(var_setFromBytes)
         return BADARG_EXCEPTION(2, "binary/string value");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        dpiVar_setFromBytes(vRes->var, pos, value.data, value.size));
+        vRes->context,
+        dpiVar_setFromBytes(vRes->var, pos, value.data, value.size), NULL);
 
     return ATOM_OK;
 }
@@ -59,7 +61,8 @@ DPI_NIF_FUN(var_release)
         return BADARG_EXCEPTION(0, "resource var");
 
     dpiDataPtr_res *t_itr;
-    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr) {
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr)
+    {
         t_itr = itr;
         itr = itr->next;
         enif_release_resource(t_itr);

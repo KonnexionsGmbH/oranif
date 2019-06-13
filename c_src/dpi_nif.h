@@ -3,6 +3,7 @@
 #include "erl_nif.h"
 
 #include "stdio.h"
+#include "dpi.h"
 
 #define TRACE                                                   \
     printf("[%s:%s:%d]\r\n", __FILE__, __FUNCTION__, __LINE__); \
@@ -34,13 +35,15 @@
     L("ERROR: " _str, __VA_ARGS__)
 #endif
 
-#define RAISE_EXCEPTION(__EB)                                                 \
+#define RAISE_STR_EXCEPTION(__EB) \
+    RAISE_EXCEPTION(enif_make_string(env, (const char *)(__EB), ERL_NIF_LATIN1))
+
+#define RAISE_EXCEPTION(__T)                                                  \
     enif_raise_exception(                                                     \
         env,                                                                  \
         enif_make_tuple4(                                                     \
             env, ATOM_ERROR, enif_make_string(env, __FILE__, ERL_NIF_LATIN1), \
-            enif_make_int(env, __LINE__),                                     \
-            enif_make_string(env, (const char *)(__EB), ERL_NIF_LATIN1)))
+            enif_make_int(env, __LINE__), (__T)))
 
 #define CHECK_ARGCOUNT(_Count)                                       \
     TRACE;                                                           \
@@ -53,10 +56,10 @@
                 ERL_NIF_LATIN1));                                    \
     }
 
-#define BADARG_EXCEPTION(_idx, _type)                       \
-    enif_raise_exception(                                   \
-        env,                                                \
-        enif_make_string(                                   \
+#define BADARG_EXCEPTION(_idx, _type)                           \
+    enif_raise_exception(                                       \
+        env,                                                    \
+        enif_make_string(                                       \
             env, "Unable to retrieve " _type " from arg" #_idx, \
             ERL_NIF_LATIN1))
 
@@ -76,23 +79,30 @@ extern ERL_NIF_TERM ATOM_FALSE;
 extern ERL_NIF_TERM ATOM_ERROR;
 extern ERL_NIF_TERM ATOM_ENOMEM;
 
-#define DEF_NIF(_fun, _arity)            \
-    {                                    \
-#_fun , _arity, _fun \
+#define DEF_NIF(_fun, _arity) \
+    {                         \
+#_fun, _arity, _fun   \
     }
 
-#define IOB_NIF(_fun, _arity)                                        \
-    {                                                                \
+#define IOB_NIF(_fun, _arity)                           \
+    {                                                   \
 #_fun, _arity, _fun, ERL_NIF_DIRTY_JOB_IO_BOUND \
     }
 
-#define DPI_NIF_FUN(_fun)    \
-    ERL_NIF_TERM _fun( \
+#define DPI_NIF_FUN(_fun) \
+    ERL_NIF_TERM _fun(    \
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
-#define RAISE_EXCEPTION_ON_DPI_ERROR(_exprn) \
-    if (DPI_FAILURE == (_exprn))             \
-    return RAISE_EXCEPTION("dpi returned error")
+extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
+#define RAISE_EXCEPTION_ON_DPI_ERROR(_ctx, _exprn, _opt_res) \
+    if (DPI_FAILURE == (_exprn))                             \
+    {                                                        \
+        dpiErrorInfo __err;                                  \
+        if (_opt_res)                                        \
+            enif_release_resource(_opt_res);                 \
+        dpiContext_getError(_ctx, &__err);                   \
+        return RAISE_EXCEPTION(dpiErrorInfoMap(env, __err)); \
+    }
 
 #define CASE_MACRO2STR(_Macro, _StrVar) \
     case _Macro:                        \

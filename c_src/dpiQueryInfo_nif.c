@@ -6,9 +6,8 @@ ErlNifResourceType *dpiQueryInfo_type;
 
 void dpiQueryInfo_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
-
-    L("dpiQueryInfo destroyed\r\n");
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 /** just gets everything, including the TypeInfo contained within,
@@ -20,7 +19,7 @@ DPI_NIF_FUN(queryInfo_get)
     dpiQueryInfo_res *queryInfoRes;
 
     if (!enif_get_resource(env, argv[0], dpiQueryInfo_type, &queryInfoRes))
-        return BADARG_EXCEPTION(0, "resource queryinfo");
+        BADARG_EXCEPTION(0, "resource queryinfo");
 
     dpiQueryInfo qi = queryInfoRes->queryInfo;
     dpiDataTypeInfo dti = qi.typeInfo;
@@ -74,6 +73,7 @@ DPI_NIF_FUN(queryInfo_get)
                        oracleTypeNum => atom , precision => integer,
                        scale => integer, sizeInChars => integer}
         } */
+    RETURNED_TRACE;
     return resultMap;
 }
 
@@ -84,7 +84,9 @@ DPI_NIF_FUN(queryInfo_delete)
     dpiQueryInfo_res *qRes;
 
     if ((!enif_get_resource(env, argv[0], dpiQueryInfo_type, &qRes)))
-        return BADARG_EXCEPTION(0, "resource queryInfo");
+        BADARG_EXCEPTION(0, "resource queryInfo");
     enif_release_resource(qRes);
+
+    RETURNED_TRACE;
     return ATOM_OK;
 }

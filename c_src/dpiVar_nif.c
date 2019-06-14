@@ -5,9 +5,8 @@ ErlNifResourceType *dpiVar_type;
 
 void dpiVar_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
-
-    L("dpiVar destroyed\r\n");
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 DPI_NIF_FUN(var_setNumElementsInArray)
@@ -18,14 +17,15 @@ DPI_NIF_FUN(var_setNumElementsInArray)
     uint32_t numElements;
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
-        return BADARG_EXCEPTION(0, "resource var");
+        BADARG_EXCEPTION(0, "resource var");
     if (!enif_get_int(env, argv[1], &numElements))
-        return BADARG_EXCEPTION(1, "uint numElements");
+        BADARG_EXCEPTION(1, "uint numElements");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         vRes->context,
         dpiVar_setNumElementsInArray(vRes->var, numElements), NULL);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -38,16 +38,17 @@ DPI_NIF_FUN(var_setFromBytes)
     uint32_t pos;
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
-        return BADARG_EXCEPTION(0, "resource vat");
+        BADARG_EXCEPTION(0, "resource vat");
     if (!enif_get_int(env, argv[1], &pos))
-        return BADARG_EXCEPTION(1, "uint pos");
+        BADARG_EXCEPTION(1, "uint pos");
     if (!enif_inspect_binary(env, argv[2], &value))
-        return BADARG_EXCEPTION(2, "binary/string value");
+        BADARG_EXCEPTION(2, "binary/string value");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         vRes->context,
         dpiVar_setFromBytes(vRes->var, pos, value.data, value.size), NULL);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -58,7 +59,7 @@ DPI_NIF_FUN(var_release)
     dpiVar_res *vRes = NULL;
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
-        return BADARG_EXCEPTION(0, "resource var");
+        BADARG_EXCEPTION(0, "resource var");
 
     dpiDataPtr_res *t_itr;
     for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr)
@@ -69,5 +70,7 @@ DPI_NIF_FUN(var_release)
     }
 
     enif_release_resource(vRes);
+
+    RETURNED_TRACE;
     return ATOM_OK;
 }

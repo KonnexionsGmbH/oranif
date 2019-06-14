@@ -5,6 +5,8 @@
 #include "stdio.h"
 #include "dpi.h"
 
+#ifdef ORANIF_DEBUG
+
 #define TRACE                                                   \
     printf("[%s:%s:%d]\r\n", __FILE__, __FUNCTION__, __LINE__); \
     fflush(stdout)
@@ -17,22 +19,31 @@
     printf("[%s:%s:%d] returned\r\n", __FILE__, __FUNCTION__, __LINE__); \
     fflush(stdout)
 
-#ifndef __WIN32__
+#ifndef __WIN32__ // *nix
 #define L(_Format, ...)                                            \
     printf("[%s:%s:%d] "_Format, __FILE__, __FUNCTION__, __LINE__, \
            ##__VA_ARGS__);                                         \
     fflush(stdout)
-
-#define E(_str, ...) \
-    L("ERROR: " _str, ##__VA_ARGS__);
-#else
+#else // __WIN32__
 #define L(_Format, ...)                                            \
     printf("[%s:%s:%d] "_Format, __FILE__, __FUNCTION__, __LINE__, \
            __VA_ARGS__);                                           \
     fflush(stdout)
+#endif // __WIN32__
 
-#define E(_str, ...) \
-    L("ERROR: " _str, __VA_ARGS__)
+#else // no ORANIF_DEBUG
+
+#define TRACE
+#define CALL_TRACE
+#define RETURNED_TRACE
+#define L(_Format, ...)
+
+#endif // ORANIF_DEBUG
+
+#ifndef __WIN32__
+#define E(_str, ...) L("ERROR: " _str, ##__VA_ARGS__);
+#else
+#define E(_str, ...) L("ERROR: " _str, __VA_ARGS__)
 #endif
 
 #define RAISE_STR_EXCEPTION(__EB) \

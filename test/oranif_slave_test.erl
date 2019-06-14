@@ -1,4 +1,4 @@
--module(odpi_eunit).
+-module(oranif_slave_test).
 -include_lib("eunit/include/eunit.hrl").
 
 -define(SLAVE_NAME, dpi_slave).
@@ -72,7 +72,7 @@ iota(Number) -> iota(Number-1, [Number]).
 
 iozip(List) -> lists:zip(List, iota(length(List))).
 
-simple_fetch([Context, Conn]) -> 
+simple_fetch({Context, Conn}) ->
     SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
     Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
     Query_cols = dpi:stmt_execute(Stmt, []),
@@ -82,10 +82,9 @@ simple_fetch([Context, Conn]) ->
     ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
     ?assertEqual(Query_cols, 5),
     dpi:data_release(Result),
-    dpi:stmt_release(Stmt),
-    ?_assert(true).
+    dpi:stmt_release(Stmt).
 
-create_insert_select_drop([Context, Conn]) -> 
+create_insert_select_drop({Context, Conn}) -> 
     ?CALL(<<"select 12345, 2, 4, 8.5, 'miau' from dual">>),
     ?CALL(<<"select 12345, 2, 4, 844.5, 'miau' from dual">>),
     ?CALL(<<"drop table test_dpi1">>),
@@ -124,11 +123,10 @@ create_insert_select_drop([Context, Conn]) ->
     dpi:data_release(TblCount3),
     dpi:data_release(Query_refResult),
     dpi:stmt_release(Stmt_Exist3),
-    dpi:stmt_release(Stmt_fetch),
-    ?_assert(true).
+    dpi:stmt_release(Stmt_fetch).
 
 
-truncate_table([Context, Conn]) -> 
+truncate_table({Context, Conn}) ->
     ?CALL(<<"drop table test_dpi2">>),
     ?CALL(<<"create table test_dpi2(a integer, b integer, c integer)">>),
     ?CALL(<<"insert into test_dpi2 values (1, 2, 3)">>),
@@ -158,16 +156,14 @@ truncate_table([Context, Conn]) ->
     ?assertEqual(0.0,  dpi:data_get(Query_refResult2)),
     dpi:data_release(Query_refResult2),
     dpi:stmt_release(Stmt_fetch2),
-    ?CALL(<<"drop table test_dpi2">>),
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi2">>).
 
-drop_nonexistent_table([Context, Conn]) -> 
+drop_nonexistent_table({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi3">>),
     ?CALL(<<"drop table test_dpi3">>),
-    ?assertEqual(false, maps:get(isRecoverable, dpi:context_getError(Context))),
-    ?_assert(true).
+    ?assertEqual(false, maps:get(isRecoverable, dpi:context_getError(Context))).
 
-update_where([Context, Conn]) -> 
+update_where({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi4">>), %% drop if exists
 
     %% make and fill new table
@@ -208,10 +204,9 @@ update_where([Context, Conn]) ->
     dpi:stmt_release(Stmt),
 
     %% drop that table again
-    ?CALL(<<"drop table test_dpi4">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi4">>).
 
-select_from_where([Context, Conn]) -> 
+select_from_where({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi5">>), %% drop if exists
 
     %% make and fill new table
@@ -278,11 +273,10 @@ select_from_where([Context, Conn]) ->
 
     dpi:stmt_release(Stmt3),
     %% drop that table again
-    ?CALL(<<"drop table test_dpi5">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi5">>).
 
 
-get_column_names([Context, Conn]) -> 
+get_column_names({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi6">>), 
 
     %% make and fill new table
@@ -301,10 +295,9 @@ get_column_names([Context, Conn]) ->
     
     dpi:stmt_release(Stmt),
     %% drop that table again
-    ?CALL(<<"drop table test_dpi6">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi6">>).
 
-bind_by_pos([Context, Conn]) -> 
+bind_by_pos({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi7">>), 
     ?CALL(<<"create table test_dpi7 (a integer, b integer, c integer)">>), 
     
@@ -328,10 +321,9 @@ bind_by_pos([Context, Conn]) ->
     
     dpi:stmt_release(Stmt2),
     ?assertEqual(Query_cols, 3),
-    ?CALL(<<"drop table test_dpi7">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi7">>).
 
-bind_by_name([Context, Conn]) -> 
+bind_by_name({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi8">>), 
     ?CALL(<<"create table test_dpi8 (a integer, b integer, c integer)">>), 
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"insert into test_dpi8 values (:First, :Second, :Third)">>, <<"">>),
@@ -355,10 +347,9 @@ bind_by_name([Context, Conn]) ->
     dpi:data_release(BindData),
     dpi:stmt_release(Stmt2),
     ?assertEqual(Query_cols, 3),
-    ?CALL(<<"drop table test_dpi8">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi8">>).
 
-in_binding([Context, Conn]) -> 
+in_binding({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi9">>), 
     ?CALL(<<"create table test_dpi9 (a integer, b integer, c varchar(32))">>), 
     ?CALL(<<"insert into test_dpi9 values (1, 8, 'test')">>), 
@@ -405,10 +396,9 @@ in_binding([Context, Conn]) ->
 
     dpi:data_release(BindData2),
     dpi:stmt_release(Stmt2),
-    ?CALL(<<"drop table test_dpi10">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi10">>).
 
-bind_datatypes([Context, Conn]) -> 
+bind_datatypes({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi10">>), 
     ?CALL(<<"create table test_dpi10 (a TIMESTAMP(9) WITH TIME ZONE, b INTERVAL DAY TO SECOND , c INTERVAL YEAR TO MONTH )">>),
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"insert into test_dpi10 values (:First, :Second, :Third)">>, <<"">>),
@@ -437,10 +427,9 @@ bind_datatypes([Context, Conn]) ->
     dpi:data_release(BindData),
     dpi:stmt_release(Stmt2),
     ?assertEqual(Query_cols, 3),
-    ?CALL(<<"drop table test_dpi10">>), 
-    ?_assert(true).
+    ?CALL(<<"drop table test_dpi10">>).
 
-tz_test([Context, Conn]) -> 
+tz_test({Context, Conn}) -> 
     ?CALL(<<"drop table timezones">>), 
     ?CALL(<<"ALTER SESSION SET TIME_ZONE='-7:13'">>), 
     ?CALL(<<"CREATE TABLE timezones (c_id NUMBER, c_tstz TIMESTAMP(9) WITH TIME ZONE)">>),
@@ -461,12 +450,9 @@ tz_test([Context, Conn]) ->
     ?assertEqual(#{fsecond => 123456, second => 56, minute => 44, hour => 3, day => 2, month => 1, year => 2003, tzMinuteOffset => -13, tzHourOffset => -7 },   dpi:data_get(TZData)),
     dpi:data_release(TZData),
     dpi:data_release(TimestampData),
-    dpi:stmt_release(Stmt2),
-     
-    ?_assert(true).
+    dpi:stmt_release(Stmt2).
 
-
-pt_test([Context, Conn]) -> 
+pt_test({Context, Conn}) -> 
      SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
      Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
      
@@ -479,10 +465,9 @@ pt_test([Context, Conn]) ->
      ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
      ?assertEqual(Query_cols, 5),
      dpi:data_release(Result),
-     dpi:stmt_release(Stmt),
-     ?_assert(true).
+     dpi:stmt_release(Stmt).
 
-fail_stmt_released_too_early([Context, Conn]) -> 
+fail_stmt_released_too_early({Context, Conn}) -> 
     Failure = fun()->
         SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
         Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
@@ -506,7 +491,7 @@ fail_stmt_released_too_early([Context, Conn]) ->
 
     end.
 
-define_type([Context, Conn]) -> 
+define_type({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi11">>),
     ?CALL(<<"create table test_dpi11 (a integer)">>),
     ?CALL(<<"insert into test_dpi11 values(123)">>),
@@ -522,11 +507,9 @@ define_type([Context, Conn]) ->
     dpi:stmt_defineValue(Stmt2, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null),
     dpi:stmt_fetch(Stmt2),
     assert_getQueryValue(Stmt2, 1, 123),
-    dpi:stmt_release(Stmt2),
-    
-    ?_assert(true).
+    dpi:stmt_release(Stmt2).
 
-iterate([Context, Conn]) -> 
+iterate({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi12">>), 
     
 
@@ -561,9 +544,9 @@ iterate([Context, Conn]) ->
     end,
     R = [[extract_getQueryInfo(Stmt, X, name) || X <- iota(Length)]] ++ Rec([]),
     dpi:stmt_release(Stmt),
-    ?_assertEqual(LittleBobbyTables, R).
+    ?assertEqual(LittleBobbyTables, R).
 
-commit_rollback([Context, Conn]) -> 
+commit_rollback({Context, Conn}) -> 
     ?CALL(<<"drop table test_dpi13">>), 
     
     ?CALL(<<"create table test_dpi13 (a integer)">>),   %% contains 0 rows
@@ -590,16 +573,15 @@ commit_rollback([Context, Conn]) ->
     dpi:stmt_execute(Stmt3, []),
     dpi:stmt_fetch(Stmt3),
     assert_getQueryValue(Stmt3, 1, 1.0),
-    dpi:stmt_release(Stmt3),
-    ?_assert(true).
+    dpi:stmt_release(Stmt3).
 
-ping_close([Context, Conn]) -> 
+ping_close({Context, Conn}) -> 
     ok = dpi:conn_ping(Conn),               %% valid connection: ping succeeds
     ok = dpi:conn_close(Conn, [], <<"">>),  %% invalidate connection
-    ?_assertException(error, {error, _}, dpi:conn_ping(Conn)), %% now the ping fails
-    ?_assert(true).
+    ?assertException(error, {error, _}, dpi:conn_ping(Conn)), %% now the ping fails
+    ?assert(true).
 
-var_define([Context, Conn]) -> 
+var_define({Context, Conn}) -> 
     %% the variables need to be of at least size 100 when used with stmt_fetch
     %% because it will try to fetch 100 rows per default, even if there aren't as many
     #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
@@ -660,10 +642,9 @@ var_define([Context, Conn]) ->
     dpi:var_release(Var5),
     [dpi:data_release(X) || X <- DataRep5],
 
-    dpi:stmt_release(Stmt),
-    ?_assert(true).
+    dpi:stmt_release(Stmt).
 
-var_bind([Context, Conn]) -> 
+var_bind({Context, Conn}) -> 
     #{var := Var1, data := DataRep1} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
     #{var := Var2, data := DataRep2} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
 
@@ -707,11 +688,9 @@ var_bind([Context, Conn]) ->
     [dpi:data_release(X) || X <- DataRep2],
     
     dpi:stmt_release(Stmt),
-    dpi:stmt_release(Stmt2),
+    dpi:stmt_release(Stmt2).
 
-    ?_assert(true).
-
-var_setFromBytes([Context, Conn]) -> 
+var_setFromBytes({Context, Conn}) -> 
     #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null),
 
     ?CALL(<<"drop table test_dpi16">>), 
@@ -733,11 +712,9 @@ var_setFromBytes([Context, Conn]) ->
 
     dpi:var_release(Var),
     [dpi:data_release(X) || X <- DataRep],
-    dpi:stmt_release(Stmt),
+    dpi:stmt_release(Stmt).
 
-    ?_assert(true).
-
-set_get_data_ptr([Context, Conn]) -> 
+set_get_data_ptr({Context, Conn}) -> 
 
     #{var := IntVar, data := [IntData]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null),
     dpi:data_setInt64(IntData, 12345),
@@ -768,12 +745,9 @@ set_get_data_ptr([Context, Conn]) ->
     dpi:var_setFromBytes(StrVar, 0, <<"abc">>),
     <<"abc">> = dpi:data_get(StrData),
     dpi:var_release(StrVar),
-    dpi:data_release(StrData),
-    
-    ?_assert(true).
+    dpi:data_release(StrData).
 
-data_is_null([Context, Conn]) -> 
-
+data_is_null({Context, Conn}) ->
     #{var := Var, data := [Data]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null),
 
     dpi:data_setInt64(Data, 12345),
@@ -788,11 +762,9 @@ data_is_null([Context, Conn]) ->
     %% maybe have a test of setting it to null and back to not null and see if the original value is still there,
     %% but that would require making a guarantee about null values that probably doesn't exist on Oracle level
     dpi:data_release(Data),
-    dpi:var_release(Var),
-    ?_assert(true).
+    dpi:var_release(Var).
 
-
-var_array([Context, Conn]) ->
+var_array({Context, Conn}) ->
     
     #{var := Var, data := DataRep} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100, true, true, null),
     ok = dpi:var_setNumElementsInArray(Var, 100),
@@ -814,28 +786,25 @@ var_array([Context, Conn]) ->
     ?CALL(<<"CREATE or replace TYPE footype AS OBJECT(foo integer, bar integer)">>), 
     ?CALL(<<"create table test_dpi17(a FOOTYPE)">>), 
     ?CALL(<<"insert into test_dpi17 values(footype(2, 4))">>),
-    dpi:conn_commit(Conn),
-   ?_assert(true).
+    dpi:conn_commit(Conn).
 
-
-client_server_version([Context, Conn]) -> 
+client_server_version({Context, Conn}) -> 
     #{releaseNum := CRNum, versionNum := CVNum, fullVersionNum := CFNum} = dpi:context_getClientVersion(Context),
     true = (CRNum == 3) or (CRNum == 2),
     true = (CVNum == 18) or (CVNum == 12),
     true = (CFNum == 1803000000) or (CFNum == 1202000000),
 
-    #{releaseNum := SRNum, versionNum := SVNum, fullVersionNum := SFNum,
-    portReleaseNum := PRNum, portUpdateNum := PUNum, releaseString := RS} =  dpi:conn_getServerVersion(Conn),
+    ?assertMatch(
+        #{
+            releaseNum := 2, versionNum := 11, fullVersionNum := 1102000200,
+            portReleaseNum := 2, portUpdateNum := 0,
+            releaseString := "Oracle Database 11g Express Edition Release"
+                             " 11.2.0.2.0 - 64bit Production"
+        },
+        dpi:conn_getServerVersion(Conn)
+    ).
 
-    SRNum = 2,
-    SVNum = 11,
-    SFNum = 1102000200,
-    PRNum = 2,
-    PUNum = 0,
-    RS = "Oracle Database 11g Express Edition Release 11.2.0.2.0 - 64bit Production",
-    ?_assert(true).
-
-simple_fetch_no_assert([Context, Conn]) -> 
+simple_fetch_no_assert({Context, Conn}) -> 
     SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
     Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
     Query_cols = dpi:stmt_execute(Stmt, []),
@@ -848,7 +817,7 @@ simple_fetch_no_assert([Context, Conn]) ->
     dpi:stmt_release(Stmt),
     ok.
 
-var_bind_no_assert([Context, Conn]) -> 
+var_bind_no_assert({Context, Conn}) -> 
 
     Assert_getQueryValue = fun (Stmt, Index, Value) ->
         QueryValueRef = maps:get(data, (dpi:stmt_getQueryValue(Stmt, Index))),
@@ -903,49 +872,51 @@ var_bind_no_assert([Context, Conn]) ->
 
     ok.
 
-distributed([_, _]) -> 
+distributed(_) ->
     ok = dpi:load(slave),
     ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
 
+<<<<<<< HEAD:test/odpi_eunit.erl
     {Tns, User, Password, _Encoding} = getTnsUserPass(),
+=======
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+>>>>>>> re-work, clean WIP:test/oranif_slave_test.erl
     Context = dpi:safe(dpi, context_create, [3, 0]),
     Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
     ok = dpi:safe(fun simple_fetch_no_assert/1,[[Context, Conn]]),
-    ok = dpi:safe(fun var_bind_no_assert/1,[[Context, Conn]]),
+    ok = dpi:safe(fun var_bind_no_assert/1,[[Context, Conn]]).
 
-    ?_assert(true).
+catch_error_message({Context, Conn}) -> 
+    Stmt = dpi:conn_prepareStmt(
+        Conn, false, <<"select 'miaumiau' from unexistingTable">>, <<"">>
+    ),
+    ?assertError(
+        {error, _File, _Line,
+            #{
+                message := "ORA-00942: table or view does not exist",
+                fnName := "dpiStmt_execute"
+            }
+        },
+        dpi:stmt_execute(Stmt, [])
+    ).
 
-catch_error_message([Context, Conn]) -> 
-    try
-        #{var := SomeVar, data := SomeData} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null),
-        dpi:var_release(SomeVar),
-        [dpi:data_release(X) || X <- SomeData],
-        SQL = <<"select 'miaumiau' from unexistingTable">>,
-        Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
-        dpi:stmt_execute(Stmt, []),
-        ?_assert(false)
-    catch
-        _Class:Error ->
-            {error, _File, _Line, ErrTuple} = Error,
-            ?assertEqual("ORA-00942: table or view does not exist", maps:get(message, ErrTuple)),
-            ?_assertEqual("dpiStmt_execute", maps:get(fnName, ErrTuple))
-    end.
+catch_error_message_conn(_) -> 
+    #{user := User, password := Password} = getConfig(),
+    Context = dpi:context_create(3, 0),
+    ?assertError(
+        {error, _File, _Line,
+            #{
+                message :=
+                    "ORA-12154: TNS:could not resolve the connect"
+                    " identifier specified",
+                fnName := "dpiConn_create"
+            }
+        },
+        dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{})
+    ).
 
-catch_error_message_conn([_, _]) -> 
-    try
-        {_Tns, User, Password} = getTnsUserPass(),
-        Context = dpi:context_create(3, 0),
-        Conn = dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{}),    
-        ?_assert(false)
-    catch
-        _Class:Error ->
-            {error, _File, _Line, ErrTuple} = Error,
-            ?assertEqual("ORA-12154: TNS:could not resolve the connect identifier specified", maps:get(message, ErrTuple)),
-            ?_assertEqual("dpiConn_create", maps:get(fnName, ErrTuple))
-    end.
-
-get_num_query_cols([Context, Conn]) -> 
+get_num_query_cols({Context, Conn}) -> 
     Stmt = dpi:conn_prepareStmt(Conn, false, <<"select 12345 from dual">>, <<"">>),
     1 = dpi:stmt_execute(Stmt, []),
     ?assertEqual(1, dpi:stmt_getNumQueryColumns(Stmt)),
@@ -954,11 +925,10 @@ get_num_query_cols([Context, Conn]) ->
     Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"select 1, 2, 3, 4, 5 from dual">>, <<"">>),
     5 = dpi:stmt_execute(Stmt2, []),
     ?assertEqual(5, dpi:stmt_getNumQueryColumns(Stmt2)),
-    dpi:stmt_release(Stmt2),
-    ?_assert(true).
+    dpi:stmt_release(Stmt2).
 
 -define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
-stored_procedure([Context, Conn]) -> 
+stored_procedure({Context, Conn}) -> 
 
     #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
     #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, null),
@@ -996,10 +966,9 @@ stored_procedure([Context, Conn]) ->
     dpi:var_release(Var2),
     dpi:data_release(DataRep2),
     dpi:var_release(Var3),
-    dpi:data_release(DataRep3),
-    ?_assert(true).
+    dpi:data_release(DataRep3).
 
-ref_cursor([Context, Conn]) -> 
+ref_cursor({Context, Conn}) -> 
     Get_column_values = fun Get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
                             Get_column_values(Stmt, ColIdx, Limit) ->
                                 #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
@@ -1034,8 +1003,7 @@ ref_cursor([Context, Conn]) ->
     dpi:stmt_release(Stmt),
     dpi:stmt_release(Stmt2),
     dpi:var_release(Var1),
-    dpi:data_release(DataRep1),
-    ?_assert(true).
+    dpi:data_release(DataRep1).
 
 %% create table                              ✓
 %% drop table                                ✓
@@ -1063,101 +1031,184 @@ ref_cursor([Context, Conn]) ->
 %% PLSQL table
 %% PLSQL associative array
 
-getTnsUserPass () ->
-    #{tns := Tns, user := User, password := Password, enc := Encoding} =
-        case file:get_cwd() of
-            {ok, Cwd} ->
-                 ConnectConfigFile =
-                 filename:join(
-                   lists:reverse(
-                     ["connect.config", "test" | lists:reverse(filename:split(Cwd))])),
-                 case file:consult(ConnectConfigFile) of
-                     {ok, [Params]} when is_map(Params) -> Params;
-                     {ok, Params} ->
-                         ?debugFmt("bad config (expected map) ~p", [Params]),
-                         error(badconfig);
-                     {error, Reason} ->
-                         ?debugFmt("~p", [Reason]),
-                         error(Reason)
-                 end;
-             {error, Reason} ->
-                 ?debugFmt("~p", [Reason]),
-                 error(Reason)
-        end,
-    {Tns, User, Password, Encoding}.
+%getTnsUserPass () ->
+%    #{tns := Tns, user := User, password := Password} =
+%         case file:get_cwd() of
+%             {ok, Cwd} ->
+%                 ConnectConfigFile =
+%                 filename:join(
+%                   lists:reverse(
+%                     ["connect.config", "test" | lists:reverse(filename:split%(Cwd))])),
+%                 case file:consult(ConnectConfigFile) of
+%                     {ok, [Params]} when is_map(Params) -> Params;
+%                     {ok, Params} ->
+%                         ?debugFmt("bad config (expected map) ~p", [Params]),
+%                         error(badconfig);
+%                     {error, Reason} ->
+%                         ?debugFmt("~p", [Reason]),
+%                         error(Reason)
+%                 end;
+%             {error, Reason} ->
+%                 ?debugFmt("~p", [Reason]),
+%                 error(Reason)
+%         end,
+%         {Tns, User, Password}.
+%start() ->
+%     {Tns, User, Password} = getTnsUserPass(),
+%     Context = dpi:context_create(3, 0),
+%     try
+%        Conn = dpi:conn_create(
+%            Context, User, Password, Tns,
+%            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"},
+%            #{}
+%        ),
+%        [Context, Conn]
+%    catch
+%        error:{error, CSrc, Line, Details} ->
+%            ?debugFmt(
+%                "[~s:~p] ERROR ~p", [CSrc, Line, Details]),
+%            throw(Details#{csrc => CSrc, line => Line});
+%        Class:Exception ->
+%            ?debugFmt(
+%                "Class ~p, Exception ~p, Context ~p",
+%                [Class, Exception, Context]
+%            ),
+%            throw({Class, Exception})
+%    end.
+%
+%s() ->
+%     ?debugMsg("Performing setup."),
+%     %ok = dpi:load(?SLAVE_NAME),
+%     ok = dpi:load_unsafe(),
+%     ?debugMsg("Performed setup."),
+%     ok.
+%
+%stop([Context, Conn]) ->
+%    %?debugMsg("Teardown of test, but there is nothing to do (dtors should take %care of freeing the resources)"),
+%    dpi:conn_release(Conn),
+%    dpi:context_destroy(Context),
+%    ok.
+
+
+% eunit_test_() ->
+%      
+% [   
+%      ?assertEqual(ok, s()),
+%      {foreach, fun start/0, fun stop/1, [
+%         fun simple_fetch/1,
+%         fun create_insert_select_drop/1, 
+%         fun truncate_table/1,
+% 
+%         fun drop_nonexistent_table/1,
+%         fun update_where/1,             
+%         fun select_from_where/1,
+% 
+%         fun get_column_names/1,         
+%         fun bind_by_pos/1,                
+%         fun bind_by_name/1,             
+%         fun in_binding/1,
+%                                     
+%         fun bind_datatypes/1,
+%                                 
+%         fun fail_stmt_released_too_early/1,
+%         fun tz_test/1,
+% 
+%         fun define_type/1,
+%         fun iterate/1,
+%         fun commit_rollback/1,
+%         fun ping_close/1,
+%         fun var_define/1,
+%         fun var_bind/1,
+%         fun var_setFromBytes/1,
+%         fun set_get_data_ptr/1,
+%         fun data_is_null/1,
+%         fun var_array/1,
+%         fun client_server_version/1,
+%         fun distributed/1,
+%         fun catch_error_message/1,
+%         fun catch_error_message_conn/1,
+%         fun get_num_query_cols/1,
+%         fun stored_procedure/1,
+%         fun ref_cursor/1
+%     ]}
+% ]
+% .
 start() ->
-     {Tns, User, Password, Encoding} = getTnsUserPass(),
-     Context = dpi:context_create(3, 0),
-     try
-        Conn = dpi:conn_create(
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ok = dpi:load_unsafe(),
+    Context = dpi:context_create(3, 0),
+    Connnnection = dpi:conn_create(
             Context, User, Password, Tns,
-            #{encoding => Encoding, nencoding => Encoding},
-            #{}
-        ),
-        [Context, Conn]
-    catch
-        error:{error, CSrc, Line, Details} ->
-            ?debugFmt(
-                "[~s:~p] ERROR ~p", [CSrc, Line, Details]),
-            throw(Details#{csrc => CSrc, line => Line});
-        Class:Exception ->
-            ?debugFmt(
-                "Class ~p, Exception ~p, Context ~p",
-                [Class, Exception, Context]
-            ),
-            throw({Class, Exception})
-    end.
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
+    ),
+    {Context, Connnnection}.
 
-s() ->
-     ?debugMsg("Performing setup."),
-     %ok = dpi:load(?SLAVE_NAME),
-     ok = dpi:load_unsafe(),
-     ?debugMsg("Performed setup."),
-     ok.
-
-stop([Context, Conn]) ->
-    %?debugMsg("Teardown of test, but there is nothing to do (dtors should take care of freeing the resources)"),
-    dpi:conn_release(Conn),
+stop({Context, Connnnection}) ->
+    dpi:conn_release(Connnnection),
     dpi:context_destroy(Context),
     ok.
 
+getConfig() ->
+    case file:get_cwd() of
+        {ok, Cwd} ->
+            ConnectConfigFile = filename:join(
+                lists:reverse(
+                    ["connect.config", "test"
+                        | lists:reverse(filename:split(Cwd))]
+                )
+            ),
+            case file:consult(ConnectConfigFile) of
+                {ok, [Params]} when is_map(Params) -> Params;
+                {ok, Params} ->
+                    ?debugFmt("bad config (expected map) ~p", [Params]),
+                    error(badconfig);
+                {error, Reason} ->
+                    ?debugFmt("~p", [Reason]),
+                    error(Reason)
+            end;
+        {error, Reason} ->
+            ?debugFmt("~p", [Reason]),
+            error(Reason)
+    end.
 
 eunit_test_() ->
-     
-[   
-     ?_assertEqual(ok, s()),
-     {foreach, fun start/0, fun stop/1, [
-        fun simple_fetch/1,
-        fun create_insert_select_drop/1, 
-        fun truncate_table/1,
-        fun drop_nonexistent_table/1,
-        fun update_where/1,             
-        fun select_from_where/1,
-        fun get_column_names/1,         
-        fun bind_by_pos/1,                
-        fun bind_by_name/1,             
-        fun in_binding/1,
-        fun bind_datatypes/1,
-        fun fail_stmt_released_too_early/1,
-        fun tz_test/1,
-        fun define_type/1,
-        fun iterate/1,
-        fun commit_rollback/1,
-        fun ping_close/1,
-        fun var_define/1,
-        fun var_bind/1,
-        fun var_setFromBytes/1,
-        fun set_get_data_ptr/1,
-        fun data_is_null/1,
-        fun var_array/1,
-        fun client_server_version/1,
-        fun distributed/1,
-        fun catch_error_message/1,
-        fun catch_error_message_conn/1,
-        fun get_num_query_cols/1,
-        fun stored_procedure/1,
-        fun ref_cursor/1
-    ]}
-]
-.
+    {
+        setup, fun start/0, fun stop/1,
+        {with, [
+            fun simple_fetch/1,
+            fun create_insert_select_drop/1, 
+            fun truncate_table/1,
 
+            fun drop_nonexistent_table/1,
+            fun update_where/1,             
+            fun select_from_where/1,
+
+            fun get_column_names/1,         
+            fun bind_by_pos/1,                
+            fun bind_by_name/1,             
+            fun in_binding/1,
+
+            fun bind_datatypes/1,
+
+            fun fail_stmt_released_too_early/1,
+            fun tz_test/1,
+
+            fun define_type/1,
+            fun iterate/1,
+            fun commit_rollback/1,
+            fun ping_close/1,
+            fun var_define/1,
+            fun var_bind/1,
+            fun var_setFromBytes/1,
+            fun set_get_data_ptr/1,
+            fun data_is_null/1,
+            fun var_array/1,
+            fun client_server_version/1,
+            fun distributed/1,
+            fun catch_error_message/1,
+            fun catch_error_message_conn/1,
+            fun get_num_query_cols/1,
+            fun stored_procedure/1,
+            fun ref_cursor/1
+        ]}
+    }.

@@ -1,0 +1,43 @@
+sudo: required
+
+group: edge
+
+services:
+ - docker
+
+before_install:
+ - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+ - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+ - sudo apt-get install alien
+ - sudo apt-get update
+ - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+
+install:
+ - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
+
+env:
+ - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0" VERSION_UTPLSQL_CLI=utPLSQL-cli-3.1.2
+
+language: erlang
+otp_release:
+  - 21.0
+
+before_script:
+ - docker version
+ - docker info
+ - kerl list installations
+
+script:
+ - docker pull weinmann/sbsdb
+ - docker images
+ - docker create --name sbsdb -p 1521:1521/tcp -e ORACLE_PWD=oracle weinmann/sbsdb
+ - docker start sbsdb
+ - for ((i = 1; i<=7; i++)) do docker ps -a; sleep 60; done
+ - docker ps
+ - pwd
+ - sudo alien -i test/install/oracle/oracle-instantclient19.3-basic-19.3.0.0.0-1.x86_64.rpm
+ - sudo alien -i test/install/oracle/oracle-instantclient19.3-sqlplus-19.3.0.0.0-1.x86_64.rpm
+ - export LD_LIBRARY_PATH=/usr/lib/oracle/19.3/client64/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+ - sudo ldconfig
+ - ./rebar3 version
+ - ./rebar3 compile

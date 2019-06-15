@@ -28,9 +28,9 @@ before_script:
  - kerl list installations
 
 script:
- - docker pull weinmann/sbsdb
+ - docker pull konnexionsgmbh/db_12_2
  - docker images
- - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle weinmann/sbsdb
+ - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2
  - docker start oranifdb
  - for ((i = 1; i<=7; i++)) do docker ps -a; sleep 60; done
  - docker ps

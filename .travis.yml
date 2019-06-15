@@ -30,8 +30,8 @@ before_script:
 script:
  - docker pull weinmann/sbsdb
  - docker images
- - docker create --name sbsdb -p 1521:1521/tcp -e ORACLE_PWD=oracle weinmann/sbsdb
- - docker start sbsdb
+ - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle weinmann/sbsdb
+ - docker start oranifdb
  - for ((i = 1; i<=7; i++)) do docker ps -a; sleep 60; done
  - docker ps
  - pwd
@@ -39,7 +39,11 @@ script:
  - sudo alien -i test/install/oracle/oracle-instantclient19.3-sqlplus-19.3.0.0.0-1.x86_64.rpm
  - export LD_LIBRARY_PATH=/usr/lib/oracle/19.3/client64/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
  - sudo ldconfig
+ - cd test/install/oracle/db-sample-schemas-12.2.0.1
+ - pwd
 
 
+ - cd ../../../..
+ - pwd
  - ./rebar3 version
  - ./rebar3 compile

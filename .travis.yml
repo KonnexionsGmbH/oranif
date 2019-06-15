@@ -42,8 +42,7 @@ script:
  - cd test/install/oracle/db-sample-schemas-12.2.0.1
  - pwd
  - perl -p -i.bak -e 's#__SUB__CWD__#'$(pwd)'#g' *.sql */*.sql */*.dat
- - source /usr/local/bin/oraenv
- - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp $(pwd)/log/ DOCKER_MACHINE_IP:1521/orclpdb1
+ - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp $(pwd)/log/ $DOCKER_MACHINE_IP:1521/orclpdb1
  - cd ../../../..
  - pwd
  - ./rebar3 version

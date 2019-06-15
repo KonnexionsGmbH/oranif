@@ -42,6 +42,7 @@ script:
  - cd test/install/oracle/db-sample-schemas-12.2.0.1
  - pwd
  - perl -p -i.bak -e 's#__SUB__CWD__#'$(pwd)'#g' *.sql */*.sql */*.dat
+ - source /usr/local/bin/oraenv
 
 
  - cd ../../../..

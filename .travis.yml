@@ -28,9 +28,21 @@ before_script:
  - kerl list installations
 
 script:
- - set REBAR3_VERSION="$(rebar3 version)"
+ - ./rebar3 version
+ - set ERLANG_DIR="$(whereis erl)"
+ - echo "$ERLANG_DIR"
+ - set REBAR3_VERSION="$(./rebar3 version)"
  - set -- $REBAR3_VERSION
  - echo "$5"
+ - case "$5" in
+       "22" )
+           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.12" ;;
+       "21" )
+           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.11" ;;
+       "20" )
+           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.10" ;;
+   esac
+ - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2
  - docker images
  - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2
@@ -45,8 +57,5 @@ script:
  - perl -p -i.bak -e 's#__SUB__CWD__#'$(pwd)'#g' *.sql */*.sql */*.dat
  - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp $(pwd)/log/ $DOCKER_MACHINE_IP:1521/orclpdb1
  - cd ../../../..
- - set ERLANG_DIR="(whereis erl)"
- - set REBAR3_VERSION="$(./rebar3 version)"
- - set -- $REBAR3_VERSION
- - echo "$5"
+ - ./rebar3 version
  - ./rebar3 compile

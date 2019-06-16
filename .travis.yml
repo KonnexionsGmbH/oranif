@@ -28,6 +28,10 @@ before_script:
  - kerl list installations
 
 script:
+ - echo "ERL_INTERFACE_DIR      :$ERL_INTERFACE_DIR"
+ - echo "OTPROOT                :$OTPROOT"
+ - echo "TRAVIS_OTPROOT_RELEASE:$TRAVIS_OTPROOT_RELEASE"
+ - whereis erl
  - docker pull konnexionsgmbh/db_12_2
  - docker images
  - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2

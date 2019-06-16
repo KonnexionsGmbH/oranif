@@ -28,9 +28,8 @@ before_script:
  - kerl list installations
 
 script:
- - ls /usr/lib/erlang
  - ls /usr/lib/erlang/lib
- - ERL_INTERFACE_DIR=$(ls /usr/bin/erl/lib/erl_interface*)
+ - ERL_INTERFACE_DIR=$(ls /usr/lib/erl/lib/erl_interface*)
  - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2
  - docker images

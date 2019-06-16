@@ -28,21 +28,9 @@ before_script:
  - kerl list installations
 
 script:
- - ./rebar3 version
- - set ERLANG_DIR=$(whereis erl)
- - echo "$ERLANG_DIR"
- - set REBAR3_VERSION=$(./rebar3 version)
- - set -- $REBAR3_VERSION
- - echo "$5"
- - ls $ERLANG_DIR/lib/erl_interface*
- - case "$5" in
-       "22" )
-           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.12" ;;
-       "21" )
-           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.11" ;;
-       "20" )
-           set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.10" ;;
-   esac
+ - ERL_DIR=$(whereis erl)
+ - echo "$ERL_DIR"
+ - ERL_INTERFACE_DIR=$(ls $ERL_DIR/lib/erl_interface*)
  - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2
  - docker images

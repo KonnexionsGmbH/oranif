@@ -29,11 +29,12 @@ before_script:
 
 script:
  - ./rebar3 version
- - set ERLANG_DIR="$(whereis erl)"
+ - set ERLANG_DIR=$(whereis erl)
  - echo "$ERLANG_DIR"
- - set REBAR3_VERSION="$(./rebar3 version)"
+ - set REBAR3_VERSION=$(./rebar3 version)
  - set -- $REBAR3_VERSION
  - echo "$5"
+ - ls $ERLANG_DIR/lib/erl_interface*
  - case "$5" in
        "22" )
            set ERL_INTERFACE_DIR="${ERLANG_DIR}/lib/erl_interface-3.12" ;;

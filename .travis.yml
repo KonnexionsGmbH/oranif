@@ -28,7 +28,9 @@ before_script:
  - kerl list installations
 
 script:
- - ERL_DIR=$(whereis erl)
+ - ERL_DIRS=$(whereis erl)
+ - set -- $ERL_DIRS
+ - ERL_DIR=$2
  - echo "$ERL_DIR"
  - ERL_INTERFACE_DIR=$(ls $ERL_DIR/lib/erl_interface*)
  - echo "$ERL_INTERFACE_DIR"

@@ -29,6 +29,7 @@ before_script:
 
 script:
  - ls -l /usr/lib/erlang/lib
+ - ls /usr/lib/erlang/lib/erl_interface*
  - ERL_INTERFACE_DIR=$(ls /usr/lib/erlang/lib/erl_interface*)
  - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2

@@ -30,7 +30,7 @@ before_script:
 script:
  - ls -d /usr/lib/erlang/lib/erl_interface*/
  - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
- - ERL_INTERFACE_DIR=${$ERL_INTERFACE_DIR:1:$((${$ERL_INTERFACE_DIR} - 1))}
+ - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
  - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2
  - docker images
@@ -49,6 +49,6 @@ script:
  - ./rebar3 version
  - ls -d /usr/lib/erlang/lib/erl_interface*/
  - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
- - ERL_INTERFACE_DIR=${$ERL_INTERFACE_DIR:1:$((${$ERL_INTERFACE_DIR} - 1))}
+ - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
  - echo "$ERL_INTERFACE_DIR"
  - ./rebar3 compile

@@ -28,10 +28,6 @@ before_script:
  - kerl list installations
 
 script:
- - ls -d /usr/lib/erlang/lib/erl_interface*/
- - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
- - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
- - echo "$ERL_INTERFACE_DIR"
  - docker pull konnexionsgmbh/db_12_2
  - docker images
  - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2
@@ -47,7 +43,6 @@ script:
  - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp $(pwd)/log/ $DOCKER_MACHINE_IP:1521/orclpdb1
  - cd ../../../..
  - ./rebar3 version
- - ls -d /usr/lib/erlang/lib/erl_interface*/
  - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
  - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
  - echo "$ERL_INTERFACE_DIR"

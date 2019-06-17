@@ -17,6 +17,8 @@ install:
 
 env:
  - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0"
+ - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
+ - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
 
 language: erlang
 otp_release:

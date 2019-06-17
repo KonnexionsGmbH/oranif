@@ -537,16 +537,10 @@ commit_rollback({_Context, Conn}) ->
     assert_getQueryValue(Stmt3, 1, 1.0),
     dpi:stmt_release(Stmt3).
 
-ping_close({Context, _Conn}) -> 
-    #{tns := Tns, user := User, password := Password} = getConfig(),
-    NewConn = dpi:conn_create(
-            Context, User, Password, Tns,
-            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
-    ),
-    ok = dpi:conn_ping(NewConn),               %% valid connection: ping succeeds
-    ok = dpi:conn_close(NewConn, [], <<"">>),  %% invalidate connection
-    ?assertException(error, {error, _File, _Line, _Map}, dpi:conn_ping(NewConn)), %% now the ping fails
-    ?assert(true).
+ping_close({Context, Conn}) -> 
+    ok = dpi:conn_ping(Conn),               %% valid connection: ping succeeds
+    ok = dpi:conn_close(Conn, [], <<"">>),  %% invalidate connection
+    ?_assertException(error, {error, _File, _Line, _}, dpi:conn_ping(Conn)). %% now the ping fails
 
 var_define({_Context, Conn}) -> 
     %% the variables need to be of at least size 100 when used with stmt_fetch
@@ -1008,7 +1002,9 @@ getConfig() ->
             error(Reason)
     end.
 
-eunit_test_() ->
+statement_test_() ->
+    
+    %% tests that all share one context and connection
     {
         setup, fun start/0, fun stop/1,
         {with, [
@@ -1033,7 +1029,6 @@ eunit_test_() ->
             fun define_type/1,
             fun iterate/1,
             fun commit_rollback/1,
-            fun ping_close/1,
             fun var_define/1,
             fun var_bind/1,
             fun var_setFromBytes/1,
@@ -1048,4 +1043,11 @@ eunit_test_() ->
             fun stored_procedure/1,
             fun ref_cursor/1
         ]}
+    }.
+
+connection_test_() ->
+    {
+        foreach, fun start/0, fun stop/1, [
+            fun ping_close/1
+        ]
     }.

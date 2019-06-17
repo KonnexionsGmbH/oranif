@@ -5,15 +5,9 @@
 
 -define(execStmt(__Conn, __Sql),
     (fun() ->
-        _Stmt = dpi:conn_prepareStmt(__Conn, false, __Sql, <<"">>),
-        try
-            dpi:stmt_execute(_Stmt, []),
-            dpi:stmt_release(_Stmt)
-        catch Class:Error ->
-            dpi:stmt_release(_Stmt),
-            {error, Class, Error}
-        end
-        
+        _Stmt = (catch dpi:conn_prepareStmt(__Conn, false, __Sql, <<"">>)),
+        catch dpi:stmt_execute(_Stmt, []),
+        catch dpi:stmt_release(_Stmt)
     end)()
 ).
 

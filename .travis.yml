@@ -16,9 +16,7 @@ install:
  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 
 env:
- - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0"
- - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
- - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
+ - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0" ERL_INTERFACE_DIR="$(ls -d /usr/lib/erlang/lib/erl_interface*/)" ERL_INTERFACE_DIR="${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}"
 
 language: erlang
 otp_release:
@@ -45,7 +43,5 @@ script:
  - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp $(pwd)/log/ $DOCKER_MACHINE_IP:1521/orclpdb1
  - cd ../../../..
  - ./rebar3 version
-# - ERL_INTERFACE_DIR=$(ls -d /usr/lib/erlang/lib/erl_interface*/)
-# - ERL_INTERFACE_DIR=${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}
  - echo "$ERL_INTERFACE_DIR"
  - ./rebar3 compile

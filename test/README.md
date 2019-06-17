@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-The simplest solution for providing a suitable test environment is surely a Docker image with an empty database and the installation of a sample database based on it.
+The simplest solution for providing a suitable test environment is surely a Docker image with an empty database and the installation of a sample database schemas based on it.
 
 Testing in oranif then requires the following steps: 
 
@@ -54,6 +54,20 @@ Like any VirtualBox VM, it maintains its configuration between uses.
 The prebuilt Docker image [konnexionsgmbh/db_12_2](https://cloud.docker.com/u/konnexionsgmbh/repository/docker/konnexionsgmbh/db_12_2) can be used with Oracle Database 12c Release 2.
 You only have to download the docker image with the command `docker pull konnexionsgmbh/db_12_2` (best with the  `Docker Quickstart Terminal` if the docker demon is not running in the background yet).
 
+#### Processing steps:
+
+- Start the `Docker Quickstart Terminal` or alternatively start the Docker virtual machine in a PowerShell based command window:
+
+    ```docker-machine start```
+
+- Create the Docker container with the following command - if necessary, the database password for SYS etc. may be adjusted using parameter `ORACLE_PWD`:
+
+    ```docker pull konnexionsgmbh/db_12_2```
+
+- In another PowerShell based command window, the result can be checked with the command: 
+
+    ```docker ps -a```
+
 ## 4. Creation of a Docker Container
 
 The following assumes that the docker image [konnexionsgmbh/db_12_2](https://cloud.docker.com/u/konnexionsgmbh/repository/docker/konnexionsgmbh/db_12_2) from [dockerhub](https://hub.docker.com/) is used. 
@@ -66,7 +80,7 @@ The following assumes that the docker image [konnexionsgmbh/db_12_2](https://clo
 
 - Create the Docker container with the following command - if necessary, the database password for SYS etc. may be adjusted using parameter `ORACLE_PWD`:
 
-    ```docker run --name db_12_2 -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2```
+    ```docker create --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2```
 
 - In another PowerShell based command window, the result can be checked with the command: 
 

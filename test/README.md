@@ -10,7 +10,7 @@ Testing in oranif then requires the following steps:
 - Creating a Docker virtual machine.
 - Downloading a Docker image with an empty database.
 - Creating a Docker container from the Docker image.
-- Load the sample database from Oracle into the Docker container.
+- Load the database sample schemas from Oracle into the Docker container.
 
 The following description is based on the Docker image `konnexionsgmbh/db_12_2`  (Oracle Database 12c Release 2) and  the related [sample schemas](https://github.com/oracle/db-sample-schemas/releases/tag/v12.2.0.1).
 In the following examples it is also assumed that the password for the `SYS` schema is `oracle` and the IP address of the Docker container is `192.168.99.109`. 
@@ -114,16 +114,9 @@ ORCLPDB1 =
   )
 ```
 
-## 5. Creating the Data Dictionary for Schema SBS1_ADMIN
+## 5. Creating the Sample Database Schemas
 
-The main goal here is to reproduce the database schema SBS1_ADMIN as accurately as possible.
-The scripts for creating the Data Dictionary are based on the Export DDL function of Toad (menu: Database -> Export -> Export DDL). 
-The scripts created by Toad then had to be simplified, because e.g. the following functionalities cannot be mapped in the new test database to be created:
-
-- file directories,
-- remote database access.
-
-This and the following sections assume that the Docker virtual machine and the Docker container `db_12_2` are both already running:
+in this section it is assumed that the Docker virtual machine and the Docker container `db_12_2` are both already running:
 
 - Start the Docker virtual machine via `Docker Quickstart Terminal` or manually with the command: `docker-machine start`.
 - Start the Docker container `db_12_2` with the command: `docker start db_12_2`.
@@ -132,15 +125,15 @@ Caution: The `create_schemas.sql` script recreates all affected schemas and dele
 
 #### Processing steps:
 
-- Download the [db_12_2 repository](https://github.com/K2InformaticsGmbH/db_12_2).
+- Download the [oranif repository](https://github.com/K2InformaticsGmbH/oranif).
 
-- Switch to the db_12_2 repository directory `..\db_12_2\install\schema_skeletons`.
+- Switch to the oranif repository directory `..\oranif\test\install\oracle\db-sample-schemas-12.2.0.1`.
 
-- Start `sqlplus` and execute the script `create_schemas.sql`, for example as follows: 
+- Start `sqlplus` and execute the script `mksample.sql`, for example as follows: 
 
-    ```sqlplus sys/oracle@//192.168.99.109:1521/orclpdb1 as sysdba @create_schemas.sql``` 
+    ```sqlplus sys/oracle@192.168.99.109:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp c:\tmp\log\ 192.168.99.109:1521/orclpdb1``` 
  
-After executing the script, the necessary database schemas should be created, in particular `SBS0_ADMIN`, `SBS1_ADMIN` and `SBS2_ADMIN`. 
+After executing the script, the necessary database schemas should be created. 
 By default all schemas are created with the password `oracle`.
 
 

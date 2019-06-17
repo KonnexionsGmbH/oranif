@@ -13,7 +13,7 @@ Testing in oranif then requires the following steps:
 - Load the database sample schemas from Oracle into the Docker container.
 
 The following description is based on the Docker image `konnexionsgmbh/db_12_2`  (Oracle Database 12c Release 2) and  the related [sample schemas](https://github.com/oracle/db-sample-schemas/releases/tag/v12.2.0.1).
-In the following examples it is also assumed that the password for the `SYS` schema is `oracle` and the IP address of the Docker container is `192.168.99.109`. 
+In the following examples it is also assumed that the password for the `SYS` schema is `oracle` and the IP address of the Docker container is `192.168.99.122`. 
 
 ## 2. Installing Docker Toolbox and Docker Virtual Machine
 
@@ -39,7 +39,7 @@ Like any VirtualBox VM, it maintains its configuration between uses.
 
 - With the command `docker-machine ls` the state of the Docker virtual machine can be queried:
 
-![docker-machine ls](https://i.imgur.com/nrfo0yz.png)
+![docker-machine ls](https://i.imgur.com/LWp9KaA.png)
 
 - It is a good practice always to terminate the Docker virtual machine when it is no longer needed:
 
@@ -60,13 +60,17 @@ You only have to download the docker image with the command `docker pull konnexi
 
     ```docker-machine start```
 
-- Create the Docker container with the following command - if necessary, the database password for SYS etc. may be adjusted using parameter `ORACLE_PWD`:
+- Download the Docker image with the following command:
 
     ```docker pull konnexionsgmbh/db_12_2```
 
-- In another PowerShell based command window, the result can be checked with the command: 
+![docker pull](https://i.imgur.com/DHxNg6c.png)
 
-    ```docker ps -a```
+- The result can be checked with the command: 
+
+    ```docker images```
+
+![docker images](https://i.imgur.com/ZAHA63R.png)
 
 ## 4. Creation of a Docker Container
 
@@ -80,38 +84,38 @@ The following assumes that the docker image [konnexionsgmbh/db_12_2](https://clo
 
 - Create the Docker container with the following command - if necessary, the database password for SYS etc. may be adjusted using parameter `ORACLE_PWD`:
 
-    ```docker create --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2```
+    ```docker run --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2```
 
 - In another PowerShell based command window, the result can be checked with the command: 
 
     ```docker ps -a```
 
-![docker ps -a](https://i.imgur.com/ae6GYcS.png)
+![docker_ps_a](https://i.imgur.com/sMjo39S.png)
 
-- The Docker container`db_12_2` is then to be terminated with the command:  
+- The Docker container`oranif_db` is then to be terminated with the command:  
 
-    ```docker stop db_12_2```
+    ```docker stop oranif_db```
 
 - For any further processing, the Docker container`db_12_2` can then be started again in the background with the command:
 
-    ```docker start db_12_2```
+    ```docker start oranif_db```
 
 - Conversely, it is always very advisable to stop the Docker container`db_12_2` after processing so that the Oracle database it contains is not destroyed: 
 
-    ```docker stop db_12_2```
+    ```docker stop oranif_db```
 
 - If for any reason you need the IP address of the container, just execute the following command: 
 
     ```docker-machine ip default```
 
-The created docker container db_12_2 now contains an Oracle database version 12c release 2 with the pluggable container orclpdb1. 
+The created docker container oranif_db now contains an Oracle database version 12c release 2 with the pluggable container orclpdb1. 
 The database schema SYS is assigned the password oracle by default. 
 A possible entry in the file tnsnames.ora looks like this: 
 
 ```
 ORCLCDB =
   (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.99.109)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.99.122)(PORT = 1521))
     (CONNECT_DATA =
       (SERVER = DEDICATED)
       (SERVICE_NAME = orclcdb)
@@ -120,7 +124,7 @@ ORCLCDB =
 
 ORCLPDB1 =
   (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.99.109)(PORT = 1521))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.99.122)(PORT = 1521))
     (CONNECT_DATA =
       (SERVER = DEDICATED)
       (SERVICE_NAME = orclpdb1)
@@ -145,7 +149,7 @@ Caution: The `create_schemas.sql` script recreates all affected schemas and dele
 
 - Start `sqlplus` and execute the script `mksample.sql`, for example as follows: 
 
-    ```sqlplus sys/oracle@192.168.99.109:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp c:\tmp\log\ 192.168.99.109:1521/orclpdb1``` 
+    ```sqlplus sys/oracle@192.168.99.122:1521/orclpdb1 as sysdba @mksample oracle oracle oracle oracle oracle oracle oracle oracle users temp c:\tmp\log\ 192.168.99.122:1521/orclpdb1``` 
  
 After executing the script, the necessary database schemas should be created. 
 By default all schemas are created with the password `oracle`.

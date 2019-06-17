@@ -193,6 +193,7 @@ DPI_NIF_FUN(conn_newVar)
     for (int i = maxArraySize - 1; i >= 0; i--)
     {
         dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
+        dataRes->stmtRes = NULL;
         dataRes->next = NULL;
         if (varRes->head == NULL)
         {

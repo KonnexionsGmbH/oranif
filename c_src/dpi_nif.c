@@ -23,10 +23,10 @@ static ErlNifFunc nif_funcs[] = {
     DPISTMT_NIFS,
     DPIQUERYINFO_NIFS,
     DPIDATA_NIFS,
-    DPIVAR_NIFS
-};
+    DPIVAR_NIFS};
 
-typedef struct {
+typedef struct
+{
     int test;
     dpiContext *context;
 } oranif_priv;

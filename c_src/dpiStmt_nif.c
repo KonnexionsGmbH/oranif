@@ -95,6 +95,7 @@ DPI_NIF_FUN(stmt_getQueryValue)
 
     dpiDataPtr_res *data = enif_alloc_resource(
         dpiDataPtr_type, sizeof(dpiDataPtr_res));
+    data->stmtRes = NULL;
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,

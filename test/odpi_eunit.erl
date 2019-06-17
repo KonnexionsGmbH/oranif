@@ -907,7 +907,7 @@ distributed([_, _]) ->
     ok = dpi:load(slave),
     ?debugFmt("Slave: ~p ~n", [get(dpi_node)]),
 
-    {Tns, User, Password} = getTnsUserPass(),
+    {Tns, User, Password, _Encoding} = getTnsUserPass(),
     Context = dpi:safe(dpi, context_create, [3, 0]),
     Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
@@ -934,7 +934,7 @@ catch_error_message([Context, Conn]) ->
 
 catch_error_message_conn([_, _]) -> 
     try
-        {_Tns, User, Password} = getTnsUserPass(),
+        {_Tns, User, Password, _Encoding} = getTnsUserPass(),
         Context = dpi:context_create(3, 0),
         Conn = dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{}),    
         ?_assert(false)
@@ -1000,41 +1000,67 @@ stored_procedure([Context, Conn]) ->
     ?_assert(true).
 
 ref_cursor([Context, Conn]) -> 
-    Get_column_values = fun Get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
-                            Get_column_values(Stmt, ColIdx, Limit) ->
-                                #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
-                                [dpi:data_get(Data) | Get_column_values(Stmt, ColIdx + 1, Limit)] end,
-    
-    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0, false, false, null),
-    Stmt = dpi:conn_prepareStmt(Conn, false, <<"
-       create or replace procedure "
-        ?TESTPROCEDURE
-        "(p_cur out sys_refcursor)
-        is
-        begin
-            open p_cur for select 123 from dual;
-        end "?TESTPROCEDURE";
-        ">>, <<"">>),
-    0 = dpi:stmt_execute(Stmt, []),
-    dpi:conn_commit(Conn),
-    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>),
-    ok = dpi:stmt_bindByName(Stmt2, <<"cursor">>, Var1),
-    dpi:stmt_execute(Stmt2, []),
-    RefCursor = dpi:data_get(DataRep1),
-    {true, [Result]} = 
-        case dpi:stmt_fetch(RefCursor) of
-            #{found := true} ->
-                NumCols = dpi:stmt_getNumQueryColumns(RefCursor),
-                {true, Get_column_values(RefCursor, 1, NumCols)};
-            #{found := false} ->
-                {false, []}
+    Get_column_values =
+        fun Get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
+            Get_column_values(Stmt, ColIdx, Limit) ->
+                #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
+                [dpi:data_get(Data)
+                | Get_column_values(Stmt, ColIdx + 1, Limit)]
         end,
-    ?assertEqual(123.0, Result),
-    
+    CreateStmt = dpi:conn_prepareStmt(
+        Conn, false,
+        <<"create or replace procedure "?TESTPROCEDURE"
+            (p_cur out sys_refcursor)
+                is
+                begin
+                    open p_cur for select CURRENT_TIMESTAMP from dual;
+            end "?TESTPROCEDURE";">>,
+        <<"">>
+    ),
+    ?assertEqual(0, dpi:stmt_execute(CreateStmt, [])),
+    ?assertEqual(ok, dpi:stmt_release(CreateStmt)),
+
+    #{var := VarStmt, data := [DataStmt]} = dpi:conn_newVar(
+        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
+        false, false, null
+    ),
+    Stmt = dpi:conn_prepareStmt(
+        Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>
+    ),
+    ok = dpi:stmt_bindByName(Stmt, <<"cursor">>, VarStmt),
+
+    dpi:stmt_execute(Stmt, []),
+    RefCursor = dpi:data_get(DataStmt),
+    ?assertMatch(#{found := true}, dpi:stmt_fetch(RefCursor)),
+    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor)),
+    Result = Get_column_values(RefCursor, 1, 1),
+    ?assertMatch(
+        [#{
+            day := _, fsecond := _, hour := _, minute := _, month := _,
+            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
+        } | _ ],
+        Result
+    ),
+
+    dpi:stmt_execute(Stmt, []),
+    RefCursor1 = dpi:data_get(DataStmt),
+    ?assertMatch(#{found := false}, dpi:stmt_fetch(RefCursor1)),
+    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor1)),
+    Result1 = Get_column_values(RefCursor1, 1, 1),
+    ?assertMatch(
+        [#{
+            day := _, fsecond := _, hour := _, minute := _, month := _,
+            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
+        } | _ ],
+        Result1
+    ),
+
+    ?assertEqual(RefCursor, RefCursor1),
+    ?assertEqual(Result, Result1),
+
+    dpi:data_release(DataStmt),
+    dpi:var_release(VarStmt),
     dpi:stmt_release(Stmt),
-    dpi:stmt_release(Stmt2),
-    dpi:var_release(Var1),
-    dpi:data_release(DataRep1),
     ?_assert(true).
 
 %% create table                              ✓
@@ -1064,9 +1090,9 @@ ref_cursor([Context, Conn]) ->
 %% PLSQL associative array
 
 getTnsUserPass () ->
-    #{tns := Tns, user := User, password := Password} =
-         case file:get_cwd() of
-             {ok, Cwd} ->
+    #{tns := Tns, user := User, password := Password, enc := Encoding} =
+        case file:get_cwd() of
+            {ok, Cwd} ->
                  ConnectConfigFile =
                  filename:join(
                    lists:reverse(
@@ -1083,15 +1109,15 @@ getTnsUserPass () ->
              {error, Reason} ->
                  ?debugFmt("~p", [Reason]),
                  error(Reason)
-         end,
-         {Tns, User, Password}.
+        end,
+    {Tns, User, Password, Encoding}.
 start() ->
-     {Tns, User, Password} = getTnsUserPass(),
+     {Tns, User, Password, Encoding} = getTnsUserPass(),
      Context = dpi:context_create(3, 0),
      try
         Conn = dpi:conn_create(
             Context, User, Password, Tns,
-            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"},
+            #{encoding => Encoding, nencoding => Encoding},
             #{}
         ),
         [Context, Conn]
@@ -1121,30 +1147,22 @@ stop([Context, Conn]) ->
     dpi:context_destroy(Context),
     ok.
 
-
-eunit_test_() ->
-     
-[   
-     ?_assertEqual(ok, s()),
+eunit_test_() ->    
+    [?_assertEqual(ok, s()),
      {foreach, fun start/0, fun stop/1, [
         fun simple_fetch/1,
         fun create_insert_select_drop/1, 
         fun truncate_table/1,
-
         fun drop_nonexistent_table/1,
         fun update_where/1,             
         fun select_from_where/1,
-
         fun get_column_names/1,         
         fun bind_by_pos/1,                
         fun bind_by_name/1,             
         fun in_binding/1,
-                                    
         fun bind_datatypes/1,
-                                
         fun fail_stmt_released_too_early/1,
         fun tz_test/1,
-
         fun define_type/1,
         fun iterate/1,
         fun commit_rollback/1,
@@ -1162,7 +1180,4 @@ eunit_test_() ->
         fun get_num_query_cols/1,
         fun stored_procedure/1,
         fun ref_cursor/1
-    ]}
-]
-.
-
+    ]}].

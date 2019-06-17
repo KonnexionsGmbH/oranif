@@ -86,6 +86,9 @@ The following assumes that the docker image [konnexionsgmbh/db_12_2](https://clo
 
     ```docker run --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2```
 
+![docker_run](https://i.imgur.com/j0jalsV.png)
+...
+
 - In another PowerShell based command window, the result can be checked with the command: 
 
     ```docker ps -a```
@@ -134,12 +137,10 @@ ORCLPDB1 =
 
 ## 5. Creating the Sample Database Schemas
 
-in this section it is assumed that the Docker virtual machine and the Docker container `db_12_2` are both already running:
+in this section it is assumed that the Docker virtual machine and the Docker container `oranif_db` are both already running:
 
 - Start the Docker virtual machine via `Docker Quickstart Terminal` or manually with the command: `docker-machine start`.
-- Start the Docker container `db_12_2` with the command: `docker start db_12_2`.
-
-Caution: The `create_schemas.sql` script recreates all affected schemas and deletes them if they already exist.
+- Start the Docker container `oranif_db` with the command: `docker start db_12_2`.
 
 #### Processing steps:
 

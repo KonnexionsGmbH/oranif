@@ -30,8 +30,8 @@ before_script:
 script:
  - docker pull konnexionsgmbh/db_12_2
  - docker images
- - docker create --name oranifdb -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2
- - docker start oranifdb
+ - docker create --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_12_2
+ - docker start oranif_db
  - for ((i = 1; i<=7; i++)) do docker ps -a; sleep 60; done
  - docker ps
  - sudo alien -i test/install/oracle/oracle-instantclient19.3-basic-19.3.0.0.0-1.x86_64.rpm

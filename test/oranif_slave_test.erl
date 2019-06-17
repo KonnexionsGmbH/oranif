@@ -6,8 +6,14 @@
 -define(execStmt(__Conn, __Sql),
     (fun() ->
         _Stmt = dpi:conn_prepareStmt(__Conn, false, __Sql, <<"">>),
-        dpi:stmt_execute(_Stmt, []),
-        dpi:stmt_release(_Stmt)
+        try
+            dpi:stmt_execute(_Stmt, []),
+            dpi:stmt_release(_Stmt)
+        catch Class:Error ->
+            dpi:stmt_release(_Stmt),
+            {error, Class, Error}
+        end
+        
     end)()
 ).
 
@@ -539,10 +545,15 @@ commit_rollback({_Context, Conn}) ->
     assert_getQueryValue(Stmt3, 1, 1.0),
     dpi:stmt_release(Stmt3).
 
-ping_close({_Context, Conn}) -> 
-    ok = dpi:conn_ping(Conn),               %% valid connection: ping succeeds
-    ok = dpi:conn_close(Conn, [], <<"">>),  %% invalidate connection
-    ?assertException(error, {error, _}, dpi:conn_ping(Conn)), %% now the ping fails
+ping_close({Context, _Conn}) -> 
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    NewConn = dpi:conn_create(
+            Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
+    ),
+    ok = dpi:conn_ping(NewConn),               %% valid connection: ping succeeds
+    ok = dpi:conn_close(NewConn, [], <<"">>),  %% invalidate connection
+    ?assertException(error, {error, _File, _Line, _Map}, dpi:conn_ping(NewConn)), %% now the ping fails
     ?assert(true).
 
 var_define({_Context, Conn}) -> 
@@ -848,8 +859,8 @@ distributed(_) ->
     Context = dpi:safe(dpi, context_create, [3, 0]),
     Conn = dpi:safe(dpi, conn_create, [Context, User, Password, Tns, #{}, #{}]),
 
-    ok = dpi:safe(fun simple_fetch_no_assert/1,[[Context, Conn]]),
-    ok = dpi:safe(fun var_bind_no_assert/1,[[Context, Conn]]).
+    ok = dpi:safe(fun simple_fetch_no_assert/1,[{Context, Conn}]),
+    ok = dpi:safe(fun var_bind_no_assert/1,[{Context, Conn}]).
 
 catch_error_message({_Context, Conn}) -> 
     Stmt = dpi:conn_prepareStmt(

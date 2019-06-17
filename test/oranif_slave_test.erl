@@ -877,18 +877,17 @@ catch_error_message({_Context, Conn}) ->
     ).
 
 catch_error_message_conn(_) -> 
-    #{user := User, password := Password} = getConfig(),
+    #{user := User, tns := TNS} = getConfig(),
     Context = dpi:context_create(3, 0),
     ?assertError(
         {error, _File, _Line,
             #{
                 message :=
-                    "ORA-12154: TNS:could not resolve the connect"
-                    " identifier specified",
+                    "ORA-01017: invalid username/password; logon denied",
                 fnName := "dpiConn_create"
             }
         },
-        dpi:conn_create(Context, User, Password, <<"someBadTns">>, #{}, #{})
+        dpi:conn_create(Context, User, <<"someBadPassword">>, TNS, #{}, #{})
     ).
 
 get_num_query_cols({_Context, Conn}) -> 
@@ -904,7 +903,6 @@ get_num_query_cols({_Context, Conn}) ->
 
 -define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
 stored_procedure({_Context, Conn}) -> 
-
     #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),
     #{var := Var2, data := [DataRep2]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, false, false, null),
     #{var := Var3, data := [DataRep3]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, false, false, null),

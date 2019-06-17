@@ -16,7 +16,7 @@ install:
  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 
 env:
- - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0" ERL_INTERFACE_DIR=${(ls -d /usr/lib/erlang/lib/erl_interface*/):0:$((${#(ls -d /usr/lib/erlang/lib/erl_interface*/)} - 1))}
+ - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0" ERL_INTERFACE_DIR="${$(ls -d /usr/lib/erlang/lib/erl_interface*/):0:$((${#$(ls -d /usr/lib/erlang/lib/erl_interface*/)} - 1))}"
 
 language: erlang
 otp_release:

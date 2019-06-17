@@ -12,8 +12,8 @@ Testing in oranif then requires the following steps:
 - Creating a Docker container from the Docker image.
 - Load the sample database from Oracle into the Docker container.
 
-The following description is based on the Docker image [konnexionsgmbh/db_12_2](https://cloud.docker.com/u/konnexionsgmbh/repository/docker/konnexionsgmbh/db_12_2) (Oracle Database 12c Release 2) and  the related [sample database](https://github.com/oracle/db-sample-schemas/releases/tag/v12.2.0.1).
-In following examples it is also assumed that the password for the `SYS` schema is `oracle` and the IP address of the Docker container is `192.168.99.109`. 
+The following description is based on the Docker image `konnexionsgmbh/db_12_2`  (Oracle Database 12c Release 2) and  the related [sample schemas](https://github.com/oracle/db-sample-schemas/releases/tag/v12.2.0.1).
+In the following examples it is also assumed that the password for the `SYS` schema is `oracle` and the IP address of the Docker container is `192.168.99.109`. 
 
 ## 2. Installing Docker Toolbox and Docker Virtual Machine
 

@@ -9,11 +9,10 @@
 -include("test_common.hrl").
 
 -define(value(Key, Config), proplists:get_value(Key, Config)).
--define(TAB, "oranif_load").
 -define(B(__L), list_to_binary(__L)).
 
-callS(Conn, SQL) -> callS(Conn, SQL, true).
-callS(Conn, SQL, PrintError) -> 
+call(Conn, SQL) -> call(Conn, SQL, true).
+call(Conn, SQL, PrintError) -> 
     Stmt = dpi:conn_prepareStmt(Conn, false, SQL, <<"">>),
     
     try dpi:stmt_execute(Stmt, []) of
@@ -28,10 +27,6 @@ callS(Conn, SQL, PrintError) ->
         end,
         dpi:stmt_release(Stmt)
     end.
-
--define(CALL(SQL), callS(Conn, SQL)).
--define(CALL(SQL, PrintError), callS(Conn, SQL, PrintError)).
-
 
 getConfig() ->
     case file:get_cwd() of
@@ -57,8 +52,8 @@ getConfig() ->
             error(Reason)
     end.
 
-%all() -> [shortInserts, balancedInserts, heavyInserts, longInserts, longInserts].
-all() -> [shortInserts].
+all() -> [shortInserts, balancedInserts, heavyInserts, longInserts, longInserts].
+%all() -> [shortInserts].
 -define(F(Fn, Runs, Conn, Stmt, Job), Fn(ConfigData) -> runFrame(ConfigData, Runs, Conn, Stmt, fun Job/5)).
 
 %% defines the test cases. For each one, the amount of runs and the amount of
@@ -150,9 +145,9 @@ multiReceive(Count, Connections) ->
 insertIntoTable(TableName, User, Pswd, Tns, Statements) ->
     Context = dpi:context_create(3, 0),
     Conn = dpi:conn_create(Context, User, Pswd, Tns, #{}, #{}),
-    ?CALL(?B(["drop table ", TableName]), false),
-    ?CALL(?B(["create table ", TableName, " (a int)"])),
-    [?CALL(?B(["insert into ", TableName, "(a) values (", integer_to_list(X), ")"])) || X <- lists:seq(1, Statements)],
+    call(Conn, ?B(["drop table ", TableName]), false),
+    call(Conn, ?B(["create table ", TableName, " (a int)"])),
+    [call(Conn, ?B(["insert into ", TableName, "(a) values (", integer_to_list(X), ")"])) || X <- lists:seq(1, Statements)],
     [
         begin
         Stmt = dpi:conn_prepareStmt(Conn, false, ?B(["select a from ", TableName, " where a = ", integer_to_list(X), ""]), <<"">>),
@@ -168,7 +163,7 @@ insertIntoTable(TableName, User, Pswd, Tns, Statements) ->
     
         || X <- lists:seq(1, Statements)],
     dpi:conn_commit(Conn),
-    ?CALL(?B(["drop table ", TableName])),
+    call(Conn, ?B(["drop table ", TableName])),
     dpi:conn_release(Conn),
     dpi:context_destroy(Context),
     ok.

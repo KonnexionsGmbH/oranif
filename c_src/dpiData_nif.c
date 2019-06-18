@@ -188,6 +188,23 @@ DPI_NIF_FUN(data_setInt64)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(data_setDouble)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiData_res *dataRes;
+    double amount;
+
+    if (!enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+        return BADARG_EXCEPTION(0, "resource data");
+    if (!enif_get_double(env, argv[1], &amount))
+        return BADARG_EXCEPTION(1, "double amount");
+
+    dpiData_setDouble(&dataRes->dpiData, amount);
+
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(data_setBytes)
 {
     CHECK_ARGCOUNT(2);

@@ -275,11 +275,8 @@ DPI_NIF_FUN(stmt_release)
     if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
         return BADARG_EXCEPTION(0, "resource statement");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        stmtRes->context, dpiStmt_release(stmtRes->stmt), stmtRes);
-
+    dpiStmt_release(stmtRes->stmt);
     enif_release_resource(stmtRes);
-    
     return ATOM_OK;
 }
 

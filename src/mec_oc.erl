@@ -25,7 +25,7 @@ mec_oc:test_ref_cursor(Conn, TestSql, 1000, BindVars, BindValues).
 -define(DPI_MINOR_VERSION, 0).
 
 % public safe apis (when NIF is loaded in slave)
--export([connect/4, connect_internal/3, test_ref_cursor/5, test_ref_cursor_internal/4, get_mem_internal/0]).
+-export([connect/4, connect_internal/3, test_ref_cursor/5, test_ref_cursor_internal/4, get_mem_internal/0, close/1, close_internal/2]).
 
 connect(User, Password, ConStr, SlaveName)
     when is_binary(User), is_binary(Password), is_binary(ConStr)
@@ -49,8 +49,24 @@ connect_internal(User, Password, ConStr) ->
         }
     end.
 
+close(#{conn := Conn, context := Ctx}) ->
+    dpi:safe(fun ?MODULE:close_internal/2, [Conn, Ctx]).
+close_internal(Conn, Context)->
+    try
+        ok = dpi:conn_release(Conn),
+        ok = dpi:context_destroy(Context)
+    catch
+        _Class:{error, _, _, #{message := Message}} -> {error, Message};
+        _Class:Exception -> {error, Exception}
+    end.
+
 test_ref_cursor(State, Sql, Count, Vars, Values) ->
-	test_ref_cursor(State, Sql, Count, Vars, Values, dpi:safe(fun ?MODULE:get_mem_internal/0, [])).
+	StartMem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
+	test_ref_cursor(State, Sql, Count, Vars, Values, StartMem),
+	close(State),
+	Mem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
+	Incr = (Mem - StartMem) / StartMem,
+	io:format("{end, ~.2f%}~n", [Incr]).
 
 test_ref_cursor(_State, _Sql, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
 test_ref_cursor(State, Sql, Count, Vars, Values, StartMem) ->
@@ -65,7 +81,7 @@ test_ref_cursor(State, Sql, Count, Vars, Values, StartMem) ->
 			io:format("{~p, ~.2f%} ", [Count, Incr]);
 		true -> ok
 	end,
-    test_ref_cursor(State, Sql, Count - 1, Vars, Values).
+    test_ref_cursor(State, Sql, Count - 1, Vars, Values, StartMem).
 test_ref_cursor_internal(#{conn := Conn}, Sql, Vars, Values) ->
     try
 		Stmt = dpi:conn_prepareStmt(Conn, false, Sql, <<>>),

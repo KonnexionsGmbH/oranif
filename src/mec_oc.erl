@@ -71,7 +71,7 @@ test_ref_cursor(State, Sql, Count, Vars, Values) ->
 test_ref_cursor(_State, _Sql, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
 test_ref_cursor(State, Sql, Count, Vars, Values, StartMem) ->
     case dpi:safe(fun ?MODULE:test_ref_cursor_internal/4, [State, Sql, Vars, Values]) of
-		{[R|_], _} when is_map(R) -> ok;
+		{ok, _} -> ok;
 		Result ->
 			 io:format("ERROR : ~p Result ~p~n", [Count, Result])
 	end,
@@ -87,29 +87,22 @@ test_ref_cursor_internal(#{conn := Conn}, Sql, Vars, Values) ->
 		Stmt = dpi:conn_prepareStmt(Conn, false, Sql, <<>>),
         OutVars = bind_vars(Conn, Stmt, Vars, Values),
         dpi:stmt_execute(Stmt, []),
-        [{_Name, _Type, Var, Data}] = OutVars,
+        {_Name, _Type, Var, Data} = lists:keyfind(<<":SQLT_OUT_CURSOR">>, 1, OutVars),
         RefCursor = dpi:data_get(Data),
         Info = query_info_stmt_internal(RefCursor),
         Row1 = fetch_stmt_internal(RefCursor),
         Row2 = fetch_stmt_internal(RefCursor),
         Row3 = fetch_stmt_internal(RefCursor),
         dpi:var_release(Var),
-        dpi:data_release(Data),
         dpi:stmt_release(Stmt),
-        {Info, [Row1, Row2, Row3]}
+        {ok, {Info, [Row1, Row2, Row3]}}
     catch
         _Class:{error, _, _, #{message := Message}} -> {error, Message};
         _Class:Exception -> {error, Exception}
     end.
 
 bind_vars(_Conn, _Stmt, [], _Values) -> [];
-bind_vars(Conn, Stmt, [{Name, in, Type} | RestVars], [Value | RestVals]) ->
-    Data = dpi:data_ctor(),
-    dpi:data_setInt64(Data, Value), % Test with int but helper function is needed.
-    dpi:stmt_bindValueByName(Stmt, Name, native_type(Type), Data),
-    dpi:data_release(Data),
-    bind_vars(Conn, Stmt, RestVars, RestVals);
-bind_vars(Conn, Stmt, [{Name, out, Type} | RestVars], Values) ->
+bind_vars(Conn, Stmt, [{Name, _, Type} | RestVars], Values) ->
     #{var := Var, data := [Data]} = dpi:conn_newVar(Conn, Type, native_type(Type), 1, 0, false, false, null),
     dpi:stmt_bindByName(Stmt, Name, Var),
     [{Name, Type, Var, Data} | bind_vars(Conn, Stmt, RestVars, Values)].

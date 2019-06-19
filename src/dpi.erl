@@ -39,8 +39,14 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
                         Error -> Error
                     end
             end;
-        _Slave ->
-            ok
+        SlaveNode ->
+            case catch rpc_call(SlaveNode, erlang, monotonic_time, []) of
+                Time when is_integer(Time) ->
+                    ok;
+                _ ->
+                    catch unload(),
+                    load(SlaveNodeName)
+            end
     end.
 
 unload() ->
@@ -53,12 +59,12 @@ unload() ->
 
 load_unsafe() ->
     PrivDir = case code:priv_dir(?MODULE) of
-		{error, _} ->
-		    EbinDir = filename:dirname(code:which(?MODULE)),
-		    AppPath = filename:dirname(EbinDir),
-		    filename:join(AppPath, "priv");
-		Path -> Path
-	end,
+        {error, _} ->
+            EbinDir = filename:dirname(code:which(?MODULE)),
+            AppPath = filename:dirname(EbinDir),
+            filename:join(AppPath, "priv");
+        Path -> Path
+    end,
     case erlang:load_nif(filename:join(PrivDir, "dpi_nif"), 0) of
         ok -> ok;
         {error, {reload, _}} -> ok;
@@ -99,26 +105,30 @@ start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
             )
     end.
 
-rpc_call(undefined, _Mod, _Fun, _Args) -> {error, slave_down};
+slave_call(Mod, Fun, Args) ->
+    rpc_call(get(dpi_node), Mod, Fun, Args).
+
+rpc_call(undefined, _Mod, _Fun, _Args) ->
+    {error, slave_down};
 rpc_call(Node, Mod, Fun, Args) ->
     case (catch rpc:call(Node, Mod, Fun, Args)) of
         {badrpc, {'EXIT', Error}} ->
-            error(Error);
+            {error, Error};
         {badrpc, nodedown} ->
-            erase(Node),
-            error({slave_down_internal, Node, Mod, Fun, Args});
+            erase(dpi_node),
+            {error, slave_down};
         Result ->
             Result
     end.
 
 -spec safe(atom(), atom(), list()) -> term().
 safe(Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
-    rpc:call(get(dpi_node), Module, Fun, Args).
+    slave_call(Module, Fun, Args).
 
 -spec safe(function(), list()) -> term().
 safe(Fun, Args) when is_function(Fun), is_list(Args) ->
-    rpc:call(get(dpi_node), erlang, apply, [Fun, Args]).
+    slave_call(erlang, apply, [Fun, Args]).
 
 -spec safe(function()) -> term().
 safe(Fun) when is_function(Fun)->
-    rpc:call(get(dpi_node), erlang, apply, [Fun, []]).
+    slave_call(erlang, apply, [Fun, []]).

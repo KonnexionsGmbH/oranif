@@ -22,6 +22,13 @@ void dpiDataPtr_res_dtor(ErlNifEnv *env, void *resource)
 {
     TRACE;
 
+    dpiDataPtr_res *data = (dpiDataPtr_res *)resource;
+    if (data->stmtRes)
+    {
+        enif_release_resource(data->stmtRes);
+        data->stmtRes = NULL;
+    }
+
     L("dpiDataPtr destroyed\r\n");
 }
 
@@ -246,7 +253,7 @@ DPI_NIF_FUN(data_setIsNull)
     }
     else
         return BADARG_EXCEPTION(0, "resource data/ptr");
-        
+
     if (enif_compare(argv[1], ATOM_TRUE) == 0)
         data->isNull = 1;
     else if (enif_compare(argv[1], ATOM_FALSE) == 0)
@@ -272,7 +279,7 @@ DPI_NIF_FUN(data_get)
     // if NULL, no further processing of data is necessary
     if (data->isNull)
         return ATOM_NULL;
-    
+
     switch (dataRes->type)
     {
     case DPI_NATIVE_TYPE_INT64:
@@ -287,13 +294,14 @@ DPI_NIF_FUN(data_get)
     case DPI_NATIVE_TYPE_DOUBLE:
         dataRet = enif_make_double(env, data->value.asDouble);
         break;
-    case DPI_NATIVE_TYPE_BYTES:{
-            ErlNifBinary bin;
-            enif_alloc_binary(data->value.asBytes.length, &bin);
-            memcpy(bin.data, data->value.asBytes.ptr, data->value.asBytes.length);
-            dataRet = enif_make_binary(env, &bin);
-        }
-        break;
+    case DPI_NATIVE_TYPE_BYTES:
+    {
+        ErlNifBinary bin;
+        enif_alloc_binary(data->value.asBytes.length, &bin);
+        memcpy(bin.data, data->value.asBytes.ptr, data->value.asBytes.length);
+        dataRet = enif_make_binary(env, &bin);
+    }
+    break;
     case DPI_NATIVE_TYPE_TIMESTAMP:
         dataRet = enif_make_new_map(env);
         enif_make_map_put(
@@ -362,12 +370,32 @@ DPI_NIF_FUN(data_get)
             enif_make_uint(env, data->value.asIntervalYM.years),
             &dataRet);
         break;
-    case DPI_NATIVE_TYPE_STMT: {
-            dpiStmt_res *stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+    case DPI_NATIVE_TYPE_STMT:
+    {
+        dpiStmt_res *stmtRes = NULL;
+        if (!dataRes->stmtRes)
+        {
+            // first time
+            stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
             stmtRes->stmt = data->value.asStmt;
-            dataRet = enif_make_resource(env, stmtRes);
+            dataRes->stmtRes = stmtRes;
         }
-        break;
+        else
+        {
+            // possible reuse attempt
+            stmtRes = (dpiStmt_res *)dataRes->stmtRes;
+            if (stmtRes->stmt != data->value.asStmt)
+            {
+                // ref cursor changed
+                enif_release_resource(stmtRes);
+                stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+                stmtRes->stmt = data->value.asStmt;
+                dataRes->stmtRes = stmtRes;
+            }
+        }
+        dataRet = enif_make_resource(env, stmtRes);
+    }
+    break;
     default:
         return RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
     }
@@ -443,6 +471,8 @@ DPI_NIF_FUN(data_release)
     else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
     {
         res.dataPtrRes->dpiDataPtr = NULL;
+        if (res.dataPtrRes->isQueryValue == 1)
+            enif_release_resource(res.dataPtrRes);
     }
     else
         return BADARG_EXCEPTION(0, "resource data");

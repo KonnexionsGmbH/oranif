@@ -60,8 +60,10 @@ DPI_NIF_FUN(var_release)
     if ((!enif_get_resource(env, argv[0], dpiVar_type, &vRes)))
         return BADARG_EXCEPTION(0, "resource var");
 
+    RAISE_EXCEPTION_ON_DPI_ERROR(vRes->context, dpiVar_release(vRes->var), NULL);
+
     dpiDataPtr_res *t_itr;
-    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; itr = itr)
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL; )
     {
         t_itr = itr;
         itr = itr->next;

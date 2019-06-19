@@ -97,6 +97,8 @@ DPI_NIF_FUN(stmt_getQueryValue)
         dpiDataPtr_type, sizeof(dpiDataPtr_res));
     data->next = NULL;
     data->stmtRes = NULL;
+    data->isQueryValue = 1;
+
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,

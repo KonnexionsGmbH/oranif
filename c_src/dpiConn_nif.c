@@ -195,6 +195,7 @@ DPI_NIF_FUN(conn_newVar)
         dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
         dataRes->stmtRes = NULL;
         dataRes->next = NULL;
+        dataRes->isQueryValue = 0;
         if (varRes->head == NULL)
         {
             varRes->head = dataRes;

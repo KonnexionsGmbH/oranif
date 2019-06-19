@@ -454,7 +454,8 @@ DPI_NIF_FUN(data_release)
     else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
     {
         res.dataPtrRes->dpiDataPtr = NULL;
-        enif_release_resource(res.dataPtrRes);
+        if (res.dataPtrRes->isQueryValue == 1)
+            enif_release_resource(res.dataPtrRes);
     }
     else
         return BADARG_EXCEPTION(0, "resource data");

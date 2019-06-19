@@ -16,6 +16,7 @@ typedef struct
     dpiNativeTypeNum type;
     void *next;
     void *stmtRes;
+    unsigned char isQueryValue;
 } dpiDataPtr_res;
 
 extern ErlNifResourceType *dpiData_type;

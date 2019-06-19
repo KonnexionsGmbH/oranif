@@ -60,17 +60,19 @@ close_internal(Conn, Context)->
         _Class:Exception -> {error, Exception}
     end.
 
-test_ref_cursor(State, Sql, Count, Vars, Values) ->
+test_ref_cursor(#{conn := Conn} = State, Sql, Count, Vars, Values) ->
+	Stmt = dpi:safe(dpi, conn_prepareStmt, [Conn, false, Sql, <<>>]),
 	StartMem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
-	test_ref_cursor(State, Sql, Count, Vars, Values, StartMem),
-	close(State),
+	test_ref_cursor(State, Stmt, Count, Vars, Values, StartMem),
 	Mem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
 	Incr = (Mem - StartMem) / StartMem,
-	io:format("{end, ~.2f%}~n", [Incr]).
+	io:format("{end, ~.2f%}~n", [Incr]),
+	dpi:safe(dpi, stmt_release, [Stmt]),
+	close(State).
 
-test_ref_cursor(_State, _Sql, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
-test_ref_cursor(State, Sql, Count, Vars, Values, StartMem) ->
-    case dpi:safe(fun ?MODULE:test_ref_cursor_internal/4, [State, Sql, Vars, Values]) of
+test_ref_cursor(_State, _Stmt, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
+test_ref_cursor(State, Stmt, Count, Vars, Values, StartMem) ->
+    case dpi:safe(fun ?MODULE:test_ref_cursor_internal/4, [State, Stmt, Vars, Values]) of
 		{ok, _} -> ok;
 		Result ->
 			 io:format("ERROR : ~p Result ~p~n", [Count, Result])
@@ -81,10 +83,9 @@ test_ref_cursor(State, Sql, Count, Vars, Values, StartMem) ->
 			io:format("{~p, ~.2f%} ", [Count, Incr]);
 		true -> ok
 	end,
-    test_ref_cursor(State, Sql, Count - 1, Vars, Values, StartMem).
-test_ref_cursor_internal(#{conn := Conn}, Sql, Vars, Values) ->
+    test_ref_cursor(State, Stmt, Count - 1, Vars, Values, StartMem).
+test_ref_cursor_internal(#{conn := Conn}, Stmt, Vars, Values) ->
     try
-		Stmt = dpi:conn_prepareStmt(Conn, false, Sql, <<>>),
         OutVars = bind_vars(Conn, Stmt, Vars, Values),
         dpi:stmt_execute(Stmt, []),
         {_Name, _Type, Var, Data} = lists:keyfind(<<":SQLT_OUT_CURSOR">>, 1, OutVars),
@@ -94,7 +95,7 @@ test_ref_cursor_internal(#{conn := Conn}, Sql, Vars, Values) ->
         Row2 = fetch_stmt_internal(RefCursor),
         Row3 = fetch_stmt_internal(RefCursor),
         dpi:var_release(Var),
-        dpi:stmt_release(Stmt),
+		dpi:data_release(Data),
         {ok, {Info, [Row1, Row2, Row3]}}
     catch
         _Class:{error, _, _, #{message := Message}} -> {error, Message};

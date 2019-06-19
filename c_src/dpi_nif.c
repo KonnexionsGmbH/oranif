@@ -25,12 +25,6 @@ static ErlNifFunc nif_funcs[] = {
     DPIDATA_NIFS,
     DPIVAR_NIFS};
 
-typedef struct
-{
-    int test;
-    dpiContext *context;
-} oranif_priv;
-
 /*******************************************************************************
  * Helper internal functions
  ******************************************************************************/
@@ -91,58 +85,6 @@ typedef struct {
     int test;
     dpiContext *context;
 } oranif_priv;
-
-/*******************************************************************************
- * Helper internal functions
- ******************************************************************************/
-
-ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
-{
-    TRACE;
-
-    ERL_NIF_TERM map = enif_make_new_map(env);
-
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "code"), enif_make_int(env, e.code), &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "offset"), enif_make_uint(env, e.offset), &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "message"),
-        enif_make_string_len(env, e.message, e.messageLength, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "encoding"),
-        enif_make_string(env, e.encoding, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "fnName"),
-        enif_make_string(env, e.fnName, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "action"),
-        enif_make_string(env, e.action, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "sqlState"),
-        enif_make_string(env, e.sqlState, ERL_NIF_LATIN1),
-        &map);
-    enif_make_map_put(
-        env, map,
-        enif_make_atom(env, "isRecoverable"),
-        (e.isRecoverable == 0 ? ATOM_FALSE : ATOM_TRUE), &map);
-
-    /* #{ code => integer(), offset => integer(), message => string(),
-          encoding => string(), fnName => string(), action => string(),
-          sqlState => string, isRecoverable => true | false } */
-    return map;
-}
 
 /*******************************************************************************
  * NIF Interface

@@ -278,6 +278,8 @@ DPI_NIF_FUN(stmt_release)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context, dpiStmt_release(stmtRes->stmt), stmtRes);
 
+    enif_release_resource(stmtRes);
+    
     return ATOM_OK;
 }
 

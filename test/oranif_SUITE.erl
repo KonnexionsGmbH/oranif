@@ -54,8 +54,8 @@ getConfig() ->
             error(Reason)
     end.
 
-%all() -> [shortInserts, balancedInserts, heavyInserts, simultaneousInserts, longInserts].
-all() -> [insertStress, dataMemStress].
+all() -> [shortInserts, balancedInserts, heavyInserts, simultaneousInserts, longInserts, insertStress, dataMemStress].
+%all() -> [insertStress, dataMemStress].
 -define(F(Fn, Runs, Conn, Stmt, Job), Fn(ConfigData) -> runFrame(ConfigData, Runs, Conn, Stmt, fun Job/5, false)).
 -define(N(Fn, Runs, Stmt, Job), Fn(ConfigData) -> runFrame(ConfigData, Runs, undefined, Stmt, fun Job/5, true)).
 

@@ -85,6 +85,7 @@ DPI_NIF_FUN(queryInfo_delete)
 
     if ((!enif_get_resource(env, argv[0], dpiQueryInfo_type, &qRes)))
         return BADARG_EXCEPTION(0, "resource queryInfo");
+
     enif_release_resource(qRes);
     return ATOM_OK;
 }

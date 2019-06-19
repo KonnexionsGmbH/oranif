@@ -95,7 +95,9 @@ DPI_NIF_FUN(stmt_getQueryValue)
 
     dpiDataPtr_res *data = enif_alloc_resource(
         dpiDataPtr_type, sizeof(dpiDataPtr_res));
+    data->next = NULL;
     data->stmtRes = NULL;
+    data->isQueryValue = 1;
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
@@ -273,8 +275,9 @@ DPI_NIF_FUN(stmt_release)
     if (!enif_get_resource(env, argv[0], dpiStmt_type, &stmtRes))
         return BADARG_EXCEPTION(0, "resource statement");
 
-    dpiStmt_release(stmtRes->stmt);
-    enif_release_resource(stmtRes);
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context, dpiStmt_release(stmtRes->stmt), stmtRes);
+
     return ATOM_OK;
 }
 

@@ -953,8 +953,59 @@ ref_cursor({_Context, Conn}) ->
             #{found := false} ->
                 {false, []}
         end,
-    ?assertEqual(123.0, Result),
-    
+    CreateStmt = dpi:conn_prepareStmt(
+        Conn, false,
+        <<"create or replace procedure "?TESTPROCEDURE"
+            (p_cur out sys_refcursor)
+                is
+                begin
+                    open p_cur for select CURRENT_TIMESTAMP from dual;
+            end "?TESTPROCEDURE";">>,
+        <<"">>
+    ),
+    ?assertEqual(0, dpi:stmt_execute(CreateStmt, [])),
+    ?assertEqual(ok, dpi:stmt_release(CreateStmt)),
+
+    #{var := VarStmt, data := [DataStmt]} = dpi:conn_newVar(
+        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
+        false, false, null
+    ),
+    Stmt = dpi:conn_prepareStmt(
+        Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>
+    ),
+    ok = dpi:stmt_bindByName(Stmt, <<"cursor">>, VarStmt),
+
+    dpi:stmt_execute(Stmt, []),
+    RefCursor = dpi:data_get(DataStmt),
+    ?assertMatch(#{found := true}, dpi:stmt_fetch(RefCursor)),
+    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor)),
+    Result = Get_column_values(RefCursor, 1, 1),
+    ?assertMatch(
+        [#{
+            day := _, fsecond := _, hour := _, minute := _, month := _,
+            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
+        } | _ ],
+        Result
+    ),
+
+    dpi:stmt_execute(Stmt, []),
+    RefCursor1 = dpi:data_get(DataStmt),
+    ?assertMatch(#{found := false}, dpi:stmt_fetch(RefCursor1)),
+    ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor1)),
+    Result1 = Get_column_values(RefCursor1, 1, 1),
+    ?assertMatch(
+        [#{
+            day := _, fsecond := _, hour := _, minute := _, month := _,
+            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
+        } | _ ],
+        Result1
+    ),
+
+    ?assertEqual(RefCursor, RefCursor1),
+    ?assertEqual(Result, Result1),
+
+    dpi:data_release(DataStmt),
+    dpi:var_release(VarStmt),
     dpi:stmt_release(Stmt),
     dpi:stmt_release(Stmt2),
     dpi:var_release(Var1),

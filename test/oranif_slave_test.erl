@@ -1,8 +1,6 @@
 -module(oranif_slave_test).
 -include_lib("eunit/include/eunit.hrl").
 
--define(SLAVE_NAME, dpi_slave).
-
 execStmt(Conn, Sql) ->
     _Stmt = (catch dpi:conn_prepareStmt(Conn, false, Sql, <<"">>)),
     catch dpi:stmt_execute(_Stmt, []),

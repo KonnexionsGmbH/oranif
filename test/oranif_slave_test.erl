@@ -928,31 +928,6 @@ ref_cursor({_Context, Conn}) ->
                             Get_column_values(Stmt, ColIdx, Limit) ->
                                 #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
                                 [dpi:data_get(Data) | Get_column_values(Stmt, ColIdx + 1, Limit)] end,
-    
-    #{var := Var1, data := [DataRep1]} = dpi:conn_newVar(Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0, false, false, null),
-    Stmt = dpi:conn_prepareStmt(Conn, false, <<"
-       create or replace procedure "
-        ?TESTPROCEDURE
-        "(p_cur out sys_refcursor)
-        is
-        begin
-            open p_cur for select 123 from dual;
-        end "?TESTPROCEDURE";
-        ">>, <<"">>),
-    0 = dpi:stmt_execute(Stmt, []),
-    dpi:conn_commit(Conn),
-    Stmt2 = dpi:conn_prepareStmt(Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>),
-    ok = dpi:stmt_bindByName(Stmt2, <<"cursor">>, Var1),
-    dpi:stmt_execute(Stmt2, []),
-    RefCursor = dpi:data_get(DataRep1),
-    {true, [Result]} = 
-        case dpi:stmt_fetch(RefCursor) of
-            #{found := true} ->
-                NumCols = dpi:stmt_getNumQueryColumns(RefCursor),
-                {true, Get_column_values(RefCursor, 1, NumCols)};
-            #{found := false} ->
-                {false, []}
-        end,
     CreateStmt = dpi:conn_prepareStmt(
         Conn, false,
         <<"create or replace procedure "?TESTPROCEDURE"
@@ -979,7 +954,7 @@ ref_cursor({_Context, Conn}) ->
     RefCursor = dpi:data_get(DataStmt),
     ?assertMatch(#{found := true}, dpi:stmt_fetch(RefCursor)),
     ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor)),
-    Result = Get_column_values(RefCursor, 1, 1),
+    Result = get_column_values(RefCursor, 1, 1),
     ?assertMatch(
         [#{
             day := _, fsecond := _, hour := _, minute := _, month := _,
@@ -992,7 +967,7 @@ ref_cursor({_Context, Conn}) ->
     RefCursor1 = dpi:data_get(DataStmt),
     ?assertMatch(#{found := false}, dpi:stmt_fetch(RefCursor1)),
     ?assertEqual(1, dpi:stmt_getNumQueryColumns(RefCursor1)),
-    Result1 = Get_column_values(RefCursor1, 1, 1),
+    Result1 = get_column_values(RefCursor1, 1, 1),
     ?assertMatch(
         [#{
             day := _, fsecond := _, hour := _, minute := _, month := _,
@@ -1006,10 +981,12 @@ ref_cursor({_Context, Conn}) ->
 
     dpi:data_release(DataStmt),
     dpi:var_release(VarStmt),
-    dpi:stmt_release(Stmt),
-    dpi:stmt_release(Stmt2),
-    dpi:var_release(Var1),
-    dpi:data_release(DataRep1).
+    dpi:stmt_release(Stmt).
+
+get_column_values(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
+get_column_values(Stmt, ColIdx, Limit) ->
+    #{data := Data} = dpi:stmt_getQueryValue(Stmt, ColIdx),
+    [dpi:data_get(Data) | get_column_values(Stmt, ColIdx + 1, Limit)].
 
 start() ->
     #{tns := Tns, user := User, password := Password} = getConfig(),

@@ -37,8 +37,8 @@ extern DPI_NIF_FUN(data_get);
 extern DPI_NIF_FUN(data_setIsNull);
 extern DPI_NIF_FUN(data_release);
 
-#define DPIDATA_NIFS                       \
-        DEF_NIF(data_getBytes, 1),      \
+#define DPIDATA_NIFS                    \
+    DEF_NIF(data_getBytes, 1),          \
         DEF_NIF(data_getInt64, 1),      \
         DEF_NIF(data_setBytes, 2),      \
         DEF_NIF(data_setInt64, 2),      \
@@ -65,24 +65,24 @@ extern DPI_NIF_FUN(data_release);
     else A2M(DPI_NATIVE_TYPE_BOOLEAN, _atom, _assign);     \
     else A2M(DPI_NATIVE_TYPE_ROWID, _atom, _assign)
 
-#define DPI_NATIVE_TYPE_NUM_TO_ATOM(_type, _assign)                  \
-    switch (_type)                                                   \
-    {                                                                \
-        M2A(DPI_NATIVE_TYPE_INT64, _assign);                         \
-        M2A(DPI_NATIVE_TYPE_UINT64, _assign);                        \
-        M2A(DPI_NATIVE_TYPE_FLOAT, _assign);                         \
-        M2A(DPI_NATIVE_TYPE_DOUBLE, _assign);                        \
-        M2A(DPI_NATIVE_TYPE_BYTES, _assign);                         \
-        M2A(DPI_NATIVE_TYPE_TIMESTAMP, _assign);                     \
-        M2A(DPI_NATIVE_TYPE_INTERVAL_DS, _assign);                   \
-        M2A(DPI_NATIVE_TYPE_INTERVAL_YM, _assign);                   \
-        M2A(DPI_NATIVE_TYPE_LOB, _assign);                           \
-        M2A(DPI_NATIVE_TYPE_OBJECT, _assign);                        \
-        M2A(DPI_NATIVE_TYPE_STMT, _assign);                          \
-        M2A(DPI_NATIVE_TYPE_BOOLEAN, _assign);                       \
-        M2A(DPI_NATIVE_TYPE_ROWID, _assign);                         \
-    default:                                                         \
-        return RAISE_STR_EXCEPTION("dpiNativeType value not supported"); \
+#define DPI_NATIVE_TYPE_NUM_TO_ATOM(_type, _assign)               \
+    switch (_type)                                                \
+    {                                                             \
+        M2A(DPI_NATIVE_TYPE_INT64, _assign);                      \
+        M2A(DPI_NATIVE_TYPE_UINT64, _assign);                     \
+        M2A(DPI_NATIVE_TYPE_FLOAT, _assign);                      \
+        M2A(DPI_NATIVE_TYPE_DOUBLE, _assign);                     \
+        M2A(DPI_NATIVE_TYPE_BYTES, _assign);                      \
+        M2A(DPI_NATIVE_TYPE_TIMESTAMP, _assign);                  \
+        M2A(DPI_NATIVE_TYPE_INTERVAL_DS, _assign);                \
+        M2A(DPI_NATIVE_TYPE_INTERVAL_YM, _assign);                \
+        M2A(DPI_NATIVE_TYPE_LOB, _assign);                        \
+        M2A(DPI_NATIVE_TYPE_OBJECT, _assign);                     \
+        M2A(DPI_NATIVE_TYPE_STMT, _assign);                       \
+        M2A(DPI_NATIVE_TYPE_BOOLEAN, _assign);                    \
+        M2A(DPI_NATIVE_TYPE_ROWID, _assign);                      \
+    default:                                                      \
+        RAISE_STR_EXCEPTION("dpiNativeType value not supported"); \
     }
 
 #endif // _data_NIF_H_

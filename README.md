@@ -9,6 +9,7 @@ Currently builds in Window, Linux and OS X
 ```sh
 rebar3 compile
 ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
+# see dpi_nif.h for ORANIF_DEBUG values and debug log granularities
 ```
 
 ### OSX/Linux

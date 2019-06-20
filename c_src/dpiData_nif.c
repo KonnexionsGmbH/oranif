@@ -23,6 +23,13 @@ void dpiDataPtr_res_dtor(ErlNifEnv *env, void *resource)
 {
     CALL_TRACE;
 
+    dpiDataPtr_res *data = (dpiDataPtr_res *)resource;
+    if (data->stmtRes)
+    {
+        enif_release_resource(data->stmtRes);
+        data->stmtRes = NULL;
+    }
+
     RETURNED_TRACE;
 }
 
@@ -359,8 +366,27 @@ DPI_NIF_FUN(data_get)
         break;
     case DPI_NATIVE_TYPE_STMT:
     {
-        dpiStmt_res *stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
-        stmtRes->stmt = data->value.asStmt;
+        dpiStmt_res *stmtRes = NULL;
+        if (!dataRes->stmtRes)
+        {
+            // first time
+            stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+            stmtRes->stmt = data->value.asStmt;
+            dataRes->stmtRes = stmtRes;
+        }
+        else
+        {
+            // possible reuse attempt
+            stmtRes = (dpiStmt_res *)dataRes->stmtRes;
+            if (stmtRes->stmt != data->value.asStmt)
+            {
+                // ref cursor changed
+                enif_release_resource(stmtRes);
+                stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+                stmtRes->stmt = data->value.asStmt;
+                dataRes->stmtRes = stmtRes;
+            }
+        }
         dataRet = enif_make_resource(env, stmtRes);
     }
     break;
@@ -448,6 +474,8 @@ DPI_NIF_FUN(data_release)
     else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
     {
         res.dataPtrRes->dpiDataPtr = NULL;
+        if (res.dataPtrRes->isQueryValue == 1)
+            enif_release_resource(res.dataPtrRes);
     }
     else
         BADARG_EXCEPTION(0, "resource data");

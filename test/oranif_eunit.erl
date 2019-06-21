@@ -788,18 +788,18 @@ client_server_version({Safe, Context, Conn}) ->
         dpiCall(Safe, conn_getServerVersion, [Conn])
     ).
 
-simple_fetch_no_assert({Safe, _Context, Conn}) -> 
-    SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
-    ?assertEqual(5, dpiCall(Safe, stmt_execute, [Stmt, []])),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    #{nativeTypeNum := Type, data := Result} = dpiCall(
-        Safe, stmt_getQueryValue, [Stmt, 1]
-    ),
-    ?assertEqual(12345.0, dpiCall(Safe, data_get, [Result])),
-    ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
-    dpiCall(Safe, data_release, [Result]),
-    dpiCall(Safe, stmt_release, [Stmt]).
+%simple_fetch_no_assert({Safe, _Context, Conn}) -> 
+%    SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
+%    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
+%    ?assertEqual(5, dpiCall(Safe, stmt_execute, [Stmt, []])),
+%    dpiCall(Safe, stmt_fetch, [Stmt]),
+%    #{nativeTypeNum := Type, data := Result} = dpiCall(
+%        Safe, stmt_getQueryValue, [Stmt, 1]
+%    ),
+%    ?assertEqual(12345.0, dpiCall(Safe, data_get, [Result])),
+%    ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
+%    dpiCall(Safe, data_release, [Result]),
+%    dpiCall(Safe, stmt_release, [Stmt]).
 
 -define(GET_QUERY_VALUE(_Stmt, _Index, _Value),
     (fun() ->
@@ -810,74 +810,74 @@ simple_fetch_no_assert({Safe, _Context, Conn}) ->
 	    dpiCall(Safe, data_release, [__QueryValueRef])
     end)()
 ).
-var_bind_no_assert({Safe, _Context, Conn}) -> 
-    #{var := Var1, data := DataRep1} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
-            100, 0, false, false, null
-        ]
-    ),
-    #{var := Var2, data := DataRep2} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
-            100, 0, false, false, null
-        ]
-    ),
-
-    ?EXEC_STMT(Conn, <<"drop table test_dpi15">>), 
-    ?EXEC_STMT(
-        Conn,
-        <<"create table test_dpi15(a integer, b integer,"
-            " c integer, d integer, e integer)">>
-    ),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 4, 5)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(6, 7, 8, 9, 10)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 4, 8, 16)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 5, 7)">>), 
-
-    Stmt = dpiCall(
-        Safe, conn_prepareStmt, [
-            Conn, false, <<"select 2, 3 from dual">>, <<"">>
-        ]
-    ),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 1, Var1]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 2, Var2]),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    2.0 = dpiCall(Safe, data_get, [hd(DataRep1)]),
-    3.0 = dpiCall(Safe, data_get, [hd(DataRep2)]),
-
-    Stmt2 = dpiCall(
-        Safe, conn_prepareStmt, [
-            Conn, false, <<"select * from test_dpi15 where b = :A and c = :B">>,
-            <<"">>
-        ]
-    ),
-
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"A">>, Var1]),
-    ok = dpiCall(Safe, stmt_bindByPos, [Stmt2, 2, Var2]),
-    5 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
-    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
-    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
-    ?GET_QUERY_VALUE(Stmt2, 4, 4.0),
-    ?GET_QUERY_VALUE(Stmt2, 5, 5.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
-    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
-    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
-    ?GET_QUERY_VALUE(Stmt2, 4, 5.0),
-    ?GET_QUERY_VALUE(Stmt2, 5, 7.0),
-
-    dpiCall(Safe, var_release, [Var1]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-    dpiCall(Safe, var_release, [Var2]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
-    
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, stmt_release, [Stmt2]).
+%var_bind_no_assert({Safe, _Context, Conn}) -> 
+%    #{var := Var1, data := DataRep1} = dpiCall(
+%        Safe, conn_newVar, [
+%            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
+%            100, 0, false, false, null
+%        ]
+%    ),
+%    #{var := Var2, data := DataRep2} = dpiCall(
+%        Safe, conn_newVar, [
+%            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
+%            100, 0, false, false, null
+%        ]
+%    ),
+%
+%    ?EXEC_STMT(Conn, <<"drop table test_dpi15">>), 
+%    ?EXEC_STMT(
+%        Conn,
+%        <<"create table test_dpi15(a integer, b integer,"
+%            " c integer, d integer, e integer)">>
+%    ),
+%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 4, 5)">>), 
+%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(6, 7, 8, 9, 10)">>),
+%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 4, 8, 16)">>), 
+%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 5, 7)">>), 
+%
+%    Stmt = dpiCall(
+%        Safe, conn_prepareStmt, [
+%            Conn, false, <<"select 2, 3 from dual">>, <<"">>
+%        ]
+%    ),
+%    dpiCall(Safe, stmt_execute, [Stmt, []]),
+%    ok = dpiCall(Safe, stmt_define, [Stmt, 1, Var1]),
+%    ok = dpiCall(Safe, stmt_define, [Stmt, 2, Var2]),
+%    dpiCall(Safe, stmt_fetch, [Stmt]),
+%    2.0 = dpiCall(Safe, data_get, [hd(DataRep1)]),
+%    3.0 = dpiCall(Safe, data_get, [hd(DataRep2)]),
+%
+%    Stmt2 = dpiCall(
+%        Safe, conn_prepareStmt, [
+%            Conn, false, <<"select * from test_dpi15 where b = :A and c = :B">>,
+%            <<"">>
+%        ]
+%    ),
+%
+%    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"A">>, Var1]),
+%    ok = dpiCall(Safe, stmt_bindByPos, [Stmt2, 2, Var2]),
+%    5 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
+%    dpiCall(Safe, stmt_fetch, [Stmt2]),
+%    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
+%    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
+%    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
+%    ?GET_QUERY_VALUE(Stmt2, 4, 4.0),
+%    ?GET_QUERY_VALUE(Stmt2, 5, 5.0),
+%
+%    dpiCall(Safe, stmt_fetch, [Stmt2]),
+%    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
+%    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
+%    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
+%    ?GET_QUERY_VALUE(Stmt2, 4, 5.0),
+%    ?GET_QUERY_VALUE(Stmt2, 5, 7.0),
+%
+%    dpiCall(Safe, var_release, [Var1]),
+%    [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
+%    dpiCall(Safe, var_release, [Var2]),
+%    [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
+%    
+%    dpiCall(Safe, stmt_release, [Stmt]),
+%    dpiCall(Safe, stmt_release, [Stmt2]).
 
 catch_error_message({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(Safe, conn_prepareStmt, [
@@ -1049,9 +1049,10 @@ ref_cursor({Safe, _Context, Conn}) ->
     dpiCall(Safe, var_release, [VarStmt]),
     dpiCall(Safe, stmt_release, [Stmt]).
 
+-define(SLAVE, oranif_slave).
 setup(Safe) ->
     if
-        Safe -> ok = dpi:load(oranif_slave);
+        Safe -> ok = dpi:load(?SLAVE);
         true -> ok = dpi:load_unsafe()
     end,
     #{tns := Tns, user := User, password := Password} = getConfig(),
@@ -1064,46 +1065,61 @@ setup(Safe) ->
             #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
         ]
     ),
-    {Safe, Context, Connnnection}.
+    if
+        Safe ->
+            SlaveNode = list_to_existing_atom(
+                re:replace(
+                    atom_to_list(node()), ".*(@.*)", atom_to_list(?SLAVE)++"\\1",
+                    [{return, list}]
+                )
+            ),
+            pong = net_adm:ping(SlaveNode),
+            {Safe, SlaveNode, Context, Connnnection};
+        true -> {Safe, Context, Connnnection}
+    end.
 
+cleanup({Safe, _SlaveNode, Context, Connnnection}) ->
+    cleanup({Safe, Context, Connnnection});
 cleanup({Safe, Context, Connnnection}) ->
     dpiCall(Safe, conn_release, [Connnnection]),
     dpiCall(Safe, context_destroy, [Context]),
     if Safe -> dpiCall(Safe, unload, []); true -> ok end.
 
+-define(F(__Fn), {??__Fn, fun __Fn/1}).
+
 -define(STATEMENT_TESTS, [
-    fun simple_fetch/1,
-    fun create_insert_select_drop/1, 
-    fun truncate_table/1,
-    fun drop_nonexistent_table/1,
-    fun update_where/1,             
-    fun select_from_where/1,
-    fun get_column_names/1,         
-    fun bind_by_pos/1,                
-    fun bind_by_name/1,             
-    fun in_binding/1,
-    fun bind_datatypes/1,
-    fun fail_stmt_released_too_early/1,
-    fun tz_test/1,
-    fun define_type/1,
-    fun iterate/1,
-    fun commit_rollback/1,
-    fun var_define/1,
-    fun var_bind/1,
-    fun var_setFromBytes/1,
-    fun set_get_data_ptr/1,
-    fun data_is_null/1,
-    fun var_array/1,
-    fun client_server_version/1,
-    fun catch_error_message/1,
-    fun catch_error_message_conn/1,
-    fun get_num_query_cols/1,
-    fun stored_procedure/1,
-    fun ref_cursor/1
+    ?F(simple_fetch),
+    ?F(create_insert_select_drop),
+    ?F(truncate_table),
+    ?F(drop_nonexistent_table),
+    ?F(update_where),
+    ?F(select_from_where),
+    ?F(get_column_names),
+    ?F(bind_by_pos),
+    ?F(bind_by_name),
+    ?F(in_binding),
+    ?F(bind_datatypes),
+    ?F(fail_stmt_released_too_early),
+    ?F(tz_test),
+    ?F(define_type),
+    ?F(iterate),
+    ?F(commit_rollback),
+    ?F(var_define),
+    ?F(var_bind),
+    ?F(var_setFromBytes),
+    ?F(set_get_data_ptr),
+    ?F(data_is_null),
+    ?F(var_array),
+    ?F(client_server_version),
+    ?F(catch_error_message),
+    ?F(catch_error_message_conn),
+    ?F(get_num_query_cols),
+    ?F(stored_procedure),
+    ?F(ref_cursor)
 ]).
 
 -define(CONNECTION_TESTS, [
-    fun ping_close/1
+    ?F(ping_close)
 ]).
 
 unsafe_statements_test_() ->
@@ -1112,24 +1128,38 @@ unsafe_statements_test_() ->
         setup,
         fun() -> setup(false) end,
         fun cleanup/1,
-        {with, ?STATEMENT_TESTS}
+        oraniftst(?STATEMENT_TESTS)
     }.
 
-%safe_statements_test_() ->         TODO: bring this back
-%    {
-%        setup,
-%        fun() -> setup(true) end,
-%        fun cleanup/1,
-%        {with, ?STATEMENT_TESTS}
-%    }.
+safe_statements_test_() ->
+    {
+        setup,
+        fun() -> setup(true) end,
+        fun cleanup/1,
+        oraniftst(?STATEMENT_TESTS)
+    }.
 
 unsafe_connection_test_() ->
     {
-        foreach,
+        setup,
         fun() -> setup(false) end,
         fun cleanup/1,
-        ?CONNECTION_TESTS
+        oraniftst(?CONNECTION_TESTS)
     }.
+
+oraniftst(TestFuns) ->
+    fun
+        ({Safe, SlaveNode, Context, Connnnection}) ->
+            [{
+                "slave_"++Title,
+                fun() ->
+                    put(dpi_node, SlaveNode),
+                    TestFun({Safe, Context, Connnnection})
+                end
+            } || {Title, TestFun} <- TestFuns];
+        (Ctx) ->
+            [{Title, fun() -> TestFun(Ctx) end} || {Title, TestFun} <- TestFuns]
+    end.
 
 %-------------------------------------------------------------------------------
 % Internal functions

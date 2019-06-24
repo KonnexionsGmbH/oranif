@@ -39,12 +39,6 @@ extract_getQueryInfo(Safe, Stmt, Index, Atom) ->
 	dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
     Result.
 
-bindByPos(Safe, Stmt, Pos, Type, SetFun, Value) ->
-    BindData = dpiCall(Safe, data_ctor, []),
-    SetFun(BindData, Value),
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt, Pos, Type, BindData]),
-    dpiCall(Safe, data_release, [BindData]),
-    ok.
 
 iozip(List) -> lists:zip(List, lists:seq(1, length(List))).
 
@@ -485,7 +479,14 @@ iterate({Safe, _Context, Conn}) ->
     [_ | Content] = LittleBobbyTables,
     InsertRow = fun(Row) ->
         Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi12 values (:A, :B, :C, :D, :E )">>, <<"">>]),
-        [ bindByPos(Safe, Stmt, Pos, 'DPI_NATIVE_TYPE_INT64', fun dpi:data_setInt64/2, Value)|| {Value, Pos} <-iozip(Row)],
+        [
+        begin
+            BindData = dpiCall(Safe, data_ctor, []),
+            dpiCall(Safe, data_setInt64, [BindData, Value]),
+            dpiCall(Safe, stmt_bindValueByPos, [Stmt, Pos, 'DPI_NATIVE_TYPE_INT64', BindData]),
+            dpiCall(Safe, data_release, [BindData])
+        end    
+        || {Value, Pos} <-iozip(Row)],
         dpiCall(Safe, stmt_execute, [Stmt, []]),
         dpiCall(Safe, stmt_release, [Stmt])
     end,
@@ -597,16 +598,16 @@ var_define({Safe, _Context, Conn}) ->
 
     ?assertEqual(null, dpiCall(Safe, data_get, [NullEntry])),
 
-    dpiCall(Safe, var_release, [Var1]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-    dpiCall(Safe, var_release, [Var2]),
+    dpiCall(Safe, var_release, [Var1]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
-    dpiCall(Safe, var_release, [Var3]),
+    dpiCall(Safe, var_release, [Var2]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep3],
-    dpiCall(Safe, var_release, [Var4]),
+    dpiCall(Safe, var_release, [Var3]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep4],
-    dpiCall(Safe, var_release, [Var5]),
+    dpiCall(Safe, var_release, [Var4]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep5],
+    dpiCall(Safe, var_release, [Var5]),
 
     dpiCall(Safe, stmt_release, [Stmt]).
 
@@ -648,10 +649,10 @@ var_bind({Safe, _Context, Conn}) ->
     assert_getQueryValue(Safe, Stmt2, 4, 5.0),
     assert_getQueryValue(Safe, Stmt2, 5, 7.0),
 
-    dpiCall(Safe, var_release, [Var1]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-    dpiCall(Safe, var_release, [Var2]),
+    dpiCall(Safe, var_release, [Var1]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
+    dpiCall(Safe, var_release, [Var2]),
     
     dpiCall(Safe, stmt_release, [Stmt]),
     dpiCall(Safe, stmt_release, [Stmt2]).
@@ -676,8 +677,8 @@ var_setFromBytes({Safe, _Context, Conn}) ->
     assert_getQueryValue(Safe, Stmt, 1, 30.0),
     assert_getQueryValue(Safe, Stmt, 2, <<"poipoi">>),
 
-    dpiCall(Safe, var_release, [Var]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep],
+    dpiCall(Safe, var_release, [Var]),
     dpiCall(Safe, stmt_release, [Stmt]).
 
 set_get_data_ptr({Safe, _Context, Conn}) -> 
@@ -759,8 +760,8 @@ var_array({Safe, _Context, Conn}) ->
     ?assertEqual(<<"bar">>, dpiCall(Safe, data_get, [B])),
     ?assertEqual(<<"baz">>, dpiCall(Safe, data_get, [C])),
     
-    dpiCall(Safe, var_release, [Var]),
     [dpiCall(Safe, data_release, [X]) || X <- DataRep],
+    dpiCall(Safe, var_release, [Var]),
 
     ?EXEC_STMT(Conn, <<"drop table test_dpi17">>), 
     ?EXEC_STMT(Conn, <<"CREATE Or REPLACE TYPE namearray AS VARRAY(3) OF VARCHAR2(32)">>), 
@@ -788,19 +789,6 @@ client_server_version({Safe, Context, Conn}) ->
         dpiCall(Safe, conn_getServerVersion, [Conn])
     ).
 
-%simple_fetch_no_assert({Safe, _Context, Conn}) -> 
-%    SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
-%    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
-%    ?assertEqual(5, dpiCall(Safe, stmt_execute, [Stmt, []])),
-%    dpiCall(Safe, stmt_fetch, [Stmt]),
-%    #{nativeTypeNum := Type, data := Result} = dpiCall(
-%        Safe, stmt_getQueryValue, [Stmt, 1]
-%    ),
-%    ?assertEqual(12345.0, dpiCall(Safe, data_get, [Result])),
-%    ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
-%    dpiCall(Safe, data_release, [Result]),
-%    dpiCall(Safe, stmt_release, [Stmt]).
-
 -define(GET_QUERY_VALUE(_Stmt, _Index, _Value),
     (fun() ->
         #{data := __QueryValueRef} = dpiCall(
@@ -810,74 +798,6 @@ client_server_version({Safe, Context, Conn}) ->
 	    dpiCall(Safe, data_release, [__QueryValueRef])
     end)()
 ).
-%var_bind_no_assert({Safe, _Context, Conn}) -> 
-%    #{var := Var1, data := DataRep1} = dpiCall(
-%        Safe, conn_newVar, [
-%            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
-%            100, 0, false, false, null
-%        ]
-%    ),
-%    #{var := Var2, data := DataRep2} = dpiCall(
-%        Safe, conn_newVar, [
-%            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
-%            100, 0, false, false, null
-%        ]
-%    ),
-%
-%    ?EXEC_STMT(Conn, <<"drop table test_dpi15">>), 
-%    ?EXEC_STMT(
-%        Conn,
-%        <<"create table test_dpi15(a integer, b integer,"
-%            " c integer, d integer, e integer)">>
-%    ),
-%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 4, 5)">>), 
-%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(6, 7, 8, 9, 10)">>),
-%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 4, 8, 16)">>), 
-%    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 5, 7)">>), 
-%
-%    Stmt = dpiCall(
-%        Safe, conn_prepareStmt, [
-%            Conn, false, <<"select 2, 3 from dual">>, <<"">>
-%        ]
-%    ),
-%    dpiCall(Safe, stmt_execute, [Stmt, []]),
-%    ok = dpiCall(Safe, stmt_define, [Stmt, 1, Var1]),
-%    ok = dpiCall(Safe, stmt_define, [Stmt, 2, Var2]),
-%    dpiCall(Safe, stmt_fetch, [Stmt]),
-%    2.0 = dpiCall(Safe, data_get, [hd(DataRep1)]),
-%    3.0 = dpiCall(Safe, data_get, [hd(DataRep2)]),
-%
-%    Stmt2 = dpiCall(
-%        Safe, conn_prepareStmt, [
-%            Conn, false, <<"select * from test_dpi15 where b = :A and c = :B">>,
-%            <<"">>
-%        ]
-%    ),
-%
-%    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"A">>, Var1]),
-%    ok = dpiCall(Safe, stmt_bindByPos, [Stmt2, 2, Var2]),
-%    5 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-%    dpiCall(Safe, stmt_fetch, [Stmt2]),
-%    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
-%    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
-%    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
-%    ?GET_QUERY_VALUE(Stmt2, 4, 4.0),
-%    ?GET_QUERY_VALUE(Stmt2, 5, 5.0),
-%
-%    dpiCall(Safe, stmt_fetch, [Stmt2]),
-%    ?GET_QUERY_VALUE(Stmt2, 1, 1.0),
-%    ?GET_QUERY_VALUE(Stmt2, 2, 2.0),
-%    ?GET_QUERY_VALUE(Stmt2, 3, 3.0),
-%    ?GET_QUERY_VALUE(Stmt2, 4, 5.0),
-%    ?GET_QUERY_VALUE(Stmt2, 5, 7.0),
-%
-%    dpiCall(Safe, var_release, [Var1]),
-%    [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-%    dpiCall(Safe, var_release, [Var2]),
-%    [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
-%    
-%    dpiCall(Safe, stmt_release, [Stmt]),
-%    dpiCall(Safe, stmt_release, [Stmt2]).
 
 catch_error_message({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(Safe, conn_prepareStmt, [
@@ -890,7 +810,11 @@ catch_error_message({Safe, _Context, Conn}) ->
                 fnName := "dpiStmt_execute"
             }
         },
-        dpiCall(Safe, stmt_execute, [Stmt, []])
+        begin
+            A = dpiCall(Safe, stmt_execute, [Stmt, []]),
+            ?debugFmt("The call on line ~p should have thrown an exception, but didn't!", [?LINE - 1]),
+            A
+        end
     ).
 
 catch_error_message_conn({Safe, _, _}) -> 
@@ -986,12 +910,12 @@ stored_procedure({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_release, [Stmt]),
     dpiCall(Safe, stmt_release, [Stmt2]),
  
-    dpiCall(Safe, var_release, [Var1]),
     dpiCall(Safe, data_release, [DataRep1]),
-    dpiCall(Safe, var_release, [Var2]),
+    dpiCall(Safe, var_release, [Var1]),
     dpiCall(Safe, data_release, [DataRep2]),
-    dpiCall(Safe, var_release, [Var3]),
-    dpiCall(Safe, data_release, [DataRep3]).
+    dpiCall(Safe, var_release, [Var2]),
+    dpiCall(Safe, data_release, [DataRep3]),
+    dpiCall(Safe, var_release, [Var3]).
 
 ref_cursor({Safe, _Context, Conn}) -> 
     CreateStmt = dpiCall(Safe, conn_prepareStmt, [

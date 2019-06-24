@@ -112,8 +112,8 @@ rpc_call(undefined, _Mod, _Fun, _Args) ->
     {error, slave_down};
 rpc_call(Node, Mod, Fun, Args) ->
     case (catch rpc:call(Node, Mod, Fun, Args)) of
-        {badrpc, {'EXIT', Error}} ->
-            {error, Error};
+        {badrpc, {'EXIT', {Error, _}}} ->
+            error(Error);
         {badrpc, nodedown} ->
             erase(dpi_node),
             {error, slave_down};

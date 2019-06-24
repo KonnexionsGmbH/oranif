@@ -7,7 +7,6 @@ OBJS = $O\dpi_nif.obj $O\dpiContext_nif.obj $O\dpiConn_nif.obj $O\dpiStmt_nif.ob
 TARGETS = $O\dpi_nif.dll
 
 TEST_OBJS = test\odpi_test.obj
-TEST_TARGETS = test\odpi_test.exe
 
 CFLAGS = /nologo /c /MT
 # CFLAGS = $(CFLAGS) /Wall /WX
@@ -20,11 +19,9 @@ CFLAGS = $(CFLAGS) /DEMBED
 LDFLAGS = $(LDFLAGS) $L
 !ENDIF
 
-all : priv $(TEST_TARGETS) $(TARGETS) cleanup
+all : priv $(TARGETS) cleanup
 
 $(TARGETS) : odpi $(OBJS)
-
-$(TEST_TARGETS) : odpi $(TEST_OBJS)
 
 {$T}.c{$T}.obj::
     cl $(CFLAGS) /Fo$T\ $(INCLUDE_PATHS) $<

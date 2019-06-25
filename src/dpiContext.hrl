@@ -7,8 +7,7 @@
 -nifs({dpiContext, [
     {context_create, [integer, integer]},
     {context_destroy, [reference]},
-    {context_getClientVersion, [reference]},
-    {context_getError, [reference]}
+    {context_getClientVersion, [reference]}
 ]}).
 
 -endif. % _DPI_CONTEXT_HRL_

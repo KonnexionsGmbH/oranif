@@ -44,22 +44,6 @@ DPI_NIF_FUN(context_create)
     return contextResTerm;
 }
 
-DPI_NIF_FUN(context_getError)
-{
-    CHECK_ARGCOUNT(1);
-
-    dpiErrorInfo error;
-    dpiContext_res *contextRes;
-
-    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
-        BADARG_EXCEPTION(0, "resource context");
-
-    dpiContext_getError(contextRes->context, &error);
-
-    RETURNED_TRACE;
-    return dpiErrorInfoMap(env, error);
-}
-
 DPI_NIF_FUN(context_destroy)
 {
     CHECK_ARGCOUNT(1);

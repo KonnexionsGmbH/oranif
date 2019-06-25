@@ -7,8 +7,9 @@
 -define(EXEC_STMT(_Conn, _Sql),
     (fun() ->
         __Stmt = dpiCall(Safe, conn_prepareStmt, [_Conn, false, _Sql, <<"">>]),
-        catch dpiCall(Safe, stmt_execute, [__Stmt, []]),
-        catch dpiCall(Safe, stmt_release, [__Stmt])
+        R = (catch dpiCall(Safe, stmt_execute, [__Stmt, []])),
+        catch dpiCall(Safe, stmt_release, [__Stmt]),
+        R
     end)()
 ).
 
@@ -42,7 +43,9 @@ extract_getQueryInfo(Safe, Stmt, Index, Atom) ->
 
 iozip(List) -> lists:zip(List, lists:seq(1, length(List))).
 
-simple_fetch({Safe, _Context, Conn}) ->
+%% tests conn_prepareStmt stmt_execute, stmt_fetch, stmt_getQueryValue,
+%% data_get, data_release and stmt_release
+stmt_execute_test({Safe, _Context, Conn}) ->
     SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
     Query_cols = dpiCall(Safe, stmt_execute, [Stmt, []]),
@@ -55,9 +58,9 @@ simple_fetch({Safe, _Context, Conn}) ->
     dpiCall(Safe, data_release, [Result]),
     dpiCall(Safe, stmt_release, [Stmt]).
 
-create_insert_select_drop({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"select 12345, 2, 4, 8.5, 'miau' from dual">>),
-    ?EXEC_STMT(Conn, <<"select 12345, 2, 4, 844.5, 'miau' from dual">>),
+%% tests no new APIs, but the following functionalities: drop table, create
+%% table, select count, insert into table
+stmt_execute_test_1({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi1">>),
     CountSQL = <<"select count (table_name) from user_tables where table_name = 'TEST_DPI1'">>, %% SQL that evaluates to 1.0 or 0.0 depending on whether test_dpi exists
     Stmt_Exist = dpiCall(Safe, conn_prepareStmt, [Conn, false, CountSQL, <<"">>]),
@@ -96,8 +99,8 @@ create_insert_select_drop({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_release, [Stmt_Exist3]),
     dpiCall(Safe, stmt_release, [Stmt_fetch]).
 
-
-truncate_table({Safe, _Context, Conn}) ->
+%% tests no new APIs, but the truncate table functionality
+stmt_execute_test_2({Safe, _Context, Conn}) ->
     ?EXEC_STMT(Conn, <<"drop table test_dpi2">>),
     ?EXEC_STMT(Conn, <<"create table test_dpi2(a integer, b integer, c integer)">>),
     ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (1, 2, 3)">>),
@@ -131,10 +134,11 @@ truncate_table({Safe, _Context, Conn}) ->
 
 drop_nonexistent_table({Safe, Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi3">>),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi3">>),
-    ?assertEqual(false, maps:get(isRecoverable, dpiCall(Safe, context_getError, [Context]))).
+    {'EXIT', {{error, _File, _Line, Map}, _StackTrace}} = ?EXEC_STMT(Conn, <<"drop table test_dpi3">>),
+    ?assertEqual(false, maps:get(isRecoverable, Map)).
 
-update_where({Safe, _Context, Conn}) -> 
+%% tests no new APIs, but the update-where functionality
+stmt_execute_test_3({Safe, _Context, Conn}) ->
     ?EXEC_STMT(Conn, <<"drop table test_dpi4">>), %% drop if exists
 
     %% make and fill new table
@@ -177,7 +181,8 @@ update_where({Safe, _Context, Conn}) ->
     %% drop that table again
     ?EXEC_STMT(Conn, <<"drop table test_dpi4">>).
 
-select_from_where({Safe, _Context, Conn}) -> 
+%% tests no new APIs, but the update where functionality
+stmt_execute_test_4({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi5">>), %% drop if exists
 
     %% make and fill new table
@@ -246,8 +251,7 @@ select_from_where({Safe, _Context, Conn}) ->
     %% drop that table again
     ?EXEC_STMT(Conn, <<"drop table test_dpi5">>).
 
-
-get_column_names({Safe, _Context, Conn}) -> 
+stmt_getQueryInfo_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi6">>), 
 
     %% make and fill new table
@@ -268,7 +272,8 @@ get_column_names({Safe, _Context, Conn}) ->
     %% drop that table again
     ?EXEC_STMT(Conn, <<"drop table test_dpi6">>).
 
-bind_by_pos({Safe, _Context, Conn}) -> 
+%% tests stmt_bindValueByPos and data_setInt64
+stmt_bindValueByPos_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi7">>), 
     ?EXEC_STMT(Conn, <<"create table test_dpi7 (a integer, b integer, c integer)">>), 
     
@@ -294,7 +299,7 @@ bind_by_pos({Safe, _Context, Conn}) ->
     ?assertEqual(Query_cols, 3),
     ?EXEC_STMT(Conn, <<"drop table test_dpi7">>).
 
-bind_by_name({Safe, _Context, Conn}) -> 
+stmt_bindValueByName_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi8">>), 
     ?EXEC_STMT(Conn, <<"create table test_dpi8 (a integer, b integer, c integer)">>), 
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi8 values (:First, :Second, :Third)">>, <<"">>]),
@@ -320,7 +325,8 @@ bind_by_name({Safe, _Context, Conn}) ->
     ?assertEqual(Query_cols, 3),
     ?EXEC_STMT(Conn, <<"drop table test_dpi8">>).
 
-in_binding({Safe, _Context, Conn}) -> 
+%% tests data_setBytes_test
+data_setBytes_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi9">>), 
     ?EXEC_STMT(Conn, <<"create table test_dpi9 (a integer, b integer, c varchar(32))">>), 
     ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (1, 8, 'test')">>), 
@@ -369,21 +375,18 @@ in_binding({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_release, [Stmt2]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi10">>).
 
-bind_datatypes({Safe, _Context, Conn}) -> 
+%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
+data_setTimestamp_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi10">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi10 (a TIMESTAMP(9) WITH TIME ZONE, b INTERVAL DAY TO SECOND , c INTERVAL YEAR TO MONTH )">>),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10 values (:First, :Second, :Third)">>, <<"">>]),
+    ?EXEC_STMT(Conn, <<"create table test_dpi10 (a TIMESTAMP(9) WITH TIME ZONE)">>),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10 values (:First)">>, <<"">>]),
     BindData = dpiCall(Safe, data_ctor, []),
     dpiCall(Safe, data_setTimestamp, [BindData, 7, 6, 5, 4, 3, 2, 1234, 5, 30]),
     dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"First">>, 'DPI_NATIVE_TYPE_TIMESTAMP',  BindData]),
-    dpiCall(Safe, data_setIntervalDS, [BindData, 7, 9, 14, 13, 20000]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"Second">>, 'DPI_NATIVE_TYPE_INTERVAL_DS', BindData]),
-    dpiCall(Safe, data_setIntervalYM, [BindData, 13, 8]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"Third">>, 'DPI_NATIVE_TYPE_INTERVAL_YM',  BindData]),
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     dpiCall(Safe, stmt_release, [Stmt]),
     dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a, b, c from test_dpi10">>, <<"">>]),
+    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10">>, <<"">>]),
     Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
 
     dpiCall(Safe, stmt_fetch, [Stmt2]),
@@ -391,16 +394,59 @@ bind_datatypes({Safe, _Context, Conn}) ->
     QueryValueRef = maps:get(data, (dpiCall(Safe, stmt_getQueryValue, [Stmt2, 1]))),
     ?assertEqual(maps:remove(tzMinuteOffset, maps:remove(tzHourOffset, dpiCall(Safe, data_get, [QueryValueRef]))), 
     #{fsecond => 1234, second => 2, minute => 3, hour => 4, day => 5, month => 6, year => 7}),
-    assert_getQueryValue(Safe, Stmt2, 2, #{fseconds => 20000, seconds => 13, minutes => 14, hours => 9, days => 7 }),
-    assert_getQueryValue(Safe, Stmt2, 3, #{months => 8, years => 13}),
     
     dpiCall(Safe, data_release, [QueryValueRef]),
     dpiCall(Safe, data_release, [BindData]),
     dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 3),
+    ?assertEqual(Query_cols, 1),
     ?EXEC_STMT(Conn, <<"drop table test_dpi10">>).
 
-tz_test({Safe, _Context, Conn}) -> 
+%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
+data_setIntervalYM_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi10c">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi10c (a INTERVAL YEAR TO MONTH)">>),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10c values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    dpiCall(Safe, data_setIntervalYM, [BindData, 13, 8]),
+    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INTERVAL_YM',  BindData]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, conn_commit, [Conn]),
+    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10c">>, <<"">>]),
+    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
+
+    dpiCall(Safe, stmt_fetch, [Stmt2]),
+    assert_getQueryValue(Safe, Stmt2, 1, #{months => 8, years => 13}),
+    
+    dpiCall(Safe, data_release, [BindData]),
+    dpiCall(Safe, stmt_release, [Stmt2]),
+    ?assertEqual(Query_cols, 1),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi10c">>).
+
+%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
+data_setIntervalDS_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi10b">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi10b (a INTERVAL DAY TO SECOND)">>),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10b values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    dpiCall(Safe, data_setIntervalDS, [BindData, 7, 9, 14, 13, 20000]),
+    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INTERVAL_DS', BindData]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, conn_commit, [Conn]),
+    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10b">>, <<"">>]),
+    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
+
+    dpiCall(Safe, stmt_fetch, [Stmt2]),
+    assert_getQueryValue(Safe, Stmt2, 1, #{fseconds => 20000, seconds => 13, minutes => 14, hours => 9, days => 7 }),
+    
+    dpiCall(Safe, data_release, [BindData]),
+    dpiCall(Safe, stmt_release, [Stmt2]),
+    ?assertEqual(Query_cols, 1),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi10b">>).
+
+%% tests no new APIs, but whether timezones work correctly
+data_setTimestamp_test_1({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table timezones">>), 
     ?EXEC_STMT(Conn, <<"ALTER SESSION SET TIME_ZONE='-7:13'">>), 
     ?EXEC_STMT(Conn, <<"CREATE TABLE timezones (c_id NUMBER, c_tstz TIMESTAMP(9) WITH TIME ZONE)">>),
@@ -447,7 +493,8 @@ fail_stmt_released_too_early({Safe, Context, Conn}) ->
 
     end.
 
-define_type({Safe, _Context, Conn}) -> 
+
+stmt_defineValue_test({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi11">>),
     ?EXEC_STMT(Conn, <<"create table test_dpi11 (a integer)">>),
     ?EXEC_STMT(Conn, <<"insert into test_dpi11 values(123)">>),
@@ -465,7 +512,9 @@ define_type({Safe, _Context, Conn}) ->
     assert_getQueryValue(Safe, Stmt2, 1, 123),
     dpiCall(Safe, stmt_release, [Stmt2]).
 
-iterate({Safe, _Context, Conn}) -> 
+%% tests no new APIs, but demonstrates how to iterate a table, sending its
+%% contents to the database and then reading back the contents
+stmt_defineValue_test_1({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi12">>), 
     
 
@@ -509,7 +558,8 @@ iterate({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_release, [Stmt]),
     ?assertEqual(LittleBobbyTables, R).
 
-commit_rollback({Safe, _Context, Conn}) -> 
+% tests conn_commit and conn_rollback
+conn_commit_rollback({Safe, _Context, Conn}) -> 
     ?EXEC_STMT(Conn, <<"drop table test_dpi13">>), 
     
     ?EXEC_STMT(Conn, <<"create table test_dpi13 (a integer)">>),   %% contains 0 rows
@@ -538,7 +588,7 @@ commit_rollback({Safe, _Context, Conn}) ->
     assert_getQueryValue(Safe, Stmt3, 1, 1.0),
     dpiCall(Safe, stmt_release, [Stmt3]).
 
-ping_close({Safe, _Context, Conn}) -> 
+conn_ping_test({Safe, _Context, Conn}) -> 
     % valid connection: ping succeeds
     ok = dpiCall(Safe, conn_ping, [Conn]),
     % invalidate connection
@@ -548,7 +598,7 @@ ping_close({Safe, _Context, Conn}) ->
         error, {error, _File, _Line, _}, dpiCall(Safe, conn_ping, [Conn])
     ).
 
-var_define({Safe, _Context, Conn}) -> 
+var_define_test({Safe, _Context, Conn}) -> 
     %% the variables need to be of at least size 100 when used with stmt_fetch
     %% because it will try to fetch 100 rows per default, even if there aren't as many
     #{var := Var1, data := DataRep1} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
@@ -611,7 +661,8 @@ var_define({Safe, _Context, Conn}) ->
 
     dpiCall(Safe, stmt_release, [Stmt]).
 
-var_bind({Safe, _Context, Conn}) -> 
+% tests conn_newVar, var_release, stmt_bindByName and 
+conn_newVar_test({Safe, _Context, Conn}) -> 
     #{var := Var1, data := DataRep1} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
     #{var := Var2, data := DataRep2} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
 
@@ -657,7 +708,7 @@ var_bind({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_release, [Stmt]),
     dpiCall(Safe, stmt_release, [Stmt2]).
 
-var_setFromBytes({Safe, _Context, Conn}) -> 
+var_setFromBytes_test({Safe, _Context, Conn}) -> 
     #{var := Var, data := DataRep} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null]),
 
     ?EXEC_STMT(Conn, <<"drop table test_dpi16">>), 
@@ -681,40 +732,41 @@ var_setFromBytes({Safe, _Context, Conn}) ->
     dpiCall(Safe, var_release, [Var]),
     dpiCall(Safe, stmt_release, [Stmt]).
 
-set_get_data_ptr({Safe, _Context, Conn}) -> 
-
+%% tests data_get, data_setInt64, data_setIntervalDS, data_setIntervalYM and
+%% data_setTimestamp when use on a dpiData that is used via a pointer
+data_get_test({Safe, _Context, Conn}) -> 
     #{var := IntVar, data := [IntData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null]),
     dpiCall(Safe, data_setInt64, [IntData, 12345]),
     12345 = dpiCall(Safe, data_get, [IntData]),
-    dpiCall(Safe, var_release, [IntVar]),
     dpiCall(Safe, data_release, [IntData]),
+    dpiCall(Safe, var_release, [IntVar]),
 
     #{var := DSVar, data := [DSData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 0, true, false, null]),
     dpiCall(Safe, data_setIntervalDS, [DSData, 12, 5, 4, 3, 2]),
     #{days := 12, hours := 5, minutes := 4, seconds := 3, fseconds := 2 } = dpiCall(Safe, data_get, [DSData]),
-    dpiCall(Safe, var_release, [DSVar]),
     dpiCall(Safe, data_release, [DSData]),
+    dpiCall(Safe, var_release, [DSVar]),
 
     #{var := YMVar, data := [YMData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 0, true, false, null]),
     dpiCall(Safe, data_setIntervalYM, [YMData, 1990, 8]),
     #{years := 1990, months := 8} = dpiCall(Safe, data_get, [YMData]),
-    dpiCall(Safe, var_release, [YMVar]),
     dpiCall(Safe, data_release, [YMData]),
+    dpiCall(Safe, var_release, [YMVar]),
 
     #{var := TSVar, data := [TSData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 0, true, false, null]),
     dpiCall(Safe, data_setTimestamp, [TSData, 1990, 8, 22, 22, 12, 54, 3, 4, 5]),
     #{year := 1990, month := 8, day := 22, hour := 22, minute := 12, second := 54, fsecond := 3, tzHourOffset := 4, tzMinuteOffset := 5} = dpiCall(Safe, data_get, [TSData]),
-    dpiCall(Safe, var_release, [TSVar]),
     dpiCall(Safe, data_release, [TSData]),
+    dpiCall(Safe, var_release, [TSVar]),
 
     #{var := StrVar, data := [StrData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null]),
     %% according to https://oracle.github.io/odpi/doc/functions/dpiData.html dpiData_setBytes should NOT be used for vars, so var_setFromBytes is used instead
     dpiCall(Safe, var_setFromBytes, [StrVar, 0, <<"abc">>]),
     <<"abc">> = dpiCall(Safe, data_get, [StrData]),
-    dpiCall(Safe, var_release, [StrVar]),
-    dpiCall(Safe, data_release, [StrData]).
+    dpiCall(Safe, data_release, [StrData]),
+    dpiCall(Safe, var_release, [StrVar]).
 
-data_is_null({Safe, _Context, Conn}) ->
+data_setIsNull_test({Safe, _Context, Conn}) ->
     #{var := Var, data := [Data]} = dpiCall(
         Safe, conn_newVar, [
             Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0,
@@ -742,7 +794,7 @@ data_is_null({Safe, _Context, Conn}) ->
     dpiCall(Safe, data_release, [Data]),
     dpiCall(Safe, var_release, [Var]).
 
-var_array({Safe, _Context, Conn}) ->
+var_setNumElementsInArray_test({Safe, _Context, Conn}) ->
     #{var := Var, data := DataRep} = dpiCall(
         Safe, conn_newVar, [
             Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
@@ -770,7 +822,7 @@ var_array({Safe, _Context, Conn}) ->
     ?EXEC_STMT(Conn, <<"insert into test_dpi17 values(footype(2, 4))">>),
     dpiCall(Safe, conn_commit, [Conn]).
 
-client_server_version({Safe, Context, Conn}) -> 
+context_getClientVersion_test({Safe, Context, Conn}) -> 
     #{
         releaseNum := CRNum, versionNum := CVNum, fullVersionNum := CFNum
     } = dpiCall(Safe, context_getClientVersion, [Context]),
@@ -833,7 +885,7 @@ catch_error_message_conn({Safe, _, _}) ->
         ])
     ).
 
-get_num_query_cols({Safe, _Context, Conn}) -> 
+stmt_getNumQueryColumns_test({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(
         Safe, conn_prepareStmt, [
             Conn, false, <<"select 12345 from dual">>, <<"">>
@@ -1012,38 +1064,40 @@ cleanup({Safe, Context, Connnnection}) ->
 -define(F(__Fn), {??__Fn, fun __Fn/1}).
 
 -define(STATEMENT_TESTS, [
-    ?F(simple_fetch),
-    ?F(create_insert_select_drop),
-    ?F(truncate_table),
+    ?F(stmt_execute_test),
+    ?F(stmt_execute_test_1),
+    ?F(stmt_execute_test_2),
     ?F(drop_nonexistent_table),
-    ?F(update_where),
-    ?F(select_from_where),
-    ?F(get_column_names),
-    ?F(bind_by_pos),
-    ?F(bind_by_name),
-    ?F(in_binding),
-    ?F(bind_datatypes),
+    ?F(stmt_execute_test_3),
+    ?F(stmt_execute_test_4),
+    ?F(stmt_getQueryInfo_test),
+    ?F(stmt_bindValueByPos_test),
+    ?F(stmt_bindValueByName_test),
+    ?F(data_setBytes_test),
+    ?F(data_setTimestamp_test),
+    ?F(data_setIntervalYM_test),
+    ?F(data_setIntervalDS_test),
+    ?F(data_setTimestamp_test_1),
     ?F(fail_stmt_released_too_early),
-    ?F(tz_test),
-    ?F(define_type),
-    ?F(iterate),
-    ?F(commit_rollback),
-    ?F(var_define),
-    ?F(var_bind),
-    ?F(var_setFromBytes),
-    ?F(set_get_data_ptr),
-    ?F(data_is_null),
-    ?F(var_array),
-    ?F(client_server_version),
+    ?F(stmt_defineValue_test),
+    ?F(stmt_defineValue_test_1),
+    ?F(conn_commit_rollback),
+    ?F(var_define_test),
+    ?F(conn_newVar_test),
+    ?F(var_setFromBytes_test),
+    ?F(data_get_test),
+    ?F(data_setIsNull_test),
+    ?F(var_setNumElementsInArray_test),
+    ?F(context_getClientVersion_test),
     ?F(catch_error_message),
     ?F(catch_error_message_conn),
-    ?F(get_num_query_cols),
+    ?F(stmt_getNumQueryColumns_test),
     ?F(stored_procedure),
     ?F(ref_cursor)
 ]).
 
 -define(CONNECTION_TESTS, [
-    ?F(ping_close)
+    ?F(conn_ping_test)
 ]).
 
 unsafe_statements_test_() ->

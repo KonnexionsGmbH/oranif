@@ -12,7 +12,7 @@ DPI_NIF_FUN(context_create)
 {
     CHECK_ARGCOUNT(2);
 
-    int major, minor;
+    unsigned int major, minor;
     dpiErrorInfo error;
 
     if (!enif_get_uint(env, argv[0], &major))
@@ -51,7 +51,7 @@ DPI_NIF_FUN(context_getError)
     dpiErrorInfo error;
     dpiContext_res *contextRes;
 
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
         BADARG_EXCEPTION(0, "resource context");
 
     dpiContext_getError(contextRes->context, &error);
@@ -66,7 +66,7 @@ DPI_NIF_FUN(context_destroy)
 
     dpiContext_res *contextRes;
 
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
         BADARG_EXCEPTION(0, "resource context");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
@@ -84,7 +84,7 @@ DPI_NIF_FUN(context_getClientVersion)
 
     dpiContext_res *contextRes;
 
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
         BADARG_EXCEPTION(0, "resource context");
 
     dpiVersionInfo version;

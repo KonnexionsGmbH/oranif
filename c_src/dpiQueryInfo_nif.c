@@ -18,7 +18,8 @@ DPI_NIF_FUN(queryInfo_get)
 
     dpiQueryInfo_res *queryInfoRes;
 
-    if (!enif_get_resource(env, argv[0], dpiQueryInfo_type, &queryInfoRes))
+    if (!enif_get_resource(
+            env, argv[0], dpiQueryInfo_type, (void **)&queryInfoRes))
         BADARG_EXCEPTION(0, "resource queryinfo");
 
     dpiQueryInfo qi = queryInfoRes->queryInfo;
@@ -83,7 +84,7 @@ DPI_NIF_FUN(queryInfo_delete)
 
     dpiQueryInfo_res *qRes;
 
-    if ((!enif_get_resource(env, argv[0], dpiQueryInfo_type, &qRes)))
+    if ((!enif_get_resource(env, argv[0], dpiQueryInfo_type, (void **)&qRes)))
         BADARG_EXCEPTION(0, "resource queryInfo");
 
     enif_release_resource(qRes);

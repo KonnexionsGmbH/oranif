@@ -1,22 +1,17 @@
-# ocinif
-Oracle Call Interface driver using dirty NIFs
-
-Requires Erlang/OTP 20 or later with full dirty nif support.
-
-All remote oci operations are run within the pool of ERL_NIF_DIRTY_JOB_IO_BOUND threads
-
-Status: Early prototype
-
-Todo:
-
-- [ ] Tests
+# oranif
+Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.
 
 ## Development
 Currently builds in Window, Linux and OS X
-### Windows
+
+## Compile (as OSs)
+
 ```sh
 rebar3 compile
+ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
+# see dpi_nif.h for ORANIF_DEBUG values and debug log granularities
 ```
+
 ### OSX/Linux
 
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
@@ -36,11 +31,8 @@ export ERL_INTERFACE_DIR=$(find /usr/lib/erlang/lib/ -maxdepth 1 -type d -name e
 ...
 ```
 
-#### Compile
-
-```sh
-rebar3 compile
-```
+## Testing
+There are some eunit tests which can be executed through `rebar3 do clean, compile, eunit` (Oracle Server connect info **MUST** be supplied through `tests/connect.config` first).
 
 ## DB Init SQL (XE)
 ```cmd

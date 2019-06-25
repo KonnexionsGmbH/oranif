@@ -27,7 +27,12 @@
 
 -export([parse_transform/2]).
 
+-ifdef('ORANIF_DEBUG').
 -define(L(_F, _A), io:format("[~p:~p] "_F, [?MODULE, ?LINE | _A])).
+-else.
+-define(L(_F, _A), ok).
+-endif.
+
 -define(L(_S), ?L(_S, [])).
 -define(N(_F, _A), ?L("[~p] "_F, [get(nif_class) | _A])).
 -define(N(_S), ?N(_S, [])).

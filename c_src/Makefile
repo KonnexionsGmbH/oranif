@@ -1,45 +1,44 @@
-MKDIR_P = mkdir -p
-
 O = priv
 S = c_src
 T = test
-ODPI_LIB_DIR = $(S)/odpi/lib
 
 ifndef OTP_ERTS_DIR
 $(error OTP_ERTS_DIR is not set)
 endif
 
-ORANIF_SRCS = $(wildcard  $(S)/*.c)
+SRCS = $(wildcard $(S)/*.c)
+ODPIROOT = $(S)/odpi
+ODPI_LIB_DIR = $(S)/odpi/lib
 
-TARGETS = $(O)/dpi_nif.so
+TARGET = $(O)/dpi_nif.so
 
-BASECXXFLAGS = -ggdb -Wall -fPIC -shared -std=c11
 INCLUDEDIRS = -I$(S) -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
+CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11
 LINKDIRS = -L$(ODPI_LIB_DIR)
-BASELINKFLAGS = -lodpic
+LDFLAGS  = $(LINKDIRS) -shared -lodpic
 
 ifeq ($(shell uname -s), Darwin)
-	CXXFLAGS = $(BASECXXFLAGS) -dynamiclib 
-	LINKFLAGS = $(BASELINKFLAGS) -flat_namespace -undefined suppress
-else
-	CXXFLAGS = $(BASECXXFLAGS)
-	LINKFLAGS = $(BASELINKFLAGS)
+	CFLAGS += -dynamiclib 
+	LDFLAGS += -flat_namespace -undefined suppress
 endif
 
-all: priv $(TARGETS)
+all: priv odpi $(TARGET)
 
-$(TARGETS): odpi $(ORANIF_SRCS)
-	gcc -o $@ $(CXXFLAGS) $(INCLUDEDIRS) $(LINKDIRS) $(ORANIF_SRCS) $(LINKFLAGS)
+$(TARGET): $(SRCS)
+	gcc -o $@ $(CFLAGS) $(SRCS) $(LDFLAGS)
 
 priv:
-	$(MKDIR_P) $(O)
+	mkdir -p $(O)
 
 odpi:
-	@if [ ! -d "c_src/odpi" ] ;\
+	@if [ ! -d "$(ODPIROOT)" ] ;\
 	then \
-		cd c_src && (git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi) \
+		cd $(S) && (git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi) \
 	fi
-	cd c_src/odpi && make
+	cd $(ODPIROOT) && make
 
 clean:
-	rm -rf priv
+	rm -rf $(O)
+
+clean_all: clean
+	rm -rf $(ODPIROOT)

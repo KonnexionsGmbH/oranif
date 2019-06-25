@@ -1,6 +1,10 @@
 #include "dpiData_nif.h"
 #include "dpiStmt_nif.h"
 
+#ifndef __WIN32__
+#include <string.h>
+#endif
+
 ErlNifResourceType *dpiData_type;
 ErlNifResourceType *dpiDataPtr_type;
 
@@ -40,7 +44,7 @@ DPI_NIF_FUN(data_ctor)
     dpiData_res *data = enif_alloc_resource(dpiData_type, sizeof(dpiData_res));
     data->dpiData.isNull = 1; // starts out being null
 
-    // erlang process independent invironment to persist data between NIF calls
+    // erlang process independent environment to persist data between NIF calls
     data->env = enif_alloc_env();
 
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
@@ -59,9 +63,9 @@ DPI_NIF_FUN(data_setTimestamp)
     int year, month, day, hour, minute, second, fsecond, tzHourOffset,
         tzMinuteOffset;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
     else
         BADARG_EXCEPTION(0, "resource data/ptr");
@@ -103,11 +107,11 @@ DPI_NIF_FUN(data_setIntervalDS)
 
     int days, hours, minutes, seconds, fseconds;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -142,11 +146,11 @@ DPI_NIF_FUN(data_setIntervalYM)
 
     int years, months;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -174,11 +178,11 @@ DPI_NIF_FUN(data_setInt64)
 
     int64_t amount;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -198,15 +202,15 @@ DPI_NIF_FUN(data_setBytes)
 {
     CHECK_ARGCOUNT(2);
 
-    dpiData_res *dataRes;
-    dpiDataPtr_res *dataPtr;
-    dpiData *data;
+    dpiData_res *dataRes = NULL;
+    dpiDataPtr_res *dataPtr = NULL;
+    dpiData *data = NULL;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -219,7 +223,7 @@ DPI_NIF_FUN(data_setBytes)
     if (!enif_inspect_binary(dataRes->env, binData, &ptr))
         BADARG_EXCEPTION(1, "binary data");
 
-    dpiData_setBytes(data, ptr.data, ptr.size);
+    dpiData_setBytes(data, (char *)ptr.data, ptr.size);
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -233,11 +237,11 @@ DPI_NIF_FUN(data_setIsNull)
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -261,7 +265,7 @@ DPI_NIF_FUN(data_get)
 
     dpiDataPtr_res *dataRes;
 
-    if (!enif_get_resource(env, argv[0], dpiDataPtr_type, &dataRes))
+    if (!enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataRes))
         BADARG_EXCEPTION(0, "resource data");
 
     ERL_NIF_TERM dataRet;
@@ -382,7 +386,8 @@ DPI_NIF_FUN(data_get)
             {
                 // ref cursor changed
                 enif_release_resource(stmtRes);
-                stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+                stmtRes = enif_alloc_resource(
+                    dpiStmt_type, sizeof(dpiStmt_res));
                 stmtRes->stmt = data->value.asStmt;
                 dataRes->stmtRes = stmtRes;
             }
@@ -406,11 +411,11 @@ DPI_NIF_FUN(data_getInt64) // TODO: unit test
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
     {
         data = dataPtr->dpiDataPtr;
     }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -436,9 +441,9 @@ DPI_NIF_FUN(data_getBytes) // TODO: unit test
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
     else
         BADARG_EXCEPTION(0, "resource data/ptr");
@@ -466,12 +471,13 @@ DPI_NIF_FUN(data_release)
         dpiDataPtr_res *dataPtrRes;
     } res;
 
-    if (enif_get_resource(env, argv[0], dpiData_type, &res.dataRes))
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&res.dataRes))
     {
         // nothing to set to NULL
         enif_release_resource(res.dataRes);
     }
-    else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
+    else if (enif_get_resource(
+                 env, argv[0], dpiDataPtr_type, (void **)&res.dataPtrRes))
     {
         res.dataPtrRes->dpiDataPtr = NULL;
         if (res.dataPtrRes->isQueryValue == 1)

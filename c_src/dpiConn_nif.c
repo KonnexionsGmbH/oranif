@@ -24,7 +24,7 @@ DPI_NIF_FUN(conn_create)
     dpiContext_res *contextRes;
     ErlNifBinary userName, password, connectString;
     size_t commonParamsMapSize = 0;
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
         BADARG_EXCEPTION(0, "resource context");
     if (!enif_inspect_binary(env, argv[1], &userName))
         BADARG_EXCEPTION(1, "string/binary userName");
@@ -54,8 +54,7 @@ DPI_NIF_FUN(conn_create)
         char encodeStr[128];
         if (enif_get_map_value(env, argv[4], ATOM_encoding, &mapval))
         {
-            if (
-                !enif_get_string(
+            if (!enif_get_string(
                     env, mapval, encodeStr, sizeof(encodeStr), ERL_NIF_LATIN1))
                 BADARG_EXCEPTION(4, "string\0 commonParams.encoding");
             commonParams.encoding = encodeStr;
@@ -64,9 +63,9 @@ DPI_NIF_FUN(conn_create)
         char nencodeStr[128];
         if (enif_get_map_value(env, argv[4], ATOM_nencoding, &mapval))
         {
-            if (
-                !enif_get_string(
-                    env, mapval, nencodeStr, sizeof(nencodeStr), ERL_NIF_LATIN1))
+            if (!enif_get_string(
+                    env, mapval, nencodeStr, sizeof(nencodeStr),
+                    ERL_NIF_LATIN1))
                 BADARG_EXCEPTION(4, "string\0 commonParams.nencoding");
             commonParams.nencoding = nencodeStr;
         }
@@ -78,9 +77,9 @@ DPI_NIF_FUN(conn_create)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         contextRes->context,
         dpiConn_create(
-            contextRes->context, userName.data, userName.size,
-            password.data, password.size, connectString.data,
-            connectString.size,
+            contextRes->context, (const char *)userName.data, userName.size,
+            (const char *)password.data, password.size,
+            (const char *)connectString.data, connectString.size,
             &commonParams,
             NULL, // TODO implement connCreateParams
             &connRes->conn),
@@ -103,7 +102,7 @@ DPI_NIF_FUN(conn_prepareStmt)
     dpiConn_res *connRes;
     ErlNifBinary sql, tag;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     if (enif_compare(argv[1], ATOM_TRUE) == 0)
@@ -124,8 +123,9 @@ DPI_NIF_FUN(conn_prepareStmt)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         connRes->context,
         dpiConn_prepareStmt(
-            connRes->conn, scrollable, sql.data, sql.size,
-            tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt),
+            connRes->conn, scrollable, (const char *)sql.data, sql.size,
+            tag.size > 0 ? (const char *)tag.data : NULL, tag.size,
+            &stmtRes->stmt),
         stmtRes);
 
     stmtRes->context = connRes->context;
@@ -145,12 +145,12 @@ DPI_NIF_FUN(conn_newVar)
     dpiNativeTypeNum nativeTypeNum = 0;
     uint32_t maxArraySize = 0;
     uint32_t size = 0;
-    char sizeIsBytesBuf[32];
     int sizeIsBytes = 0, isArray = 0;
     dpiData *data;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
+
     DPI_ORACLE_TYPE_NUM_FROM_ATOM(argv[1], oracleTypeNum);
     DPI_NATIVE_TYPE_NUM_FROM_ATOM(argv[2], nativeTypeNum);
     if (!enif_get_uint(env, argv[3], &maxArraySize))
@@ -229,7 +229,7 @@ DPI_NIF_FUN(conn_commit)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
@@ -247,7 +247,7 @@ DPI_NIF_FUN(conn_rollback)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
@@ -265,7 +265,7 @@ DPI_NIF_FUN(conn_ping)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
@@ -283,7 +283,7 @@ DPI_NIF_FUN(conn_release)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
@@ -305,16 +305,16 @@ DPI_NIF_FUN(conn_close)
     ErlNifBinary tag;
     ERL_NIF_TERM head, tail;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
+
     if (!enif_is_list(env, argv[1]) &&
         !enif_get_list_cell(env, argv[1], &head, &tail))
         BADARG_EXCEPTION(1, "atom list modes");
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");
 
-    dpiConnCloseMode m;
-    dpiConnCloseMode mode = 0;
+    dpiConnCloseMode m = 0, mode = 0;
     unsigned int len;
     enif_get_list_length(env, argv[1], &len);
     if (len > 0)
@@ -330,7 +330,7 @@ DPI_NIF_FUN(conn_close)
         connRes->context,
         dpiConn_close(
             connRes->conn, mode,
-            tag.size > 0 ? tag.data : NULL,
+            tag.size > 0 ? (const char *)tag.data : NULL,
             tag.size),
         NULL);
 
@@ -344,13 +344,13 @@ DPI_NIF_FUN(conn_getServerVersion)
 
     dpiConn_res *connRes = NULL;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
     dpiVersionInfo version;
     char *releaseString;
-    int releaseStringLength;
-    dpiConn_getServerVersion(connRes->conn, &releaseString,
+    uint32_t releaseStringLength;
+    dpiConn_getServerVersion(connRes->conn, (const char **)&releaseString,
                              &releaseStringLength, &version);
     ERL_NIF_TERM map = enif_make_new_map(env);
 

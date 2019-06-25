@@ -11,7 +11,7 @@ typedef struct
 
 typedef struct
 {
-    dpiStmt *stmt;    
+    dpiStmt *stmt;
     dpiContext *context;
 } dpiStmt_res;
 
@@ -33,8 +33,8 @@ extern DPI_NIF_FUN(stmt_getQueryValue);
 extern DPI_NIF_FUN(stmt_getNumQueryColumns);
 extern DPI_NIF_FUN(stmt_release);
 
-#define DPISTMT_NIFS                            \
-        IOB_NIF(stmt_bindByName, 3),         \
+#define DPISTMT_NIFS                         \
+    IOB_NIF(stmt_bindByName, 3),             \
         IOB_NIF(stmt_bindByPos, 3),          \
         IOB_NIF(stmt_bindValueByName, 4),    \
         IOB_NIF(stmt_bindValueByPos, 4),     \
@@ -45,7 +45,7 @@ extern DPI_NIF_FUN(stmt_release);
         IOB_NIF(stmt_getQueryInfo, 2),       \
         IOB_NIF(stmt_getQueryValue, 2),      \
         IOB_NIF(stmt_getNumQueryColumns, 1), \
-        DEF_NIF(stmt_release, 1)             \
+        DEF_NIF(stmt_release, 1)
 
 #define DPI_EXEC_MODE_FROM_ATOM(_atom, _assign)                \
     A2M(DPI_MODE_EXEC_DEFAULT, _atom, _assign);                \

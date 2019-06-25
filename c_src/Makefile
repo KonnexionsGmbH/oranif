@@ -5,13 +5,18 @@ S = c_src
 T = test
 ODPI_LIB_DIR = $(S)/odpi/lib
 
-OBJS = $(O)/dpi_nif.o $(O)/dpiContext_nif.o $(O)/dpiConn_nif.o $(O)/dpiStmt_nif.o $(O)/dpiData_nif.o $(O)/dpiQueryInfo_nif.o $(O)/dpiVar_nif.o
+ifndef OTP_ERTS_DIR
+$(error OTP_ERTS_DIR is not set)
+endif
+
+ORANIF_SRCS = $(wildcard  $(S)/*.c)
+
 TARGETS = $(O)/dpi_nif.so
 
 BASECXXFLAGS = -ggdb -Wall -fPIC -shared -std=c11
-INCLUDEDIRS = -I$(S) -I$(ERL_INTERFACE_DIR)/include -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
-LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(ODPI_LIB_DIR)
-BASELINKFLAGS = -lerl_interface -lei -lodpic
+INCLUDEDIRS = -I$(S) -I"$(OTP_ERTS_DIR)/include" -I"$(S)/odpi/include"
+LINKDIRS = -L$(ODPI_LIB_DIR)
+BASELINKFLAGS = -lodpic
 
 ifeq ($(shell uname -s), Darwin)
 	CXXFLAGS = $(BASECXXFLAGS) -dynamiclib 
@@ -23,10 +28,8 @@ endif
 
 all: priv $(TARGETS)
 
-ORANIF_SRCS = $(OBJS:$(O)/%.o=$(S)/%.c)
-
 $(TARGETS): odpi $(ORANIF_SRCS)
-	gcc -o $@ $(CXXFLAGS) $(INCLUDEDIRS) $(LINKDIRS) $(LINKFLAGS) $(ORANIF_SRCS)
+	gcc -o $@ $(CXXFLAGS) $(INCLUDEDIRS) $(LINKDIRS) $(ORANIF_SRCS) $(LINKFLAGS)
 
 priv:
 	$(MKDIR_P) $(O)

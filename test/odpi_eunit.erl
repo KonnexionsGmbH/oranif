@@ -1063,6 +1063,35 @@ ref_cursor([Context, Conn]) ->
     dpi:stmt_close(Stmt, <<>>),
     ?_assert(true).
 
+-define(CONN_ID, "oranif_eunit_set_client_id_test").
+set_client_id([_Context, Conn]) ->
+    CountStmt = dpi:conn_prepareStmt(
+        Conn, false,
+        <<
+            "select count(*) from gv$session s join gv$process p "
+            "on p.addr = s.paddr and p.inst_id = s.inst_id "
+            "where s.CLIENT_IDENTIFIER = '"?CONN_ID"'"
+        >>,
+        <<"">>
+    ),
+    dpi:stmt_execute(CountStmt, []),
+    dpi:stmt_fetch(CountStmt),
+    #{data := CIMatchCountData} = dpi:stmt_getQueryValue(CountStmt, 1),
+    CIMatchCount = dpi:data_get(CIMatchCountData),
+    dpi:data_release(CIMatchCountData),
+    ?assertEqual(0.0, CIMatchCount),
+
+    ?assertEqual(ok, dpi:conn_setClientIdentifier(Conn, <<?CONN_ID>>)),
+    dpi:stmt_execute(CountStmt, []),
+    dpi:stmt_fetch(CountStmt),
+    #{data := CIMatchCountData1} = dpi:stmt_getQueryValue(CountStmt, 1),
+    CIMatchCount1 = dpi:data_get(CIMatchCountData1),
+    dpi:data_release(CIMatchCountData1),
+    ?assertEqual(1.0, CIMatchCount1),
+
+    dpi:stmt_close(CountStmt, <<>>),
+    ?_assert(true).
+
 %% create table                              ✓
 %% drop table                                ✓
 %% truncate table                            ✓
@@ -1179,5 +1208,6 @@ eunit_test_() ->
         fun catch_error_message_conn/1,
         fun get_num_query_cols/1,
         fun stored_procedure/1,
+        fun set_client_id/1,
         fun ref_cursor/1
     ]}].

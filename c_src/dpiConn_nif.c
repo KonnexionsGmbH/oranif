@@ -370,3 +370,24 @@ DPI_NIF_FUN(conn_getServerVersion)
     RETURNED_TRACE;
     return map;
 }
+
+DPI_NIF_FUN(conn_setClientIdentifier)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiConn_res *connRes = NULL;
+    ErlNifBinary value;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_inspect_binary(env, argv[1], &value))
+        BADARG_EXCEPTION(1, "string/binary value");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_setClientIdentifier(
+            connRes->conn, value.data, value.size),
+        NULL);
+
+    return ATOM_OK;
+}

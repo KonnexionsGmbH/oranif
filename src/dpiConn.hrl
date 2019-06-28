@@ -13,7 +13,8 @@
     {conn_newVar, [reference, atom, atom, integer, integer, atom, atom, atom]}, %% bools are to be checked if atom true|false in NIF-C code
     {conn_ping, [reference]},
     {conn_prepareStmt, [reference, atom, binary, binary]}, %% bool to be checked if atom true|false in NIF-C code
-    {conn_rollback, [reference]}
+    {conn_rollback, [reference]},
+    {conn_setClientIdentifier, [reference, binary]}
 ]}).
 
 -endif. % _DPI_CONN_HRL_

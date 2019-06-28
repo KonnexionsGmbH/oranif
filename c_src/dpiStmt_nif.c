@@ -275,17 +275,22 @@ DPI_NIF_FUN(stmt_bindByName)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(stmt_release)
+DPI_NIF_FUN(stmt_close)
 {
-    CHECK_ARGCOUNT(1);
+    CHECK_ARGCOUNT(2);
 
     dpiStmt_res *stmtRes;
+    ErlNifBinary tag;
 
     if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
         BADARG_EXCEPTION(0, "resource statement");
+    if (!enif_inspect_binary(env, argv[1], &tag))
+        BADARG_EXCEPTION(1, "string tag");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        stmtRes->context, dpiStmt_release(stmtRes->stmt), stmtRes);
+        stmtRes->context,
+        dpiStmt_close(stmtRes->stmt, (const char *)tag.data, tag.size),
+        stmtRes);
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -320,7 +325,7 @@ DPI_NIF_FUN(stmt_defineValue)
 
     dpiStmt_res *stmtRes;
     uint32_t pos = 0, size = 0;
-    dpiOracleTypeNum oraType = DPI_ORACLE_TYPE_VARCHAR; 
+    dpiOracleTypeNum oraType = DPI_ORACLE_TYPE_VARCHAR;
     dpiNativeTypeNum nativeType = DPI_NATIVE_TYPE_INT64;
     int sizeIsBytes = 0;
 

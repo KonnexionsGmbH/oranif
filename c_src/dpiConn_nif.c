@@ -277,26 +277,6 @@ DPI_NIF_FUN(conn_ping)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(conn_release)
-{
-    CHECK_ARGCOUNT(1);
-
-    dpiConn_res *connRes;
-
-    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
-        BADARG_EXCEPTION(0, "resource connection");
-
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_release(connRes->conn),
-        NULL);
-
-    enif_release_resource(connRes);
-
-    RETURNED_TRACE;
-    return ATOM_OK;
-}
-
 DPI_NIF_FUN(conn_close)
 {
     CHECK_ARGCOUNT(3);

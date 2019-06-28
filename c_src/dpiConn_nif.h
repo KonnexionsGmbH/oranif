@@ -20,7 +20,6 @@ extern DPI_NIF_FUN(conn_getServerVersion);
 extern DPI_NIF_FUN(conn_newVar);
 extern DPI_NIF_FUN(conn_ping);
 extern DPI_NIF_FUN(conn_prepareStmt);
-extern DPI_NIF_FUN(conn_release);
 extern DPI_NIF_FUN(conn_rollback);
 
 #define DPICONN_NIFS                       \
@@ -31,7 +30,6 @@ extern DPI_NIF_FUN(conn_rollback);
         DEF_NIF(conn_newVar, 8),           \
         DEF_NIF(conn_ping, 1),             \
         IOB_NIF(conn_prepareStmt, 4),      \
-        DEF_NIF(conn_release, 1),          \
         DEF_NIF(conn_rollback, 1)
 
 #endif // _conn_NIF_H_

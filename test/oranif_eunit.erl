@@ -13,1019 +13,1834 @@
     end)()
 ).
 
-%% gets a value out of a fetched set, compares it using an assertation,
-%% then cleans is up again
-assert_getQueryValue(Safe, Stmt, Index, Value) ->
-    #{data := QueryValueRef} = dpiCall(Safe, stmt_getQueryValue, [Stmt, Index]),
-    ?assertEqual(Value, dpiCall(Safe, data_get, [QueryValueRef])),
-	dpiCall(Safe, data_release, [QueryValueRef]),
+%%% NEW API TESTS
+
+%%%
+%%% CONTEXT APIS
+%%%
+
+contextCreate_test({Safe}) ->
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+    ?assert(is_reference(Context)),
+    dpiCall(Safe, context_destroy, [Context]).
+
+contextCreate_NegativeMajType({Safe}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, context_create, [foobar, ?DPI_MINOR_VERSION])),
+    ok.
+
+contextCreate_NegativeMinType({Safe}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, foobar])),
+    ok.
+
+%% fails due to nonsense major version
+contextCreate_NegativeFailCall({Safe}) ->
+    ?assertException(error, {error, _},
+        dpiCall(Safe, context_create, [1337, ?DPI_MINOR_VERSION])),
+    ok.
+
+contextDestroy_test({Safe}) ->
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+    ?assertEqual(ok, dpiCall(Safe, context_destroy, [Context])),
+    ok.
+
+contextDestroy_NegativeContextType({Safe}) ->
+   ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, context_destroy, [foobar])),
+    ok.
+
+contextDestroy_NegativeContextState({Safe}) ->
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+    ?assertEqual(ok, dpiCall(Safe, context_destroy, [Context])), %% destroy the context
+    ?assertException(error, {error, _File, _Line, _Exception}, %% try to destroy it again
+        dpiCall(Safe, context_destroy, [Context])),
+    ok.
+
+contextGetClientVersion_test({Safe}) -> 
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+
+    #{
+        releaseNum := CRNum, versionNum := CVNum, fullVersionNum := CFNum
+    } = dpiCall(Safe, context_getClientVersion, [Context]),
+
+    ?assert(is_integer(CRNum)),
+    ?assert(is_integer(CVNum)),
+    ?assert(is_integer(CFNum)).
+
+contextGetClientVersion_NegativeContextType({Safe}) -> 
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, context_getClientVersion, [foobar])),
+    dpiCall(Safe, context_destroy, [Context]),
+    ok.
+
+%% fails due to invalid context
+contextGetClientVersion_NegativeFailCall({Safe}) -> 
+    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
+    ?assertEqual(ok, dpiCall(Safe, context_destroy, [Context])), %% context is now invalid
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, context_getClientVersion, [foobar])), %% try to get client version of invalid context
     ok.
 
 
-assert_getQueryInfo(Safe, Stmt, Index, Value, Atom) ->
-    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, Index]),
-    ?assertEqual(Value, maps:get(Atom, dpiCall(Safe, queryInfo_get, [QueryInfoRef]))),
-	dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
+%%%
+%%% CONN APIS
+%%%
+
+connCreate_test({Safe, Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    ?assert(is_reference(Conn)),
+    dpiCall(Safe, conn_release, [Conn]).
+
+connCreate_NegativeContextType({Safe, _Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [foobar, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}])),
     ok.
 
-extract_getQueryValue(Safe, Stmt, Index) ->
-    #{data := QueryValueRef} = dpiCall(Safe, stmt_getQueryValue, [Stmt, Index]),
-    Result = dpiCall(Safe, data_get, [QueryValueRef]),
-	dpiCall(Safe, data_release, [QueryValueRef]),
-    Result.
+connCreate_NegativeUsernameType({Safe, Context}) ->
+    #{tns := Tns, user := _User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, foobar, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}])),
+    ok.
 
-extract_getQueryInfo(Safe, Stmt, Index, Atom) ->
-    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, Index]),
-    Result = maps:get(Atom, dpiCall(Safe, queryInfo_get, [QueryInfoRef])),
-	dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
-    Result.
+connCreate_NegativePassType({Safe, Context}) ->
+    #{tns := Tns, user := User, password := _Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, User, foobat, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}])),
+    ok.
+
+connCreate_NegativeTNSType({Safe, Context}) ->
+    #{tns := _Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, User, Password, foobar,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}])),
+    ok.
+
+connCreate_NegativeParamsType({Safe, Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            foobar, #{}])),
+    ok.
+
+connCreate_NegativeEncodingType({Safe, Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding =>foobar, nencoding => "AL32UTF8"}, #{}])),
+    ok.
+
+connCreate_NegativeNencodingType({Safe, Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => foobar}, #{}])),
+    ok.
+
+%% fails due to invalid user/pass combination
+connCreate_NegativeFailCall({Safe, Context}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_create, [Context, <<"Chuck">>, <<"Norris">>, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}])),
+    ok.
+
+connPrepareStmt_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"miau">>, <<"foo">>]),
+    ?assert(is_reference(Stmt)),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+connPrepareStmt_emptyTag({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"miau">>, <<"">>]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+connPrepareStmt_NegativeConnType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_prepareStmt, [foobar, false, <<"miau">>, <<"">>])),
+    ok.
+
+connPrepareStmt_NegativeScrollableType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_prepareStmt, [Conn, "foobar", <<"miau">>, <<>>])),
+    ok.
+
+connPrepareStmt_NegativeSQLType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_prepareStmt, [Conn, false, foobar, <<"">>])),
+    ok.
+
+connPrepareStmt_NegativeTagType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"miau">>, foobar])),
+    ok.
+
+%% fails due to both SQL and Tag being empty
+connPrepareStmt_NegativeFailCall({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"">>, <<"">>])),
+    ok.
+connNewVar_test({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
+    ?assert(is_reference(Var)),
+    ?assert(is_list(Data)),
+    [FirstData | _] = Data,
+    ?assert(is_reference(FirstData)),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+connNewVar_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [foobar, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null])),
+    ok.
+
+connNewVar_NegativeOraTypeType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, "foobar", 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null])),
+    ok.
+
+connNewVar_NegativeDpiTypeType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', "foobar", 100, 0, false, false, null])),
+    ok.
+
+connNewVar_NegativeArraySizeType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', foobar, 0, false, false, null])),
+    ok.
+
+connNewVar_NegativeSizeType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, foobar, false, false, null])),
+    ok.
+
+connNewVar_NegativeSizeIsBytesType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, "foobar", false, null])),
+    ok.
+
+connNewVar_NegativeIsArrayType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, "foobar", null])),
+    ok.
+
+connNewVar_NegativeObjTypeType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, "foobar"])),
+    ok.
+
+%% fails due to array size being 0
+connNewVar_NegativeFailCall({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 0, 0, false, false, null])),
+    ok.
+
+connCommit_test({Safe, _Context, Conn}) ->
+    Result = dpiCall(Safe, conn_commit, [Conn]),
+    ?assertEqual(ok, Result),
+    ok.
+  
+connCommit_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_commit, [foobar])),
+    ok.
+
+%% fails due to the Conn being invalid, it is freed before doing the call
+connCommit_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+            dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_commit, [Conn])),
+    ok.
+
+connRollback_test({Safe, _Context, Conn}) ->
+    Result = dpiCall(Safe, conn_rollback, [Conn]),
+    ?assertEqual(ok, Result),
+    ok.
+  
+connRollback_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_rollback, [foobar])),
+    ok.
+
+%% fails due to the Conn being invalid, it is freed before doing the call
+connRollback_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+            dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_rollback, [Conn])),
+    ok.
+
+connPing_test({Safe, _Context, Conn}) ->
+    Result = dpiCall(Safe, conn_ping, [Conn]),
+    ?assertEqual(ok, Result),
+    ok.
+  
+connPing_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_ping, [foobar])),
+    ok.
+
+%% fails due to the Conn being invalid, it is freed before doing the call
+connPing_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+            dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_ping, [Conn])),
+    ok.
+
+connRelease_test({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    Result = dpiCall(Safe, conn_release, [Conn]),
+    ?assertEqual(ok, Result),
+    ok.
+  
+connRelease_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_release, [foobar])),
+    ok.
+
+%% fails due to the Conn being invalid, it was already released when it is supposed to be releases
+connRelease_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_release, [Conn])),
+    ok.
+
+connClose_test({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    Result = dpiCall(Safe, conn_close, [Conn, [], <<"">>]),
+    ?assertEqual(ok, Result),
+    ok.
+
+connClose_testWithModes({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    Result = dpiCall(Safe, conn_close, [Conn, ['DPI_MODE_CONN_CLOSE_DEFAULT'], <<"">>]), %% the other two don't work without a session pool
+    ?assertEqual(ok, Result),
+    ok.
+  
+connClose_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [foobar, [], <<"">>])),
+    ok.
+
+connClose_NegativeModesType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [Conn, foobar, <<"">>])),
+    ok.
+
+connClose_NegativeModeInsideType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [Conn, ["not an atom"], <<"">>])),
+    ok.
+
+connClose_NegativeInvalidMode({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [Conn, [foobar], <<"">>])),
+    ok.
+
+connClose_NegativeTagType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [Conn, [], foobar])),
+    ok.
+
+%% fails due to the Conn being invalid, it was already released when it is supposed to be releases
+connClose_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_close, [Conn, [], <<"">>])),
+    ok.
+
+connGetServerVersion_test({Safe, _Context, Conn}) ->
+    #{
+        releaseNum := ReleaseNum, versionNum := VersionNum, fullVersionNum := FullVersionNum,
+        portReleaseNum := PortReleaseNum, portUpdateNum := PortUpdateNum,
+        releaseString := ReleaseString
+    } = dpiCall(Safe, conn_getServerVersion, [Conn]),
+    ?assert(is_integer(ReleaseNum)),
+    ?assert(is_integer(VersionNum)),
+    ?assert(is_integer(FullVersionNum)),
+    ?assert(is_integer(PortReleaseNum)),
+    ?assert(is_integer(PortUpdateNum)),
+    ?assert(is_list(ReleaseString)),
+    ok.
+  
+connGetServerVersion_NegativeConnType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_getServerVersion, [foobar])),
+    ok.
+
+%% fails due to the reference being completely wrong (apparently passing a released connection isn't bad enough)
+connGetServerVersion_NegativeFailCall({Safe, Context, _Conn}) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
+            #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
+    dpiCall(Safe, conn_release, [Conn]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, conn_getServerVersion, [Context])),
+    ok.
 
 
-iozip(List) -> lists:zip(List, lists:seq(1, length(List))).
+%%%
+%%% STMT APIS
+%%%
 
-%% tests conn_prepareStmt stmt_execute, stmt_fetch, stmt_getQueryValue,
-%% data_get, data_release and stmt_release
-stmt_execute_test({Safe, _Context, Conn}) ->
-    SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
+stmtExecute_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    QueryCols = dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertEqual(1, QueryCols),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtExecute_testWithModes({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    QueryCols = dpiCall(Safe, stmt_execute, [Stmt, ['DPI_MODE_EXEC_DEFAULT']]),
+    ?assertEqual(1, QueryCols),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtExecute_NegativeStmtType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_execute, [foobar, []])),
+    ok.
+
+stmtExecute_NegativeModesType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_execute, [Stmt, foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtExecute_NegativeModeInsideType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_execute, [Stmt, ["not an atom"]])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+%% fails due to the SQL being invalid
+stmtExecute_NegativeFailCall({Safe, Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"all your base are belong to us">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_execute, [Stmt, []])),
+    ok.
+
+stmtFetch_test({Safe, _Context, Conn}) ->
+    SQL = <<"select 1337 from dual">>,
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt, []]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    #{found := Found, bufferRowIndex := BufferRowIndex} = dpiCall(Safe, stmt_fetch, [Stmt]),
+    ?assert(is_atom(Found)),
+    ?assert(is_integer(BufferRowIndex)),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtFetch_NegativeStmtType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_fetch, [foobar])),
+    ok.
+
+%% fails due to the reference being of the wrong type
+stmtFetch_NegativeFailCall({Safe, Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi (a) values (1337)">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_fetch, [Conn])),
+    ok.
+
+stmtGetQueryValue_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
     dpiCall(Safe, stmt_fetch, [Stmt]),
     #{nativeTypeNum := Type, data := Result} =
         dpiCall(Safe, stmt_getQueryValue, [Stmt, 1]),
-    ?assertEqual(12345.0, dpiCall(Safe, data_get, [Result])),
-    ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
-    ?assertEqual(Query_cols, 5),
+    ?assert(is_atom(Type)),
+    ?assert(is_reference(Result)),
     dpiCall(Safe, data_release, [Result]),
-    dpiCall(Safe, stmt_release, [Stmt]).
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-%% tests no new APIs, but the following functionalities: drop table, create
-%% table, select count, insert into table
-stmt_execute_test_1({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi1">>),
-    CountSQL = <<"select count (table_name) from user_tables where table_name = 'TEST_DPI1'">>, %% SQL that evaluates to 1.0 or 0.0 depending on whether test_dpi exists
-    Stmt_Exist = dpiCall(Safe, conn_prepareStmt, [Conn, false, CountSQL, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt_Exist, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_Exist]),
-    #{data := TblCount, nativeTypeNum := _Type} = dpiCall(Safe, stmt_getQueryValue, [Stmt_Exist, 1]),
-    ?assertEqual(0.0, dpiCall(Safe, data_get, [TblCount])), %% the table was dropped so it shouldn't exist at this port
-    dpiCall(Safe, data_release, [TblCount]),
-    dpiCall(Safe, stmt_release, [Stmt_Exist]),
-    ?EXEC_STMT(Conn, <<"create table test_dpi1(a integer, b integer, c integer)">>),
-     
-    Stmt_Exist2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, CountSQL, <<"">>]),  
-    dpiCall(Safe, stmt_execute, [Stmt_Exist2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_Exist2]),
-    #{data := TblCount2} = dpiCall(Safe, stmt_getQueryValue, [Stmt_Exist2, 1]),
-    ?assertEqual(1.0, dpiCall(Safe, data_get, [TblCount2])), %% the table was created so it should exists now
-    dpiCall(Safe, data_release, [TblCount2]),
-    dpiCall(Safe, stmt_release, [Stmt_Exist2]),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi1 values (1, 1337, 5)">>),
+stmtGetQueryValue_NegativeStmtType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryValue, [foobar, 1])),
+    ok.
 
-    Stmt_fetch = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi1">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt_fetch, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_fetch]),
-    #{data := Query_refResult} = dpiCall(Safe, stmt_getQueryValue, [Stmt_fetch, 2]),
-    ?assertEqual(3, Query_cols), %% one row (3 cols) has been added to the new table
-    ?EXEC_STMT(Conn, <<"drop table test_dpi1">>),
+stmtGetQueryValue_NegativePosType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryValue, [Stmt, foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-    Stmt_Exist3 = dpiCall(Safe, conn_prepareStmt, [Conn, false,CountSQL, <<"">>]),  
-    dpiCall(Safe, stmt_execute, [Stmt_Exist3, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_Exist3]),
-    #{data := TblCount3} = dpiCall(Safe, stmt_getQueryValue, [Stmt_Exist3, 1]),
-    ?assertEqual(0.0,  dpiCall(Safe, data_get, [TblCount3])), %% the table was dropped again
-    ?assertEqual(1337.0, dpiCall(Safe, data_get, [Query_refResult])),
-    dpiCall(Safe, data_release, [TblCount3]),
-    dpiCall(Safe, data_release, [Query_refResult]),
-    dpiCall(Safe, stmt_release, [Stmt_Exist3]),
-    dpiCall(Safe, stmt_release, [Stmt_fetch]).
-
-%% tests no new APIs, but the truncate table functionality
-stmt_execute_test_2({Safe, _Context, Conn}) ->
-    ?EXEC_STMT(Conn, <<"drop table test_dpi2">>),
-    ?EXEC_STMT(Conn, <<"create table test_dpi2(a integer, b integer, c integer)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (1, 2, 3)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (4, 5, 6)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (7, 8, 9)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (2, 3, 5)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (7, 11, 13)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (17, 19, 23)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (29, 31, 37)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (1, 1, 2)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (3, 5, 8)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi2 values (13, 21, 34)">>),
-
-    Stmt_fetch = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select count(*) from test_dpi2">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt_fetch, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_fetch]),
-    #{data := Query_refResult} = dpiCall(Safe, stmt_getQueryValue, [Stmt_fetch, 1]),
-    ?assertEqual(10.0, dpiCall(Safe, data_get, [Query_refResult])),
-    dpiCall(Safe, data_release, [Query_refResult]),
-    dpiCall(Safe, stmt_release, [Stmt_fetch]),
-    ?EXEC_STMT(Conn, <<"truncate table test_dpi2">>),
-
-    Stmt_fetch2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select count(*) from test_dpi2">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt_fetch2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt_fetch2]),
-    #{data := Query_refResult2} = dpiCall(Safe, stmt_getQueryValue, [Stmt_fetch2, 1]),
-    ?assertEqual(0.0,  dpiCall(Safe, data_get, [Query_refResult2])),
-    dpiCall(Safe, data_release, [Query_refResult2]),
-    dpiCall(Safe, stmt_release, [Stmt_fetch2]),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi2">>).
-
-drop_nonexistent_table({Safe, Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi3">>),
-    {'EXIT', {{error, _File, _Line, Map}, _StackTrace}} = ?EXEC_STMT(Conn, <<"drop table test_dpi3">>),
-    ?assertEqual(false, maps:get(isRecoverable, Map)).
-
-%% tests no new APIs, but the update-where functionality
-stmt_execute_test_3({Safe, _Context, Conn}) ->
-    ?EXEC_STMT(Conn, <<"drop table test_dpi4">>), %% drop if exists
-
-    %% make and fill new table
-    ?EXEC_STMT(Conn, <<"create table test_dpi4(a integer, b integer, c integer, d integer, e integer)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi4 values (1, 2, 3, 4, 5)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi4 values (6, 7, 8, 9, 10)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi4 values (11, 12, 13, 14, 15)">>),
-
-    %% update some values
-    ?EXEC_STMT(Conn, <<"update test_dpi4 set A = 7, B = B * 10 where D > 9">>),
-    ?EXEC_STMT(Conn, <<"update test_dpi4 set C = C * -1, A = B + C, E = 777 where E < 13">>),
-    ?EXEC_STMT(Conn, <<"update test_dpi4 set B = D * A, A = D * D, E = E - B where C < -5">>),
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi4">>, <<"">>]),
+%% fails due to the fetch not being done
+stmtGetQueryValue_NegativeFailCall({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
     dpiCall(Safe, stmt_execute, [Stmt, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt]),  %% fetch the first row
-    assert_getQueryValue(Safe, Stmt, 1, 5.0),
-    assert_getQueryValue(Safe, Stmt, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt, 3, -3.0),
-    assert_getQueryValue(Safe, Stmt, 4, 4.0),
-    assert_getQueryValue(Safe, Stmt, 5, 777.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt]),  %% fetch the second row
-    assert_getQueryValue(Safe, Stmt, 1, 81.0),
-    assert_getQueryValue(Safe, Stmt, 2, 135.0),
-    assert_getQueryValue(Safe, Stmt, 3, -8.0),
-    assert_getQueryValue(Safe, Stmt, 4, 9.0),
-    assert_getQueryValue(Safe, Stmt, 5, 770.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt]),  %% fetch the third row
-    assert_getQueryValue(Safe, Stmt, 1, 7.0),
-    assert_getQueryValue(Safe, Stmt, 2, 120.0),
-    assert_getQueryValue(Safe, Stmt, 3, 13.0),
-    assert_getQueryValue(Safe, Stmt, 4, 14.0),
-    assert_getQueryValue(Safe, Stmt, 5, 15.0),
-
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryValue, [Stmt, 1])),
     dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-    %% drop that table again
-    ?EXEC_STMT(Conn, <<"drop table test_dpi4">>).
-
-%% tests no new APIs, but the update where functionality
-stmt_execute_test_4({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi5">>), %% drop if exists
-
-    %% make and fill new table
-    ?EXEC_STMT(Conn, <<"create table test_dpi5(a integer, b integer, c integer)">>), %% drop if exists
-    ?EXEC_STMT(Conn, <<"insert into test_dpi5 values (1, 2, 3)">>), %% drop if exists
-    ?EXEC_STMT(Conn, <<"insert into test_dpi5 values (4, 5, 6)">>), %% drop if exists
-    ?EXEC_STMT(Conn, <<"insert into test_dpi5 values (3, 99, 44)">>), %% drop if exists
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi5 where B = 5">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt, []]),
-    ?assertEqual(3, Query_cols),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    assert_getQueryValue(Safe, Stmt, 1, 4.0),
-    assert_getQueryValue(Safe, Stmt, 2, 5.0),
-    assert_getQueryValue(Safe, Stmt, 3, 6.0),
-
+stmtGetQueryInfo_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    Info = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
+    ?assert(is_reference(Info)),
+    dpiCall(Safe, queryInfo_delete, [Info]),
     dpiCall(Safe, stmt_release, [Stmt]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi5 t1 inner join test_dpi5 t2 on t1.A = t2.C">>, <<"">>]),
-    Query_cols2 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    ?assertEqual(6, Query_cols2),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
+    ok.
 
-    assert_getQueryValue(Safe, Stmt2, 1, 3.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 99.0),
-    assert_getQueryValue(Safe, Stmt2, 3, 44.0),
-    assert_getQueryValue(Safe, Stmt2, 4, 1.0),
-    assert_getQueryValue(Safe, Stmt2, 5, 2.0),
-    assert_getQueryValue(Safe, Stmt2, 6, 3.0),
+stmtGetQueryInfo_NegativeStmtType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryInfo, [foobar, 1])),
+    ok.
 
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    Stmt3 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select t1.a, t2.b, t1.c - t2.a * t2.b from test_dpi5 t1 full join test_dpi5 t2 on t1.C > t2.B">>, <<"">>]),
-    Query_cols3 = dpiCall(Safe, stmt_execute, [Stmt3, []]),
-    ?assertEqual(3, Query_cols3),
-
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 1.0),
-    assert_getQueryValue(Safe, Stmt3, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt3, 3, 1.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 4.0),
-    assert_getQueryValue(Safe, Stmt3, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt3, 3, 4.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 4.0),
-    assert_getQueryValue(Safe, Stmt3, 2, 5.0),
-    assert_getQueryValue(Safe, Stmt3, 3, -14.0),
-    
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 3.0),
-    assert_getQueryValue(Safe, Stmt3, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt3, 3, 42.0),
-    
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 3.0),
-    assert_getQueryValue(Safe, Stmt3, 2, 5.0),
-    assert_getQueryValue(Safe, Stmt3, 3, 24.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, null),
-    assert_getQueryValue(Safe, Stmt3, 2, 99.0),
-    assert_getQueryValue(Safe, Stmt3, 3, null),
-
-    dpiCall(Safe, stmt_release, [Stmt3]),
-    %% drop that table again
-    ?EXEC_STMT(Conn, <<"drop table test_dpi5">>).
-
-stmt_getQueryInfo_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi6">>), 
-
-    %% make and fill new table
-    ?EXEC_STMT(Conn, <<"create table test_dpi6 (a integer, b integer, c varchar(32))">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi6 values (10, 20, 'miau')">>), 
-    
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a, b as xyz, a+b, b / a, c, 'foobar' from test_dpi">>, <<"">>]),
-    ?assertEqual(6, dpiCall(Safe, stmt_execute, [Stmt, []])),
-
-    assert_getQueryInfo(Safe, Stmt, 1, "A", name),
-    assert_getQueryInfo(Safe, Stmt, 2, "XYZ", name),
-    assert_getQueryInfo(Safe, Stmt, 3, "A+B", name),
-    assert_getQueryInfo(Safe, Stmt, 4, "B/A", name),
-    assert_getQueryInfo(Safe, Stmt, 5, "C", name),
-    assert_getQueryInfo(Safe, Stmt, 6, "'FOOBAR'", name),
-    
+stmtGetQueryInfo_NegativePosType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryInfo, [Stmt, foobar])),
     dpiCall(Safe, stmt_release, [Stmt]),
-    %% drop that table again
-    ?EXEC_STMT(Conn, <<"drop table test_dpi6">>).
+    ok.
 
-%% tests stmt_bindValueByPos and data_setInt64
-stmt_bindValueByPos_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi7">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi7 (a integer, b integer, c integer)">>), 
-    
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi7 values (:A, :B, :C)">>, <<"">>]),
+%% fails due to the SQL being bad
+stmtGetQueryInfo_NegativeFailCall({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"bibidi babidi boo">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtGetNumQueryColumns_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    Count = dpiCall(Safe, stmt_getNumQueryColumns, [Stmt]),
+    ?assert(is_integer(Count)),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtGetNumQueryColumns_NegativeStmtType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getNumQueryColumns, [foobar])),
+    ok.
+
+
+%% fails due to the statement being released too early
+stmtGetNumQueryColumns_NegativeFailCall({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"it is showtime">>, <<"">>]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_getNumQueryColumns, [Stmt])),
+    ok.
+
+stmtBindValueByPos_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setInt64, [BindData, 1337]),
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, data_setInt64, [BindData, 100]),     % data can be recycled
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt, 2, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, data_setInt64, [BindData, 323]),
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt, 3, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a, b, c from test_dpi7">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 1337.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 100.0),
-    assert_getQueryValue(Safe, Stmt2, 3, 323.0),
-    
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 3),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi7">>).
-
-stmt_bindValueByName_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi8">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi8 (a integer, b integer, c integer)">>), 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi8 values (:First, :Second, :Third)">>, <<"">>]),
-    BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setInt64, [BindData, 222]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"Second">>, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, data_setInt64, [BindData, 111]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"First">>, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, data_setInt64, [BindData, 323]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"Third">>, 'DPI_NATIVE_TYPE_INT64', BindData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a, b, c from test_dpi8">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 111.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 222.0),
-    assert_getQueryValue(Safe, Stmt2, 3, 323.0),
-
-    dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 3),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi8">>).
-
-%% tests data_setBytes_test
-data_setBytes_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi9">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi9 (a integer, b integer, c varchar(32))">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (1, 8, 'test')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (2, 9, 'foo')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (3, 8, 'rest')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (4, 7, 'food')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi9 values (5, 6, 'fest')">>), 
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi9 where c like :A">>, <<"">>]),
-    BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setBytes, [BindData, <<"fo%">>]),
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_BYTES', BindData]),   %% match 'foo' and 'food'
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-
-    assert_getQueryValue(Safe, Stmt, 1, 2.0),
-    assert_getQueryValue(Safe, Stmt, 2, 9.0),
-    Safe, 
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    assert_getQueryValue(Safe, Stmt, 1, 4.0),
-    assert_getQueryValue(Safe, Stmt, 2, 7.0),
-
+    ?assertEqual(ok, dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
     dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi9 where c like :A">>, <<"">>]),
-    BindData2 = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setBytes, [BindData2, <<"%est">>]),
-    dpiCall(Safe, stmt_bindValueByPos, [Stmt2, 1, 'DPI_NATIVE_TYPE_BYTES', BindData2]),   %% match 'test', 'rest' and 'fest'
-    dpiCall(Safe, stmt_execute, [Stmt2, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 1.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 8.0),
-    
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 3.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 8.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 5.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 6.0),
-
-    dpiCall(Safe, data_release, [BindData2]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10">>).
-
-%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
-data_setTimestamp_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi10 (a TIMESTAMP(9) WITH TIME ZONE)">>),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10 values (:First)">>, <<"">>]),
+stmtBindValueByPos_NegativeStmtType({Safe, _Context, Conn}) -> 
     BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setTimestamp, [BindData, 7, 6, 5, 4, 3, 2, 1234, 5, 30]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"First">>, 'DPI_NATIVE_TYPE_TIMESTAMP',  BindData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-
-    QueryValueRef = maps:get(data, (dpiCall(Safe, stmt_getQueryValue, [Stmt2, 1]))),
-    ?assertEqual(maps:remove(tzMinuteOffset, maps:remove(tzHourOffset, dpiCall(Safe, data_get, [QueryValueRef]))), 
-    #{fsecond => 1234, second => 2, minute => 3, hour => 4, day => 5, month => 6, year => 7}),
-    
-    dpiCall(Safe, data_release, [QueryValueRef]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+    dpiCall(Safe, stmt_bindValueByPos, [foobar, 1, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 1),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10">>).
+    ok.
 
-%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
-data_setIntervalYM_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10c">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi10c (a INTERVAL YEAR TO MONTH)">>),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10c values (:A)">>, <<"">>]),
+stmtBindValueByPos_NegativePosType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setIntervalYM, [BindData, 13, 8]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INTERVAL_YM',  BindData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10c">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, #{months => 8, years => 13}),
-    
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByPos, [Stmt, foobar, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 1),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10c">>).
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-%% tests data_setTimestamp, data_setIntervalDS and data_setIntervalYM
-data_setIntervalDS_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10b">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi10b (a INTERVAL DAY TO SECOND)">>),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi10b values (:A)">>, <<"">>]),
+stmtBindValueByPos_NegativeTypeType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     BindData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setIntervalDS, [BindData, 7, 9, 14, 13, 20000]),
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INTERVAL_DS', BindData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi10b">>, <<"">>]),
-    Query_cols = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, #{fseconds => 20000, seconds => 13, minutes => 14, hours => 9, days => 7 }),
-    
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, "foobar", BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
-    ?assertEqual(Query_cols, 1),
-    ?EXEC_STMT(Conn, <<"drop table test_dpi10b">>).
-
-%% tests no new APIs, but whether timezones work correctly
-data_setTimestamp_test_1({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table timezones">>), 
-    ?EXEC_STMT(Conn, <<"ALTER SESSION SET TIME_ZONE='-7:13'">>), 
-    ?EXEC_STMT(Conn, <<"CREATE TABLE timezones (c_id NUMBER, c_tstz TIMESTAMP(9) WITH TIME ZONE)">>),
-    ?EXEC_STMT(Conn, <<"INSERT INTO timezones VALUES(1, TIMESTAMP '2003-01-02 3:44:55 -8:00')">>),
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"INSERT INTO timezones VALUES(2, :A)">>, <<"">>]),
-    TimestampData = dpiCall(Safe, data_ctor, []),
-    dpiCall(Safe, data_setTimestamp, [TimestampData, 2003, 1, 2, 3, 44, 56, 123456, 22, 8]), % timezones are discarded when doing the value bind, this is by ODPI design
-    dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_TIMESTAMP', TimestampData]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
     dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select c_tstz from timezones where c_id = 2">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    %% time zone here is NOT the 8h 22m set in the data_setTimestamp, but the timezone from "ALTER SESSION SET TIME_ZONE='-7:13'"
-    TZData = maps:get(data, (dpiCall(Safe, stmt_getQueryValue, [Stmt2, 1]))),
-    ?assertEqual(#{fsecond => 123456, second => 56, minute => 44, hour => 3, day => 2, month => 1, year => 2003, tzMinuteOffset => -13, tzHourOffset => -7 },   dpiCall(Safe, data_get, [TZData])),
-    dpiCall(Safe, data_release, [TZData]),
-    dpiCall(Safe, data_release, [TimestampData]),
-    dpiCall(Safe, stmt_release, [Stmt2]).
+    ok.
 
-fail_stmt_released_too_early({Safe, Context, Conn}) -> 
-    Failure = fun()->
-        SQL = <<"select 12345, 2, 4, 8.5, 'miau' from dual">>,
-        Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, SQL, <<"">>]),
-        dpiCall(Safe, stmt_release, [Stmt]),
-        Query_cols = dpiCall(Safe, stmt_execute, [Stmt, []]),
-        dpiCall(Safe, stmt_fetch, [Stmt]),
-        #{nativeTypeNum := Type, data := Result} = dpiCall(Safe, stmt_getQueryValue, [Stmt, 1]),
-        ?assertEqual(Result, 12345.0),
-        ?assertEqual(Type, 'DPI_NATIVE_TYPE_DOUBLE'),
-        ?assertEqual(Query_cols, 5),
-        dpiCall(Safe, data_release, [Result]),
-        dpiCall(Safe, stmt_release, [Stmt]),
-        ?_assert(true)
-    end,
-    try Failure(Context, Conn) of
-        _ -> throw("Negative Test failure: test succeeded, but shouldn't have")
-    catch
-        throw: _ ->  ?_assert(true);
-        exit: _ ->  ?_assert(true);
-        error: _ ->  ?_assert(true)
-
-    end.
-
-
-stmt_defineValue_test({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi11">>),
-    ?EXEC_STMT(Conn, <<"create table test_dpi11 (a integer)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi11 values(123)">>),
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi11">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    assert_getQueryValue(Safe, Stmt, 1, 123.0),
+stmtBindValueByPos_NegativeDataType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_INT64', foobar])),
     dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select a from test_dpi11">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_defineValue, [Stmt2, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 123),
-    dpiCall(Safe, stmt_release, [Stmt2]).
-
-%% tests no new APIs, but demonstrates how to iterate a table, sending its
-%% contents to the database and then reading back the contents
-stmt_defineValue_test_1({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi12">>), 
-    
-
-     LittleBobbyTables = [[ "FOO", "BAR", "BAZ", "QUX", "QUUX"  ],
-                          [ 33,    66,    99,    333,   666     ],
-                          [ 1337,  69,    58008, 420,   9001    ],
-                          [ 2,     4,     8,     16,    32      ],
-                          [ 2,     3,     5,     7,     11      ],
-                          [ 1,     1,     2,     3,     5       ]],
-    ?EXEC_STMT(Conn, <<"create table test_dpi12 (FOO integer, BAR integer, BAZ integer, QUX integer, QUUX integer)">>),
-    [_ | Content] = LittleBobbyTables,
-    InsertRow = fun(Row) ->
-        Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi12 values (:A, :B, :C, :D, :E )">>, <<"">>]),
-        [
-        begin
-            BindData = dpiCall(Safe, data_ctor, []),
-            dpiCall(Safe, data_setInt64, [BindData, Value]),
-            dpiCall(Safe, stmt_bindValueByPos, [Stmt, Pos, 'DPI_NATIVE_TYPE_INT64', BindData]),
-            dpiCall(Safe, data_release, [BindData])
-        end    
-        || {Value, Pos} <-iozip(Row)],
-        dpiCall(Safe, stmt_execute, [Stmt, []]),
-        dpiCall(Safe, stmt_release, [Stmt])
-    end,
-
-    [InsertRow(X) || X <- Content],
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi12">>, <<"">>]),
-    Length = dpiCall(Safe, stmt_execute, [Stmt, []]),
-    [dpiCall(Safe, stmt_defineValue, [Stmt, X, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])
-    || X <- lists:seq(1, Length)],    
-    Rec = fun Rec(Result) ->
-        case maps:get(found,dpiCall(Safe, stmt_fetch, [Stmt])) of
-        true ->
-            Resultset = [extract_getQueryValue(Safe, Stmt, X) || X <-  lists:seq(1, Length)],
-            Rec(Result ++ [Resultset]);
-        false -> Result
-        end
-    end,
-    R = [[extract_getQueryInfo(Safe, Stmt, X, name) || X <-  lists:seq(1, Length)]] ++ Rec([]),
+%% fails due to the position being invalid
+stmtBindValueByPos_NegativeFailCall({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByPos, [Stmt, -1, 'DPI_NATIVE_TYPE_INT64', BindData])),
+    dpiCall(Safe, data_release, [BindData]),
     dpiCall(Safe, stmt_release, [Stmt]),
-    ?assertEqual(LittleBobbyTables, R).
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-% tests conn_commit and conn_rollback
-conn_commit_rollback({Safe, _Context, Conn}) -> 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi13">>), 
-    
-    ?EXEC_STMT(Conn, <<"create table test_dpi13 (a integer)">>),   %% contains 0 rows
-    ?EXEC_STMT(Conn, <<"insert into test_dpi13 values(123)">>),    %% contains 1 row
-    dpiCall(Safe, conn_commit, [Conn]),
 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select count(*) from test_dpi13">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    assert_getQueryValue(Safe, Stmt, 1, 1.0),
+stmtBindValueByName_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok, dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INT64', BindData])),
+    dpiCall(Safe, data_release, [BindData]),
     dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi13 values(456)">>),    %% contains 2 rows
-    
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select count(*) from test_dpi13">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 2.0),
-    dpiCall(Safe, stmt_release, [Stmt2]),
+stmtBindValueByName_NegativeStmtType({Safe, _Context, Conn}) -> 
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+    dpiCall(Safe, stmt_bindValueByName, [foobar, <<"A">>, 'DPI_NATIVE_TYPE_INT64', BindData])),
+    dpiCall(Safe, data_release, [BindData]),
+    ok.
 
-    dpiCall(Safe, conn_rollback, [Conn]),                            %% contains 1 row again
-    
-    Stmt3 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select count(*) from test_dpi13">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt3, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt3]),
-    assert_getQueryValue(Safe, Stmt3, 1, 1.0),
-    dpiCall(Safe, stmt_release, [Stmt3]).
-
-conn_ping_test({Safe, _Context, Conn}) -> 
-    % valid connection: ping succeeds
-    ok = dpiCall(Safe, conn_ping, [Conn]),
-    % invalidate connection
-    ok = dpiCall(Safe, conn_close, [Conn, [], <<"">>]),
-    % now the ping fails
-    ?_assertException(
-        error, {error, _File, _Line, _}, dpiCall(Safe, conn_ping, [Conn])
-    ).
-
-var_define_test({Safe, _Context, Conn}) -> 
-    %% the variables need to be of at least size 100 when used with stmt_fetch
-    %% because it will try to fetch 100 rows per default, even if there aren't as many
-    #{var := Var1, data := DataRep1} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-    #{var := Var2, data := DataRep2} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-    #{var := Var3, data := DataRep3} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-    #{var := Var4, data := DataRep4} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-    #{var := Var5, data := DataRep5} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-
-    ?EXEC_STMT(Conn, <<"drop table test_dpi14">>), %% remake table, fill with test data
-    ?EXEC_STMT(Conn, <<"create table test_dpi14(a integer, b integer, c integer, d integer, e integer)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi14 values(1, 4, 9, 16, 25)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi14 values(123, 456, 579, 1035, 1614)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi14 values(121, 12321, 1234321, 123454321, 12345654321)">>), 
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi14">>, <<"">>]),
-    5 = dpiCall(Safe, stmt_execute, [Stmt, []]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 1, Var1]),    %% results will be fetched to the vars
-    ok = dpiCall(Safe, stmt_define, [Stmt, 2, Var2]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 3, Var3]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 4, Var4]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 5, Var5]),
-    dpiCall(Safe, stmt_fetch, [Stmt]), %% do the fetch, this fetches all rows now, not just one
-
-    [A11, A12, A13 | _] = DataRep1, %% match the entries for the three rows
-    [A21, A22, A23 | _] = DataRep2, %% the other 97 are null entries
-    [A31, A32, A33 | _] = DataRep3, %% we don't care about those
-    [A41, A42, A43 | _] = DataRep4,
-    [A51, A52, A53, NullEntry | _] = DataRep5, %% get a null entry, too
-
-    ?assertEqual(1.0, dpiCall(Safe, data_get, [A11])),
-    ?assertEqual(4.0, dpiCall(Safe, data_get, [A21])),
-    ?assertEqual(9.0, dpiCall(Safe, data_get, [A31])),
-    ?assertEqual(16.0, dpiCall(Safe, data_get, [A41])),
-    ?assertEqual(25.0, dpiCall(Safe, data_get, [A51])),
-
-    ?assertEqual(123.0, dpiCall(Safe, data_get, [A12])),
-    ?assertEqual(456.0, dpiCall(Safe, data_get, [A22])),
-    ?assertEqual(579.0, dpiCall(Safe, data_get, [A32])),
-    ?assertEqual(1035.0, dpiCall(Safe, data_get, [A42])),
-    ?assertEqual(1614.0, dpiCall(Safe, data_get, [A52])),
-
-    ?assertEqual(121.0, dpiCall(Safe, data_get, [A13])),
-    ?assertEqual(12321.0, dpiCall(Safe, data_get, [A23])),
-    ?assertEqual(1234321.0, dpiCall(Safe, data_get, [A33])),
-    ?assertEqual(123454321.0, dpiCall(Safe, data_get, [A43])),
-    ?assertEqual(12345654321.0, dpiCall(Safe, data_get, [A53])),
-
-    ?assertEqual(null, dpiCall(Safe, data_get, [NullEntry])),
-
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-    dpiCall(Safe, var_release, [Var1]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
-    dpiCall(Safe, var_release, [Var2]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep3],
-    dpiCall(Safe, var_release, [Var3]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep4],
-    dpiCall(Safe, var_release, [Var4]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep5],
-    dpiCall(Safe, var_release, [Var5]),
-
-    dpiCall(Safe, stmt_release, [Stmt]).
-
-% tests conn_newVar, var_release, stmt_bindByName and 
-conn_newVar_test({Safe, _Context, Conn}) -> 
-    #{var := Var1, data := DataRep1} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-    #{var := Var2, data := DataRep2} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
-
-    ?EXEC_STMT(Conn, <<"drop table test_dpi15">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi15(a integer, b integer, c integer, d integer, e integer)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 4, 5)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(6, 7, 8, 9, 10)">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 4, 8, 16)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi15 values(1, 2, 3, 5, 7)">>), 
-
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 2, 3 from dual">>, <<"">>]),
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 1, Var1]),
-    ok = dpiCall(Safe, stmt_define, [Stmt, 2, Var2]),
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    ?assertEqual(2.0, dpiCall(Safe, data_get, [hd(DataRep1)])),
-    ?assertEqual(3.0, dpiCall(Safe, data_get, [hd(DataRep2)])),
-
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi15 where b = :A and c = :B">>, <<"">>]),
-
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"A">>, Var1]),
-    ok = dpiCall(Safe, stmt_bindByPos, [Stmt2, 2, Var2]),
-    5 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 1.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt2, 3, 3.0),
-    assert_getQueryValue(Safe, Stmt2, 4, 4.0),
-    assert_getQueryValue(Safe, Stmt2, 5, 5.0),
-
-    dpiCall(Safe, stmt_fetch, [Stmt2]),
-    assert_getQueryValue(Safe, Stmt2, 1, 1.0),
-    assert_getQueryValue(Safe, Stmt2, 2, 2.0),
-    assert_getQueryValue(Safe, Stmt2, 3, 3.0),
-    assert_getQueryValue(Safe, Stmt2, 4, 5.0),
-    assert_getQueryValue(Safe, Stmt2, 5, 7.0),
-
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep1],
-    dpiCall(Safe, var_release, [Var1]),
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep2],
-    dpiCall(Safe, var_release, [Var2]),
-    
+stmtBindValueByName_NegativePosType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByName, [Stmt, foobar, 'DPI_NATIVE_TYPE_INT64', BindData])),
+    dpiCall(Safe, data_release, [BindData]),
     dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, stmt_release, [Stmt2]).
+    ok.
 
-var_setFromBytes_test({Safe, _Context, Conn}) -> 
-    #{var := Var, data := DataRep} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null]),
+stmtBindValueByName_NegativeTypeType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, "foobar", BindData])),
+    dpiCall(Safe, data_release, [BindData]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi16">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi16(a integer, b varchar(32))">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi16 values(10, 'foobar')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi16 values(20, 'qwert')">>),
-    ?EXEC_STMT(Conn, <<"insert into test_dpi16 values(30, 'poipoi')">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi16 values(40, 'zalgo')">>), 
+stmtBindValueByName_NegativeDataType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INT64', foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
 
-    dpiCall(Safe, var_setFromBytes, [Var, 0, <<"%oi%">>]),
+%% fails due to the name being invalid
+stmtBindValueByName_NegativeFailCall({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    BindData = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"B">>, 'DPI_NATIVE_TYPE_INT64', BindData])),
+    dpiCall(Safe, data_release, [BindData]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>),
+    %% also freeing the stmt here causes it to abort
+    ok.
 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select * from test_dpi16 where b like :A">>, <<"">>]),
-    ok = dpiCall(Safe, stmt_bindByPos, [Stmt, 1, Var]),
-    2 = dpiCall(Safe, stmt_execute, [Stmt, []]),
-
-    dpiCall(Safe, stmt_fetch, [Stmt]),
-    assert_getQueryValue(Safe, Stmt, 1, 30.0),
-    assert_getQueryValue(Safe, Stmt, 2, <<"poipoi">>),
-
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep],
+stmtBindByPos_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertEqual(ok, dpiCall(Safe, stmt_bindByPos, [Stmt, 1, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]).
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-%% tests data_get, data_setInt64, data_setIntervalDS, data_setIntervalYM and
-%% data_setTimestamp when use on a dpiData that is used via a pointer
-data_get_test({Safe, _Context, Conn}) -> 
-    #{var := IntVar, data := [IntData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0, true, false, null]),
-    dpiCall(Safe, data_setInt64, [IntData, 12345]),
-    12345 = dpiCall(Safe, data_get, [IntData]),
-    dpiCall(Safe, data_release, [IntData]),
-    dpiCall(Safe, var_release, [IntVar]),
+stmtBindByPos_NegativeStmtType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByPos, [foobar, 1, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    #{var := DSVar, data := [DSData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 0, true, false, null]),
-    dpiCall(Safe, data_setIntervalDS, [DSData, 12, 5, 4, 3, 2]),
-    #{days := 12, hours := 5, minutes := 4, seconds := 3, fseconds := 2 } = dpiCall(Safe, data_get, [DSData]),
-    dpiCall(Safe, data_release, [DSData]),
-    dpiCall(Safe, var_release, [DSVar]),
+stmtBindByPos_NegativePosType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByPos, [Stmt, foobar, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    #{var := YMVar, data := [YMData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 0, true, false, null]),
-    dpiCall(Safe, data_setIntervalYM, [YMData, 1990, 8]),
-    #{years := 1990, months := 8} = dpiCall(Safe, data_get, [YMData]),
-    dpiCall(Safe, data_release, [YMData]),
-    dpiCall(Safe, var_release, [YMVar]),
+stmtBindByPos_NegativeVarType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByPos, [Stmt, 1, foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    #{var := TSVar, data := [TSData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 0, true, false, null]),
-    dpiCall(Safe, data_setTimestamp, [TSData, 1990, 8, 22, 22, 12, 54, 3, 4, 5]),
-    #{year := 1990, month := 8, day := 22, hour := 22, minute := 12, second := 54, fsecond := 3, tzHourOffset := 4, tzMinuteOffset := 5} = dpiCall(Safe, data_get, [TSData]),
-    dpiCall(Safe, data_release, [TSData]),
-    dpiCall(Safe, var_release, [TSVar]),
+%% fails due to the position being invalid
+stmtBindByPos_NegativeFailCall({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByPos, [Stmt, -1, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    #{var := StrVar, data := [StrData]} = dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100, true, false, null]),
-    %% according to https://oracle.github.io/odpi/doc/functions/dpiData.html dpiData_setBytes should NOT be used for vars, so var_setFromBytes is used instead
-    dpiCall(Safe, var_setFromBytes, [StrVar, 0, <<"abc">>]),
-    <<"abc">> = dpiCall(Safe, data_get, [StrData]),
-    dpiCall(Safe, data_release, [StrData]),
-    dpiCall(Safe, var_release, [StrVar]).
+stmtBindByName_test({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertEqual(ok, dpiCall(Safe, stmt_bindByName, [Stmt, <<"A">>, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-data_setIsNull_test({Safe, _Context, Conn}) ->
-    #{var := Var, data := [Data]} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0,
-            true, false, null
-        ]
-    ),
+stmtBindByName_NegativeStmtType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByName, [foobar, <<"A">>, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    dpiCall(Safe, data_setInt64, [Data, 12345]),
-    % confirm that "Data" works correctly with actual values
-    12345 = dpiCall(Safe, data_get, [Data]),
-    dpiCall(Safe, data_setIsNull, [Data, true]),
-    null = dpiCall(Safe, data_get, [Data]),
-    dpiCall(Safe, data_setInt64, [Data, 54321]),
-    % assert that "Data" can be set again properly after having been null
-    ?assertEqual(54321, dpiCall(Safe, data_get, [Data])),
-    % NOT setting it to null
-    dpiCall(Safe, data_setIsNull, [Data, false]),
-    % assert that, after not setting it to null, it indeed didn't get set to
-    % null
-    ?assertEqual(54321, dpiCall(Safe, data_get, [Data])),
+stmtBindByName_NegativePosType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByName, [Stmt, foobar, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-    % maybe have a test of setting it to null and back to not null and see if
-    % the original value is still there, but that would require making a
-    % guarantee about null values that probably doesn't exist on Oracle level
-    dpiCall(Safe, data_release, [Data]),
-    dpiCall(Safe, var_release, [Var]).
+stmtBindByName_NegativeVarType({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByName, [Stmt, <<"A">>, foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
 
-var_setNumElementsInArray_test({Safe, _Context, Conn}) ->
-    #{var := Var, data := DataRep} = dpiCall(
+%% fails due to the position being invalid
+stmtBindByName_NegativeFailCall({Safe, _Context, Conn}) -> 
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ?EXEC_STMT(Conn, <<"create table test_dpi (a integer)">>), 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
+    #{var := Var, data := Data} = 
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_bindByName, [Stmt, <<"B">>, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
+    ok.
+
+stmtRelease_test({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"making a statement">>, <<"">>]),
+    ?assertEqual(ok, dpiCall(Safe, stmt_release, [Stmt])),
+    ok.
+
+stmtRelease_NegativeStmtType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"making a statement">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_release, [foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]), %% cleanup
+    ok.
+
+%% fails becasue the stmt was already released
+stmtRelease_NegativeFailCall({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"making a statement">>, <<"">>]),
+    dpiCall(Safe, stmt_release, [Stmt]), %% release it beforehand this time
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_release, [Stmt])),
+    ok.
+
+stmtDefine_test({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    #{var := Var, data := Data} =
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertEqual(ok, dpiCall(Safe, stmt_define, [Stmt, 1, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtDefine_NegativeStmtType({Safe, _Context, Conn}) -> 
+    #{var := Var, data := Data} =
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_define, [foobar, 1, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+stmtDefine_NegativePosType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    #{var := Var, data := Data} =
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_define, [Stmt, foobar, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtDefine_NegativeVarType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+    dpiCall(Safe, stmt_define, [Stmt, 1, foobar])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+%% fails due to the pos being invalid
+stmtDefine_NegativeFailCall({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    #{var := Var, data := Data} =
+        dpiCall(Safe, conn_newVar, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 100, 0, false, false, null]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_define, [Stmt, 12345, Var])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtDefineValue_test({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertEqual(ok, dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+stmtDefineValue_NegativeStmtType({Safe, _Context, Conn}) -> 
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [foobar, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
+    ok.
+
+stmtDefineValue_NegativePosType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, foobar, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+
+stmtDefineValue_NegativeOraTypeType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, 1, "foobar", 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+
+stmtDefineValue_NegativeNativeTypeType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', "foobar", 0, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+
+stmtDefineValue_NegativeSizeType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', foobar, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+
+stmtDefineValue_NegativeSizeInBytesType({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, "foobar", null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+%% fails due to invalid position
+stmtDefineValue_NegativeFailCall({Safe, _Context, Conn}) -> 
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, stmt_defineValue, [Stmt, -1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+%%%
+%%% Var APIS
+%%%
+
+varSetNumElementsInArray_test({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
         Safe, conn_newVar, [
             Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
             true, true, null
         ]
     ),
-    ok = dpiCall(Safe, var_setNumElementsInArray, [Var, 100]),
-
-    dpiCall(Safe, var_setFromBytes, [Var, 0, <<"abc">>]),
-    dpiCall(Safe, var_setFromBytes, [Var, 1, <<"bar">>]),
-    dpiCall(Safe, var_setFromBytes, [Var, 2, <<"baz">>]),
-
-    [A, B, C | _] = DataRep,
-    ?assertEqual(<<"abc">>, dpiCall(Safe, data_get, [A])),
-    ?assertEqual(<<"bar">>, dpiCall(Safe, data_get, [B])),
-    ?assertEqual(<<"baz">>, dpiCall(Safe, data_get, [C])),
-    
-    [dpiCall(Safe, data_release, [X]) || X <- DataRep],
+    ?assertEqual(ok, dpiCall(Safe, var_setNumElementsInArray, [Var, 100])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
+    ok.
 
-    ?EXEC_STMT(Conn, <<"drop table test_dpi17">>), 
-    ?EXEC_STMT(Conn, <<"CREATE Or REPLACE TYPE namearray AS VARRAY(3) OF VARCHAR2(32)">>), 
-    ?EXEC_STMT(Conn, <<"CREATE or replace TYPE footype AS OBJECT(foo integer, bar integer)">>), 
-    ?EXEC_STMT(Conn, <<"create table test_dpi17(a FOOTYPE)">>), 
-    ?EXEC_STMT(Conn, <<"insert into test_dpi17 values(footype(2, 4))">>),
-    dpiCall(Safe, conn_commit, [Conn]).
+varSetNumElementsInArray_NegativeVarType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setNumElementsInArray, [foobar, 100])),
+    ok.
 
-context_getClientVersion_test({Safe, Context, Conn}) -> 
-    #{
-        releaseNum := CRNum, versionNum := CVNum, fullVersionNum := CFNum
-    } = dpiCall(Safe, context_getClientVersion, [Context]),
-
-    ?assert(CRNum == 3 orelse CRNum == 2),
-    ?assert(CVNum == 18 orelse CVNum == 12),
-    ?assert(CFNum == 1803000000 orelse CFNum == 1202000000),
-
-    ?assertMatch(
-        #{
-            releaseNum := 2, versionNum := 11, fullVersionNum := 1102000200,
-            portReleaseNum := 2, portUpdateNum := 0,
-            releaseString := "Oracle Database 11g Express Edition Release"
-                             " 11.2.0.2.0 - 64bit Production"
-        },
-        dpiCall(Safe, conn_getServerVersion, [Conn])
-    ).
-
--define(GET_QUERY_VALUE(_Stmt, _Index, _Value),
-    (fun() ->
-        #{data := __QueryValueRef} = dpiCall(
-            Safe, stmt_getQueryValue,[_Stmt, _Index]
-        ),
-        ?assertEqual(_Value, dpiCall(Safe, data_get, [__QueryValueRef])),
-	    dpiCall(Safe, data_release, [__QueryValueRef])
-    end)()
-).
-
-catch_error_message({Safe, _Context, Conn}) -> 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [
-        Conn, false, <<"select 'miaumiau' from unexistingTable">>, <<"">>
-    ]),
-    ?assertError(
-        {error, _File, _Line,
-            #{
-                message := "ORA-00942: table or view does not exist",
-                fnName := "dpiStmt_execute"
-            }
-        },
-        begin
-            A = dpiCall(Safe, stmt_execute, [Stmt, []]),
-            ?debugFmt("The call on line ~p should have thrown an exception, but didn't!", [?LINE - 1]),
-            A
-        end
-    ).
-
-catch_error_message_conn({Safe, _, _}) -> 
-    #{user := User, tns := TNS} = getConfig(),
-    Context = dpiCall(Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]),
-    ?assertError(
-        {error, _File, _Line,
-            #{
-                message :=
-                    "ORA-01017: invalid username/password; logon denied",
-                fnName := "dpiConn_create"
-            }
-        },
-        dpiCall(Safe, conn_create, [
-            Context, User, <<"someBadPassword">>, TNS, #{}, #{}
-        ])
-    ).
-
-stmt_getNumQueryColumns_test({Safe, _Context, Conn}) -> 
-    Stmt = dpiCall(
-        Safe, conn_prepareStmt, [
-            Conn, false, <<"select 12345 from dual">>, <<"">>
-        ]
-    ),
-    1 = dpiCall(Safe, stmt_execute, [Stmt, []]),
-    ?assertEqual(1, dpiCall(Safe, stmt_getNumQueryColumns, [Stmt])),
-    dpiCall(Safe, stmt_release, [Stmt]),
-
-    Stmt2 = dpiCall(
-        Safe, conn_prepareStmt, [
-            Conn, false, <<"select 1, 2, 3, 4, 5 from dual">>, <<"">>
-        ]
-    ),
-    5 = dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    ?assertEqual(5, dpiCall(Safe, stmt_getNumQueryColumns, [Stmt2])),
-    dpiCall(Safe, stmt_release, [Stmt2]).
-
--define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
-stored_procedure({Safe, _Context, Conn}) -> 
-    #{var := Var1, data := [DataRep1]} = dpiCall(
+varSetNumElementsInArray_NegativeNumElementsType({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
         Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0,
-            false, false, null
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
         ]
     ),
-    #{var := Var2, data := [DataRep2]} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_LONG_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 1,
-            100, false, false, null
-        ]
-    ),
-    #{var := Var3, data := [DataRep3]} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 0,
-            false, false, null
-        ]
-    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setNumElementsInArray, [Var, foobar])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
 
-    dpiCall(Safe, data_setInt64, [DataRep1, 50]),
-    dpiCall(Safe, var_setFromBytes, [Var2, 0, <<"1             ">>]),
-    dpiCall(Safe, data_setInt64, [DataRep3, 3]),
+%% fails due to invalid array size
+varSetNumElementsInArray_NegativeFailCall({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setNumElementsInArray, [Var, -1])),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varSetFromBytes_test({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok, dpiCall(Safe, var_setFromBytes, [Var, 0, <<"abc">>])),
     
-    Stmt = dpiCall(
-        Safe, conn_prepareStmt, [Conn, false,
-            << "create or replace procedure "?TESTPROCEDURE
-               "(p_first in number, p_second in out varchar2, p_result out number)
-                is
-                begin
-                    p_result := p_first + to_number(p_second);
-                    p_second := 'The sum is ' || to_char(p_result);
-                end "?TESTPROCEDURE";">>,
-            <<"">>
-        ]
-    ),
-    0 = dpiCall(Safe, stmt_execute, [Stmt, []]),
-    dpiCall(Safe, conn_commit, [Conn]),
-    Stmt2 = dpiCall(
-        Safe, conn_prepareStmt, [
-            Conn, false,
-            <<"begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>,
-            <<"">>
-        ]
-    ),
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"p_first">>, Var1]),
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"p_second">>, Var2]),
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"p_result">>, Var3]),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
 
-    % before executing the procedure, hast the old value
-    ?assertEqual(3, dpiCall(Safe, data_get, [DataRep3])),
-    dpiCall(Safe, stmt_execute, [Stmt2, []]),
-    % now has the new value of 50 added to the char value of "1             "
-    ?assertEqual(51,dpiCall(Safe, data_get, [DataRep3])),
+varSetFromBytes_NegativeVarType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromBytes, [foobar, 0, <<"abc">>])),
+    ok.
+
+varSetFromBytes_NegativePosType({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromBytes, [Var, foobar, <<"abc">>])),
+    
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varSetFromBytes_NegativeBinaryType({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromBytes, [Var, 0, foobar])),
+    
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+%% fails due to position being invalid
+varSetFromBytes_NegativeFailCall({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromBytes, [Var, -1, <<"abc">>])),
+    
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varSetFromStmt_test({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
+            false, false, null
+        ]
+    ),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertEqual(ok, dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt])),
+
+    dpiCall(Safe, stmt_release, [Stmt]),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varSetFromStmt_NegativeVarType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromStmt, [foobar, 0, Stmt])),
+    ok.
+
+varSetFromStmt_NegativePosType({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
+            false, false, null
+        ]
+    ),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromStmt, [Var, foobar, Stmt])),
+
+    dpiCall(Safe, stmt_release, [Stmt]),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varSetFromStmt_NegativeStmtType({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
+            false, false, null
+        ]
+    ),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromBytes, [Var, 0, foobar])),
+    
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+%% fails due to position being invalid
+varSetFromStmt_NegativeFailCall({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
+            false, false, null
+        ]
+    ),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_setFromStmt, [Var, -1, Stmt])),
+    
+    dpiCall(Safe, stmt_release, [Stmt]),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+varRelease_test({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    ?assertEqual(ok, dpiCall(Safe, var_release, [Var])),
+    ok.
+
+varRelease_NegativeVarType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_release, [foobar])),
+    ok.
+
+%% fails becaus the var has already been released
+varRelease_NegativeFailCall({Safe, _Context, Conn}) ->
+    #{var := Var, data := Data} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 100, 100,
+            true, true, null
+        ]
+    ),
+    [dpiCall(Safe, data_release, [X]) || X <- Data],
+    dpiCall(Safe, var_release, [Var]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, var_release, [Var])),
+    ok.
+
+%%%
+%%% QuryInfo APIS
+%%%
+
+queryInfoGet_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
+    #{name := Name, nullOk := NullOk,
+        typeInfo := #{clientSizeInBytes := ClientSizeInBytes, dbSizeInBytes := DbSizeInBytes,
+            defaultNativeTypeNum := DefaultNativeTypeNum, fsPrecision := FsPrecision,
+            objectType := ObjectType, ociTypeCode := OciTypeCode,
+            oracleTypeNum := OracleTypeNum , precision := Precision,
+            scale := Scale, sizeInChars := SizeInChars}} = dpiCall(Safe, queryInfo_get, [QueryInfoRef]),
+
+    ?assert(is_list(Name)),
+    ?assert(is_atom(NullOk)),
+    ?assert(is_integer(ClientSizeInBytes)),
+    ?assert(is_integer(DbSizeInBytes)),
+    ?assert(is_atom(DefaultNativeTypeNum)),
+    ?assert(is_integer(FsPrecision)),
+    ?assert(is_atom(ObjectType)),
+    ?assert(is_integer(OciTypeCode)),
+    ?assert(is_atom(OracleTypeNum)),
+    ?assert(is_integer(Precision)),
+    ?assert(is_integer(Scale)),
+    ?assert(is_integer(SizeInChars)),
+    
+    dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+queryInfoGet_NegativeQueryInfoType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, queryInfo_get, [foobar])),
+    ok.
+
+%% fails due to getting a completely wrong reference
+queryInfoGet_NegativeFailCall({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, queryInfo_get, [Conn])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+queryInfoDelete_test({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
+    ?assertEqual(ok, dpiCall(Safe, queryInfo_delete, [QueryInfoRef])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+queryInfoDelete_NegativeQueryInfoType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, queryInfo_delete, [foobar])),
+    ok.
+
+%% fails due to getting a completely wrong reference
+queryInfoDelete_NegativeFailCall({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, queryInfo_delete, [Conn])),
+    ok.
+
+%%%
+%%% Data APIS
+%%%
+
+dataSetTimestamp_test({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [foobar, 1, 2, 3, 4, 5, 6, 7, 8, 9])),
+    ok.
+
+dataSetTimestamp_NegativeYearType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, foobar, 2, 3, 4, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeMonthType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, foobar, 3, 4, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeDayType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, foobar, 4, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeHourType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, foobar, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeMinuteType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, foobar, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeSecondType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, foobar, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeFSecondType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, 6, foobar, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeTZHourOffsetType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, 6, 7, foobar, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_NegativeTZMinuteOffsetType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, 6, 7, 8, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+%% (it doesn't seem to mind the nonsense parameters. Year -1234567? Sure. Timezone of -22398 hours and 3239 minutes? No problem)
+dataSetTimestamp_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setTimestamp, [Conn, -1234567, 2, 3, 4, 5, 6, 7, -22398, 3239])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetTimestamp_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 1,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setTimestamp, [Data, 1, 2, 3, 4, 5, 6, 7, 8, 9])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataSetIntervalDS_test({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, 2, 3, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [foobar, 1, 2, 3, 4, 5])),
+    ok.
+
+dataSetIntervalDS_NegativeDayType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Data, foobar, 2, 3, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_NegativeHoursType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, foobar, 3, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_NegativeMinutesType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, 2, foobar, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_NegativeSecondsType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, 2, 3, foobar, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_NegativeFSecondsType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, 2, 3, 4, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetIntervalDS_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalDS, [Conn, 1, 2, 3, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalDS_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 1,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIntervalDS, [Data, 1, 2, 3, 4, 5])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+
+dataSetIntervalYM_test({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIntervalYM, [Data, 1, 2])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalYM_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalYM, [foobar, 1, 2])),
+    ok.
+
+dataSetIntervalYM_NegativeYearType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalYM, [Data, foobar, 2])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalYM_NegativeMonthType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalYM, [Data, 1, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetIntervalYM_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIntervalYM, [Conn, 1, 2])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIntervalYM_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 1,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIntervalYM, [Data, 1, 2])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+
+dataSetInt64_test({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setInt64, [Data, 1])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetInt64_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setInt64, [foobar, 1])),
+    ok.
+
+dataSetInt64_NegativeAmountType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setInt64, [Data, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetInt64_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setInt64, [Conn, 1])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetInt64_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 1,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setInt64, [Data, 1])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataSetBytes_test({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setBytes, [Data, <<"my string">>])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetBytes_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [foobar, <<"my string">>])),
+    ok.
+
+dataSetBytes_NegativeBinaryType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [Data, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetBytes_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [Conn, <<"my string">>])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetStmt_test({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setStmt, [Data, Stmt])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetStmt_NegativeDataType({Safe, _Context, Conn}) ->
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [foobar, <<"my string">>])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    ok.
+
+dataSetStmt_NegativeStmtType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [Data, foobar])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetStmt_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setBytes, [Conn, <<"my string">>])),
+    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+
+dataSetIsNull_testTrue({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIsNull, [Data, true])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIsNull_testFalse({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIsNull, [Data, false])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIsNull_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIsNull, [foobar, 1])),
+    ok.
+
+dataSetIsNull_NegativeIsNullType({Safe, _Context, _Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIsNull, [Data, "not an atom"])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+%% fails due to the Data ref passed being completely wrong
+dataSetIsNull_NegativeFailCall({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_setIsNull, [Conn, 1])),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataSetIsNull_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 1,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok,
+        dpiCall(Safe, data_setIsNull, [Data, true])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testNull({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 1,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, true]),
+    ?assertEqual(null, dpiCall(Safe, data_get, [Data])),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testInt64({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 1,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_integer(dpiCall(Safe, data_get, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testUint64({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NATIVE_UINT', 'DPI_NATIVE_TYPE_UINT64', 1, 1,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_integer(dpiCall(Safe, data_get, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testFloat({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NATIVE_FLOAT', 'DPI_NATIVE_TYPE_FLOAT', 1, 1,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_float(dpiCall(Safe, data_get, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testDouble({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE', 1, 1,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_float(dpiCall(Safe, data_get, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testBinary({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NCHAR', 'DPI_NATIVE_TYPE_BYTES', 1, 100,
+            true, true, null
+        ]
+    ),
+    ?assertEqual(ok, dpiCall(Safe, var_setFromBytes, [Var, 0, <<"my string">>])),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_binary(dpiCall(Safe, data_get, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testTimestamp({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP', 1, 100,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    #{year := Year, month := Month, day := Day,
+        hour := Hour, minute := Minute, second := Second, 
+        fsecond := Fsecond, tzHourOffset := TzHourOffset, tzMinuteOffset := TzMinuteOffset} =
+        dpiCall(Safe, data_get, [Data]),
+    ?assert(is_integer(Year)),
+    ?assert(is_integer(Month)),
+    ?assert(is_integer(Day)),
+    ?assert(is_integer(Hour)),
+    ?assert(is_integer(Minute)),
+    ?assert(is_integer(Second)),
+    ?assert(is_integer(Fsecond)),
+    ?assert(is_integer(TzHourOffset)),
+    ?assert(is_integer(TzMinuteOffset)),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testIntervalDS({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS', 1, 100,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    #{days := Days, hours := Hours, minutes := Minutes, 
+        seconds := Seconds, fseconds := Fseconds} =
+        dpiCall(Safe, data_get, [Data]),
+    ?assert(is_integer(Days)),
+    ?assert(is_integer(Hours)),
+    ?assert(is_integer(Minutes)),
+    ?assert(is_integer(Seconds)),
+    ?assert(is_integer(Fseconds)),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+
+dataGet_testIntervalYM({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM', 1, 100,
+            true, true, null
+        ]
+    ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    #{years := Years, months := Months} =
+        dpiCall(Safe, data_get, [Data]),
+    ?assert(is_integer(Years)),
+    ?assert(is_integer(Months)),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testStmt({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 100,
+            false, false, null
+        ]
+    ),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
+    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% cached re-get
+    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
+
+dataGet_testStmtChange({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 100,
+            false, false, null
+        ]
+    ),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
+    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
+    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
+    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt2]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% "ref cursor changed"
     dpiCall(Safe, stmt_release, [Stmt]),
     dpiCall(Safe, stmt_release, [Stmt2]),
- 
-    dpiCall(Safe, data_release, [DataRep1]),
-    dpiCall(Safe, var_release, [Var1]),
-    dpiCall(Safe, data_release, [DataRep2]),
-    dpiCall(Safe, var_release, [Var2]),
-    dpiCall(Safe, data_release, [DataRep3]),
-    dpiCall(Safe, var_release, [Var3]).
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
 
-ref_cursor({Safe, _Context, Conn}) -> 
-    CreateStmt = dpiCall(Safe, conn_prepareStmt, [
-        Conn, false,
-        <<"create or replace procedure "?TESTPROCEDURE"
-            (p_cur out sys_refcursor)
-                is
-                begin
-                    open p_cur for select CURRENT_TIMESTAMP from dual;
-            end "?TESTPROCEDURE";">>,
-        <<"">>
-    ]),
-    ?assertEqual(0, dpiCall(Safe, stmt_execute, [CreateStmt, []])),
-    ?assertEqual(ok, dpiCall(Safe, stmt_release, [CreateStmt])),
+dataGet_NegativeDataType({Safe, _Context, _Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_get, [foobar])),
+    ok.
 
-    #{var := VarStmt, data := [DataStmt]} = dpiCall(Safe, conn_newVar, [
-        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
-        false, false, null
-    ]),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [
-        Conn, false, <<"begin "?TESTPROCEDURE"(:cursor); end;">>, <<"">>
-    ]),
-    ok = dpiCall(Safe, stmt_bindByName, [Stmt, <<"cursor">>, VarStmt]),
+%% fails due to completely wrong reference
+dataGet_NegativeFailCall({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        dpiCall(Safe, data_get, [Conn])),
+    ok.
 
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    RefCursor = dpiCall(Safe, data_get, [DataStmt]),
-    ?assertMatch(#{found := true}, dpiCall(Safe, stmt_fetch, [RefCursor])),
-    ?assertEqual(1, dpiCall(Safe, stmt_getNumQueryColumns, [RefCursor])),
-    Result = get_column_values(Safe, RefCursor, 1, 1),
-    ?assertMatch(
-        [#{
-            day := _, fsecond := _, hour := _, minute := _, month := _,
-            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
-        } | _ ],
-        Result
+
+dataGetInt64_test({Safe, _Context, Conn}) ->
+    Data = dpiCall(Safe, data_ctor, []),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_integer(dpiCall(Safe, data_getInt64, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    ok.
+
+dataGetInt64_NegativeDataType({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        (dpiCall(Safe, data_getInt64, [foobar]))),
+    ok.
+
+%% fails due to completely wrong reference
+dataGetInt64_NegativeFailCall({Safe, _Context, Conn}) ->
+    ?assertException(error, {error, _File, _Line, _Exception},
+        (dpiCall(Safe, data_getInt64, [Conn]))),
+    ok.
+
+dataGetInt64_viaPointer({Safe, _Context, Conn}) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        Safe, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 1, 1,
+            true, true, null
+        ]
     ),
+    dpiCall(Safe, data_setIsNull, [Data, false]),
+    ?assert(is_integer(dpiCall(Safe, data_getInt64, [Data]))),
+    dpiCall(Safe, data_release, [Data]),
+    dpiCall(Safe, var_release, [Var]),
+    ok.
 
-    dpiCall(Safe, stmt_execute, [Stmt, []]),
-    RefCursor1 = dpiCall(Safe, data_get, [DataStmt]),
-    ?assertMatch(#{found := false}, dpiCall(Safe, stmt_fetch, [RefCursor1])),
-    ?assertEqual(1, dpiCall(Safe, stmt_getNumQueryColumns, [RefCursor1])),
-    Result1 = get_column_values(Safe, RefCursor1, 1, 1),
-    ?assertMatch(
-        [#{
-            day := _, fsecond := _, hour := _, minute := _, month := _,
-            second := _, tzHourOffset := _, tzMinuteOffset := _, year := _
-        } | _ ],
-        Result1
-    ),
 
-    ?assertEqual(RefCursor, RefCursor1),
-    ?assertEqual(Result, Result1),
 
-    dpiCall(Safe, data_release, [DataStmt]),
-    dpiCall(Safe, var_release, [VarStmt]),
-    dpiCall(Safe, stmt_release, [Stmt]).
+
+
 
 -define(SLAVE, oranif_slave).
+
+setup_context_only(Safe) ->
+    if
+        Safe -> ok = dpi:load(?SLAVE);
+        true -> ok = dpi:load_unsafe()
+    end,
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Context = dpiCall(
+        Safe, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]
+    ),
+    if
+        Safe ->
+            SlaveNode = list_to_existing_atom(
+                re:replace(
+                    atom_to_list(node()), ".*(@.*)", atom_to_list(?SLAVE)++"\\1",
+                    [{return, list}]
+                )
+            ),
+            pong = net_adm:ping(SlaveNode),
+            {Safe, SlaveNode, Context};
+        true -> {Safe, Context}
+    end.
+
+setup_no_input(Safe) ->
+    if
+        Safe -> ok = dpi:load(?SLAVE);
+        true -> ok = dpi:load_unsafe()
+    end,
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    if
+        Safe ->
+            SlaveNode = list_to_existing_atom(
+                re:replace(
+                    atom_to_list(node()), ".*(@.*)", atom_to_list(?SLAVE)++"\\1",
+                    [{return, list}]
+                )
+            ),
+            pong = net_adm:ping(SlaveNode),
+            {Safe, SlaveNode};
+        true -> {Safe}
+    end.
+
 setup(Safe) ->
     if
         Safe -> ok = dpi:load(?SLAVE);
@@ -1061,69 +1876,285 @@ cleanup({Safe, Context, Connnnection}) ->
     dpiCall(Safe, context_destroy, [Context]),
     if Safe -> dpiCall(Safe, unload, []); true -> ok end.
 
+cleanup_context_only({Safe, _SlaveNode, Context}) ->
+    cleanup({Safe, Context});
+cleanup_context_only({Safe, Context}) ->
+    dpiCall(Safe, context_destroy, [Context]),
+    if Safe -> dpiCall(Safe, unload, []); true -> ok end.
+
+cleanup_no_input({Safe, _SlaveNode}) ->
+    cleanup({Safe});
+cleanup_no_input({Safe}) ->
+    if Safe -> dpiCall(Safe, unload, []); true -> ok end.
+
 -define(F(__Fn), {??__Fn, fun __Fn/1}).
 
--define(STATEMENT_TESTS, [
-    ?F(stmt_execute_test),
-    ?F(stmt_execute_test_1),
-    ?F(stmt_execute_test_2),
-    ?F(drop_nonexistent_table),
-    ?F(stmt_execute_test_3),
-    ?F(stmt_execute_test_4),
-    ?F(stmt_getQueryInfo_test),
-    ?F(stmt_bindValueByPos_test),
-    ?F(stmt_bindValueByName_test),
-    ?F(data_setBytes_test),
-    ?F(data_setTimestamp_test),
-    ?F(data_setIntervalYM_test),
-    ?F(data_setIntervalDS_test),
-    ?F(data_setTimestamp_test_1),
-    ?F(fail_stmt_released_too_early),
-    ?F(stmt_defineValue_test),
-    ?F(stmt_defineValue_test_1),
-    ?F(conn_commit_rollback),
-    ?F(var_define_test),
-    ?F(conn_newVar_test),
-    ?F(var_setFromBytes_test),
-    ?F(data_get_test),
-    ?F(data_setIsNull_test),
-    ?F(var_setNumElementsInArray_test),
-    ?F(context_getClientVersion_test),
-    ?F(catch_error_message),
-    ?F(catch_error_message_conn),
-    ?F(stmt_getNumQueryColumns_test),
-    ?F(stored_procedure),
-    ?F(ref_cursor)
+-define(API_TESTS_NO_INPUT, [
+    ?F(contextCreate_test),
+    ?F(contextCreate_NegativeMajType),
+    ?F(contextCreate_NegativeMinType),
+    ?F(contextCreate_NegativeFailCall),
+    ?F(contextDestroy_test),
+    ?F(contextDestroy_NegativeContextType),
+    ?F(contextDestroy_NegativeContextState),
+    ?F(contextGetClientVersion_test),
+    ?F(contextGetClientVersion_NegativeContextType),
+    ?F(contextGetClientVersion_NegativeFailCall)
 ]).
 
--define(CONNECTION_TESTS, [
-    ?F(conn_ping_test)
+-define(API_TESTS_CONTEXT_ONLY, [
+    ?F(connCreate_test),
+    ?F(connCreate_NegativeContextType),
+    ?F(connCreate_NegativeUsernameType),
+    ?F(connCreate_NegativePassType),
+    ?F(connCreate_NegativeTNSType),
+    ?F(connCreate_NegativeParamsType),
+    ?F(connCreate_NegativeEncodingType),
+    ?F(connCreate_NegativeNencodingType),
+    ?F(connCreate_NegativeFailCall)
 ]).
 
-unsafe_statements_test_() ->
-    %% tests that can share a valid connections
+-define(API_TESTS, [
+    ?F(connPrepareStmt_test),
+    ?F(connPrepareStmt_emptyTag),
+    ?F(connPrepareStmt_NegativeConnType),
+    ?F(connPrepareStmt_NegativeScrollableType),
+    ?F(connPrepareStmt_NegativeSQLType),
+    ?F(connPrepareStmt_NegativeTagType),
+    ?F(connPrepareStmt_NegativeFailCall),
+    ?F(connNewVar_test),
+    ?F(connNewVar_NegativeConnType),
+    ?F(connNewVar_NegativeOraTypeType),
+    ?F(connNewVar_NegativeDpiTypeType),
+    ?F(connNewVar_NegativeArraySizeType),
+    ?F(connNewVar_NegativeSizeType),
+    ?F(connNewVar_NegativeSizeIsBytesType),
+    ?F(connNewVar_NegativeIsArrayType),
+    ?F(connNewVar_NegativeObjTypeType),
+    ?F(connNewVar_NegativeFailCall),
+    ?F(connCommit_test),
+    ?F(connCommit_NegativeConnType),
+    ?F(connCommit_NegativeFailCall),
+    ?F(connRollback_test),
+    ?F(connRollback_NegativeConnType),
+    ?F(connRollback_NegativeFailCall),
+    ?F(connPing_test),
+    ?F(connPing_NegativeConnType),
+    ?F(connPing_NegativeFailCall),
+    ?F(connRelease_test),
+    ?F(connRelease_NegativeConnType),
+    ?F(connRelease_NegativeFailCall),
+    ?F(connClose_test),
+    ?F(connClose_testWithModes),
+    ?F(connClose_NegativeConnType),
+    ?F(connClose_NegativeModesType),
+    ?F(connClose_NegativeModeInsideType),
+    ?F(connClose_NegativeInvalidMode),
+    ?F(connClose_NegativeTagType),
+    ?F(connClose_NegativeFailCall),
+    ?F(connGetServerVersion_test),
+    ?F(connGetServerVersion_NegativeConnType),
+    ?F(connGetServerVersion_NegativeFailCall),
+    ?F(stmtExecute_test),
+    ?F(stmtExecute_testWithModes),
+    ?F(stmtExecute_NegativeStmtType),
+    ?F(stmtExecute_NegativeModesType),
+    ?F(stmtExecute_NegativeModeInsideType),
+    ?F(stmtExecute_NegativeFailCall),
+    ?F(stmtFetch_test),
+    ?F(stmtFetch_NegativeStmtType),
+    ?F(stmtFetch_NegativeFailCall),
+    ?F(stmtGetQueryValue_test),
+    ?F(stmtGetQueryValue_NegativeStmtType),
+    ?F(stmtGetQueryValue_NegativePosType),
+    ?F(stmtGetQueryValue_NegativeFailCall),
+    ?F(stmtGetQueryInfo_test),
+    ?F(stmtGetQueryInfo_NegativeStmtType),
+    ?F(stmtGetQueryInfo_NegativePosType),
+    ?F(stmtGetQueryInfo_NegativeFailCall),
+    ?F(stmtGetNumQueryColumns_test),
+    ?F(stmtGetNumQueryColumns_NegativeStmtType),
+    ?F(stmtGetNumQueryColumns_NegativeFailCall),
+    ?F(stmtBindValueByPos_test),
+    ?F(stmtBindValueByPos_NegativeStmtType),
+    ?F(stmtBindValueByPos_NegativePosType),
+    ?F(stmtBindValueByPos_NegativeTypeType),
+    ?F(stmtBindValueByPos_NegativeDataType),
+    ?F(stmtBindValueByPos_NegativeFailCall),
+    ?F(stmtBindValueByName_test),
+    ?F(stmtBindValueByName_NegativeStmtType),
+    ?F(stmtBindValueByName_NegativePosType),
+    ?F(stmtBindValueByName_NegativeTypeType),
+    ?F(stmtBindValueByName_NegativeDataType),
+    ?F(stmtBindValueByName_NegativeFailCall),
+    ?F(stmtBindByPos_test),
+    ?F(stmtBindByPos_NegativeStmtType),
+    ?F(stmtBindByPos_NegativePosType),
+    ?F(stmtBindByPos_NegativeVarType),
+    ?F(stmtBindByPos_NegativeFailCall),
+    ?F(stmtBindByName_test),
+    ?F(stmtBindByName_NegativeStmtType),
+    ?F(stmtBindByName_NegativePosType),
+    ?F(stmtBindByName_NegativeVarType),
+    ?F(stmtBindByName_NegativeFailCall),
+    ?F(stmtRelease_test),
+    ?F(stmtRelease_NegativeStmtType),
+    ?F(stmtRelease_NegativeFailCall),
+    ?F(stmtDefine_test),
+    ?F(stmtDefine_NegativeStmtType),
+    ?F(stmtDefine_NegativePosType),
+    ?F(stmtDefine_NegativeVarType),
+    ?F(stmtDefine_NegativeFailCall),
+    ?F(stmtDefineValue_test),
+    ?F(stmtDefineValue_NegativeStmtType),
+    ?F(stmtDefineValue_NegativePosType),
+    ?F(stmtDefineValue_NegativeOraTypeType),
+    ?F(stmtDefineValue_NegativeNativeTypeType),
+    ?F(stmtDefineValue_NegativeSizeType),
+    ?F(stmtDefineValue_NegativeSizeInBytesType),
+    ?F(stmtDefineValue_NegativeFailCall),
+    ?F(varSetNumElementsInArray_test),
+    ?F(varSetNumElementsInArray_NegativeVarType),
+    ?F(varSetNumElementsInArray_NegativeNumElementsType),
+    ?F(varSetNumElementsInArray_NegativeFailCall),
+    ?F(varSetFromBytes_test),
+    ?F(varSetFromBytes_NegativeVarType),
+    ?F(varSetFromBytes_NegativePosType),
+    ?F(varSetFromBytes_NegativeBinaryType),
+    ?F(varSetFromBytes_NegativeFailCall),
+    ?F(varSetFromStmt_test),
+    ?F(varSetFromStmt_NegativeVarType),
+    ?F(varSetFromStmt_NegativePosType),
+    ?F(varSetFromStmt_NegativeStmtType),
+    ?F(varSetFromStmt_NegativeFailCall),
+    ?F(varRelease_test),
+    ?F(varRelease_NegativeVarType),
+    ?F(varRelease_NegativeFailCall),
+    ?F(queryInfoGet_test),
+    ?F(queryInfoGet_NegativeQueryInfoType),
+    ?F(queryInfoGet_NegativeFailCall),
+    ?F(queryInfoDelete_test),
+    ?F(queryInfoDelete_NegativeQueryInfoType),
+    ?F(queryInfoDelete_NegativeFailCall),
+    ?F(dataSetTimestamp_test),
+    ?F(dataSetTimestamp_NegativeDataType),
+    ?F(dataSetTimestamp_NegativeYearType),
+    ?F(dataSetTimestamp_NegativeMonthType),
+    ?F(dataSetTimestamp_NegativeDayType),
+    ?F(dataSetTimestamp_NegativeHourType),
+    ?F(dataSetTimestamp_NegativeMinuteType),
+    ?F(dataSetTimestamp_NegativeSecondType),
+    ?F(dataSetTimestamp_NegativeFSecondType),
+    ?F(dataSetTimestamp_NegativeTZHourOffsetType),
+    ?F(dataSetTimestamp_NegativeTZMinuteOffsetType),
+    ?F(dataSetTimestamp_NegativeFailCall),
+    ?F(dataSetTimestamp_viaPointer),
+    ?F(dataSetIntervalDS_test),
+    ?F(dataSetIntervalDS_NegativeDataType),
+    ?F(dataSetIntervalDS_NegativeDayType),
+    ?F(dataSetIntervalDS_NegativeHoursType),
+    ?F(dataSetIntervalDS_NegativeMinutesType),
+    ?F(dataSetIntervalDS_NegativeSecondsType),
+    ?F(dataSetIntervalDS_NegativeFSecondsType),
+    ?F(dataSetIntervalDS_NegativeFailCall),
+    ?F(dataSetIntervalDS_viaPointer),
+    ?F(dataSetIntervalYM_test),
+    ?F(dataSetIntervalYM_NegativeDataType),
+    ?F(dataSetIntervalYM_NegativeYearType),
+    ?F(dataSetIntervalYM_NegativeMonthType),
+    ?F(dataSetIntervalYM_NegativeFailCall),
+    ?F(dataSetIntervalYM_viaPointer),
+    ?F(dataSetInt64_test),
+    ?F(dataSetInt64_NegativeDataType),
+    ?F(dataSetInt64_NegativeAmountType),
+    ?F(dataSetInt64_NegativeFailCall),
+    ?F(dataSetInt64_viaPointer),
+    ?F(dataSetBytes_test),
+    ?F(dataSetBytes_NegativeDataType),
+    ?F(dataSetBytes_NegativeBinaryType),
+    ?F(dataSetBytes_NegativeFailCall),
+    ?F(dataSetStmt_test),
+    ?F(dataSetStmt_NegativeDataType),
+    ?F(dataSetStmt_NegativeStmtType),
+    ?F(dataSetStmt_NegativeFailCall),
+    ?F(dataSetIsNull_testTrue),
+    ?F(dataSetIsNull_testFalse),
+    ?F(dataSetIsNull_NegativeDataType),
+    ?F(dataSetIsNull_NegativeIsNullType),
+    ?F(dataSetIsNull_NegativeFailCall),
+    ?F(dataSetIsNull_viaPointer),
+    ?F(dataGet_testNull),
+    ?F(dataGet_testInt64),
+    ?F(dataGet_testUint64),
+    ?F(dataGet_testFloat),
+    ?F(dataGet_testDouble),
+    ?F(dataGet_testBinary),
+    ?F(dataGet_testTimestamp),
+    ?F(dataGet_testIntervalDS),
+    ?F(dataGet_testIntervalYM),
+    ?F(dataGet_testStmt),
+    ?F(dataGet_testStmtChange),
+    ?F(dataGet_NegativeDataType),
+    ?F(dataGet_NegativeFailCall),
+    ?F(dataGetInt64_test),
+    ?F(dataGetInt64_NegativeDataType),
+    ?F(dataGetInt64_NegativeFailCall),
+    ?F(dataGetInt64_viaPointer)
+
+
+]).
+
+unsafe_API_no_input_test_() ->
+    {
+        setup,
+        fun() -> setup_no_input(false) end,
+        fun cleanup_no_input/1,
+        oraniftst_no_input(?API_TESTS_NO_INPUT)
+    }.
+
+unsafe_API_context_only_test_() ->
+    {
+        setup,
+        fun() -> setup_context_only(false) end,
+         fun cleanup_context_only/1,
+        oraniftst_context_only(?API_TESTS_CONTEXT_ONLY)
+    }.
+
+unsafe_API_test_() ->
     {
         setup,
         fun() -> setup(false) end,
         fun cleanup/1,
-        oraniftst(?STATEMENT_TESTS)
+        oraniftst(?API_TESTS)
     }.
 
-safe_statements_test_() ->
-    {
-        setup,
-        fun() -> setup(true) end,
-        fun cleanup/1,
-        oraniftst(?STATEMENT_TESTS)
-    }.
+oraniftst_no_input(TestFuns) ->
+    fun
+        ({Safe, SlaveNode}) ->
+            [{
+                "slave_"++Title,
+                fun() ->
+                    put(dpi_node, SlaveNode),
+                    TestFun(Safe)
+                end
+            } || {Title, TestFun} <- TestFuns];
+        (Ctx) ->
+            [{Title, fun() -> TestFun(Ctx) end} || {Title, TestFun} <- TestFuns]
+    end.
 
-unsafe_connection_test_() ->
-    {
-        setup,
-        fun() -> setup(false) end,
-        fun cleanup/1,
-        oraniftst(?CONNECTION_TESTS)
-    }.
+oraniftst_context_only(TestFuns) ->
+    fun
+        ({Safe, SlaveNode, Context}) ->
+            [{
+                "slave_"++Title,
+                fun() ->
+                    put(dpi_node, SlaveNode),
+                    TestFun({Safe, Context})
+                end
+            } || {Title, TestFun} <- TestFuns];
+        (Ctx) ->
+            [{Title, fun() -> TestFun(Ctx) end} || {Title, TestFun} <- TestFuns]
+    end.
 
 oraniftst(TestFuns) ->
     fun
@@ -1174,3 +2205,30 @@ get_column_values(Safe, Stmt, ColIdx, Limit) ->
     #{data := Data} = dpiCall(Safe, stmt_getQueryValue, [Stmt, ColIdx]),
     [dpiCall(Safe, data_get, [Data])
      | get_column_values(Safe, Stmt, ColIdx + 1, Limit)].
+
+%% gets a value out of a fetched set, compares it using an assertation,
+%% then cleans is up again
+assert_getQueryValue(Safe, Stmt, Index, Value) ->
+    #{data := QueryValueRef} = dpiCall(Safe, stmt_getQueryValue, [Stmt, Index]),
+    ?assertEqual(Value, dpiCall(Safe, data_get, [QueryValueRef])),
+	dpiCall(Safe, data_release, [QueryValueRef]),
+    ok.
+
+
+assert_getQueryInfo(Safe, Stmt, Index, Value, Atom) ->
+    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, Index]),
+    ?assertEqual(Value, maps:get(Atom, dpiCall(Safe, queryInfo_get, [QueryInfoRef]))),
+	dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
+    ok.
+
+extract_getQueryValue(Safe, Stmt, Index) ->
+    #{data := QueryValueRef} = dpiCall(Safe, stmt_getQueryValue, [Stmt, Index]),
+    Result = dpiCall(Safe, data_get, [QueryValueRef]),
+	dpiCall(Safe, data_release, [QueryValueRef]),
+    Result.
+
+extract_getQueryInfo(Safe, Stmt, Index, Atom) ->
+    QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, Index]),
+    Result = maps:get(Atom, dpiCall(Safe, queryInfo_get, [QueryInfoRef])),
+	dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
+    Result.

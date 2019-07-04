@@ -58,6 +58,7 @@ extern DPI_NIF_FUN(stmt_close);
 #define DPI_CLOSE_MODE_FROM_ATOM(_atom, _assign)        \
     A2M(DPI_MODE_CONN_CLOSE_DEFAULT, _atom, _assign);   \
     else A2M(DPI_MODE_CONN_CLOSE_DROP, _atom, _assign); \
-    else A2M(DPI_MODE_CONN_CLOSE_RETAG, _atom, _assign)
-
+    else A2M(DPI_MODE_CONN_CLOSE_RETAG, _atom, _assign);\
+    else BADARG_EXCEPTION(1, "DPI_MODE atom")
+    
 #endif // _DPISTMT_NIF_H_

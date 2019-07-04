@@ -19,17 +19,18 @@ DPI_NIF_FUN(stmt_execute)
 
     dpiStmt_res *stmtRes;
     uint32_t numCols = 0;
-    unsigned int len;
 
     if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
         BADARG_EXCEPTION(0, "resource statement");
 
     ERL_NIF_TERM head, tail;
-    if (!enif_is_list(env, argv[1]) &&
-        !enif_get_list_cell(env, argv[1], &head, &tail))
+    
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "atom list modes, not a list");
+    if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
         BADARG_EXCEPTION(1, "atom list modes");
 
-    enif_get_list_length(env, argv[1], &len);
     dpiExecMode m = 0, mode = 0;
     if (len > 0)
         do

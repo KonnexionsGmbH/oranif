@@ -288,15 +288,17 @@ DPI_NIF_FUN(conn_close)
     if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
-    if (!enif_is_list(env, argv[1]) &&
-        !enif_get_list_cell(env, argv[1], &head, &tail))
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "atom list modes, not a list");
+    if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
         BADARG_EXCEPTION(1, "atom list modes");
+
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");
 
     dpiConnCloseMode m = 0, mode = 0;
-    unsigned int len;
-    enif_get_list_length(env, argv[1], &len);
+
     if (len > 0)
         do
         {

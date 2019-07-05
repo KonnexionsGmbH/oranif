@@ -63,7 +63,8 @@ extern DPI_NIF_FUN(data_release);
     else A2M(DPI_NATIVE_TYPE_OBJECT, _atom, _assign);      \
     else A2M(DPI_NATIVE_TYPE_STMT, _atom, _assign);        \
     else A2M(DPI_NATIVE_TYPE_BOOLEAN, _atom, _assign);     \
-    else A2M(DPI_NATIVE_TYPE_ROWID, _atom, _assign)
+    else A2M(DPI_NATIVE_TYPE_ROWID, _atom, _assign);       \
+    else RAISE_STR_EXCEPTION("wrong or unsupported dpiNativeType type");
 
 #define DPI_NATIVE_TYPE_NUM_TO_ATOM(_type, _assign)               \
     switch (_type)                                                \

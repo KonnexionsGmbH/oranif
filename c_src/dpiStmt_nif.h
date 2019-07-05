@@ -53,7 +53,8 @@ extern DPI_NIF_FUN(stmt_close);
     else A2M(DPI_MODE_EXEC_COMMIT_ON_SUCCESS, _atom, _assign); \
     else A2M(DPI_MODE_EXEC_BATCH_ERRORS, _atom, _assign);      \
     else A2M(DPI_MODE_EXEC_PARSE_ONLY, _atom, _assign);        \
-    else A2M(DPI_MODE_EXEC_ARRAY_DML_ROWCOUNTS, _atom, _assign)
+    else A2M(DPI_MODE_EXEC_ARRAY_DML_ROWCOUNTS, _atom, _assign);\
+    else BADARG_EXCEPTION(1, "DPI_MODE atom")
 
 #define DPI_CLOSE_MODE_FROM_ATOM(_atom, _assign)        \
     A2M(DPI_MODE_CONN_CLOSE_DEFAULT, _atom, _assign);   \

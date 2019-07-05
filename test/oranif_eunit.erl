@@ -1547,38 +1547,84 @@ dataGet_testIntervalYM({Safe, _Context, Conn}) ->
     ok.
 
 dataGet_testStmt({Safe, _Context, Conn}) ->
-    #{var := Var, data := [Data]} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 100,
-            false, false, null
-        ]
-    ),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt]),
-    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
-    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% cached re-get
-    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
-    dpiCall(Safe, data_release, [Data]),
-    dpiCall(Safe, var_release, [Var]),
+    CreateStmt = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false,
+        <<"create or replace procedure ORANIF_TEST_1
+            (p_cur out sys_refcursor)
+                is
+                begin
+                    open p_cur for select 1 from dual;
+            end ORANIF_TEST_1;">>,
+        <<"">>
+    ]),
+    dpiCall(Safe, stmt_execute, [CreateStmt, []]),
+    dpiCall(Safe, stmt_close, [CreateStmt, <<>>]),
+
+    #{var := VarStmt, data := [DataStmt]} = dpiCall(Safe, conn_newVar, [
+        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
+        false, false, null
+    ]),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false, <<"begin ORANIF_TEST_1(:cursor); end;">>, <<"">>
+    ]),
+    ok = dpiCall(Safe, stmt_bindByName, [Stmt, <<"cursor">>, VarStmt]),
+
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [DataStmt]))), %% first-time get
+    ?assert(is_reference( dpiCall(Safe, data_get, [DataStmt]))), %% cached re-get
+    dpiCall(Safe, data_release, [DataStmt]),
+    dpiCall(Safe, var_release, [VarStmt]),
     ok.
 
 dataGet_testStmtChange({Safe, _Context, Conn}) ->
-    #{var := Var, data := [Data]} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 100,
-            false, false, null
-        ]
-    ),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    Stmt2 = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
-    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt]),
-    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
-    dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt2]),
-    ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% "ref cursor changed"
+    CreateStmt = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false,
+        <<"create or replace procedure ORANIF_TEST_1
+            (p_cur out sys_refcursor)
+                is
+                begin
+                    open p_cur for select 1 from dual;
+            end ORANIF_TEST_1;">>,
+        <<"">>
+    ]),
+    dpiCall(Safe, stmt_execute, [CreateStmt, []]),
+    dpiCall(Safe, stmt_close, [CreateStmt, <<>>]),
+
+    CreateStmt2 = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false,
+        <<"create or replace procedure ORANIF_TEST_2
+            (p_cur out sys_refcursor)
+                is
+                begin
+                    open p_cur for select 2 from dual;
+            end ORANIF_TEST_2;">>,
+        <<"">>
+    ]),
+    dpiCall(Safe, stmt_execute, [CreateStmt2, []]),
+    dpiCall(Safe, stmt_close, [CreateStmt2, <<>>]),
+
+    #{var := VarStmt, data := [DataStmt]} = dpiCall(Safe, conn_newVar, [
+        Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 1, 0,
+        false, false, null
+    ]),
+    Stmt = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false, <<"begin ORANIF_TEST_1(:cursor); end;">>, <<"">>
+    ]),
+    ok = dpiCall(Safe, stmt_bindByName, [Stmt, <<"cursor">>, VarStmt]),
+    dpiCall(Safe, stmt_execute, [Stmt, []]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [DataStmt]))), %% first-time get
+
+    Stmt2 = dpiCall(Safe, conn_prepareStmt, [
+        Conn, false, <<"begin ORANIF_TEST_2(:cursor); end;">>, <<"">>
+    ]),
+    ok = dpiCall(Safe, stmt_bindByName, [Stmt2, <<"cursor">>, VarStmt]),
+    dpiCall(Safe, stmt_execute, [Stmt2, []]),
+    ?assert(is_reference( dpiCall(Safe, data_get, [DataStmt]))), %% "ref cursor changed"
+    dpiCall(Safe, data_release, [DataStmt]),
+    dpiCall(Safe, var_release, [VarStmt]),
+
     dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     dpiCall(Safe, stmt_close, [Stmt2, <<>>]),
-    dpiCall(Safe, data_release, [Data]),
-    dpiCall(Safe, var_release, [Var]),
     ok.
 
 dataGet_NegativeDataType({Safe, _Context, _Conn}) ->

@@ -1006,7 +1006,7 @@ setup(Safe) ->
 cleanup({Safe, _SlaveNode, Context, Connnnection}) ->
     cleanup({Safe, Context, Connnnection});
 cleanup({Safe, Context, Connnnection}) ->
-    dpiCall(Safe, conn_release, [Connnnection]),
+    catch(dpiCall(Safe, conn_close, [Connnnection, [], <<>>])),
     dpiCall(Safe, context_destroy, [Context]),
     if Safe -> dpiCall(Safe, unload, []); true -> ok end.
 

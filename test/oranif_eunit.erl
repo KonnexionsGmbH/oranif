@@ -8,7 +8,7 @@
     (fun() ->
         __Stmt = dpiCall(Safe, conn_prepareStmt, [_Conn, false, _Sql, <<"">>]),
         R = (catch dpiCall(Safe, stmt_execute, [__Stmt, []])),
-        catch dpiCall(Safe, stmt_release, [__Stmt]),
+        catch dpiCall(Safe, stmt_close, [__Stmt, <<>>]),
         R
     end)()
 ).
@@ -93,7 +93,7 @@ connCreate_test({Safe, Context}) ->
     Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
             #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
     ?assert(is_reference(Conn)),
-    dpiCall(Safe, conn_release, [Conn]).
+    dpiCall(Safe, conn_close, [Conn, [], <<>>]).
 
 connCreate_NegativeContextType({Safe, _Context}) ->
     #{tns := Tns, user := User, password := Password} = getConfig(),
@@ -155,12 +155,12 @@ connCreate_NegativeFailCall({Safe, Context}) ->
 connPrepareStmt_test({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"miau">>, <<"foo">>]),
     ?assert(is_reference(Stmt)),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 connPrepareStmt_emptyTag({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"miau">>, <<"">>]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 connPrepareStmt_NegativeConnType({Safe, _Context, _Conn}) ->
@@ -293,25 +293,6 @@ connPing_NegativeFailCall({Safe, Context, _Conn}) ->
         dpiCall(Safe, conn_ping, [Context])),
     ok.
 
-connRelease_test({Safe, Context, _Conn}) ->
-    #{tns := Tns, user := User, password := Password} = getConfig(),
-    Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
-        #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
-    Result = dpiCall(Safe, conn_release, [Conn]),
-    ?assertEqual(ok, Result),
-    ok.
-  
-connRelease_NegativeConnType({Safe, _Context, Conn}) ->
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, conn_release, [foobar])),
-    ok.
-
-%% fails due to the Conn being invalid, it was already released when it is supposed to be releases
-connRelease_NegativeFailCall({Safe, Context, _Conn}) ->
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, conn_release, [Context])),
-    ok.
-
 connClose_test({Safe, Context, _Conn}) ->
     #{tns := Tns, user := User, password := Password} = getConfig(),
     Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
@@ -383,7 +364,7 @@ connGetServerVersion_NegativeFailCall({Safe, Context, _Conn}) ->
     #{tns := Tns, user := User, password := Password} = getConfig(),
     Conn = dpiCall(Safe, conn_create, [Context, User, Password, Tns,
             #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}]),
-    dpiCall(Safe, conn_release, [Conn]),
+    dpiCall(Safe, conn_close, [Conn, [], <<>>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, conn_getServerVersion, [Context])),
     ok.
@@ -397,14 +378,14 @@ stmtExecute_test({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     QueryCols = dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertEqual(1, QueryCols),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtExecute_testWithModes({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     QueryCols = dpiCall(Safe, stmt_execute, [Stmt, ['DPI_MODE_EXEC_DEFAULT']]),
     ?assertEqual(1, QueryCols),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtExecute_NegativeStmtType({Safe, _Context, Conn}) ->
@@ -416,14 +397,14 @@ stmtExecute_NegativeModesType({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_execute, [Stmt, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtExecute_NegativeModeInsideType({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_execute, [Stmt, ["not an atom"]])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the SQL being invalid
@@ -440,7 +421,7 @@ stmtFetch_test({Safe, _Context, Conn}) ->
     #{found := Found, bufferRowIndex := BufferRowIndex} = dpiCall(Safe, stmt_fetch, [Stmt]),
     ?assert(is_atom(Found)),
     ?assert(is_integer(BufferRowIndex)),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtFetch_NegativeStmtType({Safe, _Context, Conn}) ->
@@ -464,7 +445,7 @@ stmtGetQueryValue_test({Safe, _Context, Conn}) ->
     ?assert(is_atom(Type)),
     ?assert(is_reference(Result)),
     dpiCall(Safe, data_release, [Result]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtGetQueryValue_NegativeStmtType({Safe, _Context, Conn}) ->
@@ -476,7 +457,7 @@ stmtGetQueryValue_NegativePosType({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_getQueryValue, [Stmt, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the fetch not being done
@@ -485,7 +466,7 @@ stmtGetQueryValue_NegativeFailCall({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_getQueryValue, [Stmt, 1])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtGetQueryInfo_test({Safe, _Context, Conn}) ->
@@ -493,7 +474,7 @@ stmtGetQueryInfo_test({Safe, _Context, Conn}) ->
     Info = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
     ?assert(is_reference(Info)),
     dpiCall(Safe, queryInfo_delete, [Info]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtGetQueryInfo_NegativeStmtType({Safe, _Context, Conn}) ->
@@ -506,7 +487,7 @@ stmtGetQueryInfo_NegativePosType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_getQueryInfo, [Stmt, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the SQL being bad
@@ -514,14 +495,14 @@ stmtGetQueryInfo_NegativeFailCall({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"bibidi babidi boo">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtGetNumQueryColumns_test({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1337 from dual">>, <<"">>]),
     Count = dpiCall(Safe, stmt_getNumQueryColumns, [Stmt]),
     ?assert(is_integer(Count)),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtGetNumQueryColumns_NegativeStmtType({Safe, _Context, Conn}) ->
@@ -533,7 +514,7 @@ stmtGetNumQueryColumns_NegativeStmtType({Safe, _Context, Conn}) ->
 %% fails due to the statement being released too early
 stmtGetNumQueryColumns_NegativeFailCall({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"it is showtime">>, <<"">>]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_getNumQueryColumns, [Stmt])),
     ok.
@@ -545,7 +526,7 @@ stmtBindValueByPos_test({Safe, _Context, Conn}) ->
     BindData = dpiCall(Safe, data_ctor, []),
     ?assertEqual(ok, dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -562,7 +543,7 @@ stmtBindValueByPos_NegativePosType({Safe, _Context, Conn}) ->
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByPos, [Stmt, foobar, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtBindValueByPos_NegativeTypeType({Safe, _Context, Conn}) -> 
@@ -571,14 +552,14 @@ stmtBindValueByPos_NegativeTypeType({Safe, _Context, Conn}) ->
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, "foobar", BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtBindValueByPos_NegativeDataType({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByPos, [Stmt, 1, 'DPI_NATIVE_TYPE_INT64', foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the position being invalid
@@ -590,7 +571,7 @@ stmtBindValueByPos_NegativeFailCall({Safe, _Context, Conn}) ->
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByPos, [Stmt, -1, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -602,7 +583,7 @@ stmtBindValueByName_test({Safe, _Context, Conn}) ->
     BindData = dpiCall(Safe, data_ctor, []),
     ?assertEqual(ok, dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -619,7 +600,7 @@ stmtBindValueByName_NegativePosType({Safe, _Context, Conn}) ->
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByName, [Stmt, foobar, 'DPI_NATIVE_TYPE_INT64', BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtBindValueByName_NegativeTypeType({Safe, _Context, Conn}) -> 
@@ -628,14 +609,14 @@ stmtBindValueByName_NegativeTypeType({Safe, _Context, Conn}) ->
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, "foobar", BindData])),
     dpiCall(Safe, data_release, [BindData]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtBindValueByName_NegativeDataType({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindValueByName, [Stmt, <<"A">>, 'DPI_NATIVE_TYPE_INT64', foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the name being invalid
@@ -660,7 +641,7 @@ stmtBindByPos_test({Safe, _Context, Conn}) ->
     ?assertEqual(ok, dpiCall(Safe, stmt_bindByPos, [Stmt, 1, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -686,7 +667,7 @@ stmtBindByPos_NegativePosType({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_bindByPos, [Stmt, foobar, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -696,7 +677,7 @@ stmtBindByPos_NegativeVarType({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindByPos, [Stmt, 1, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -711,7 +692,7 @@ stmtBindByPos_NegativeFailCall({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_bindByPos, [Stmt, -1, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -724,7 +705,7 @@ stmtBindByName_test({Safe, _Context, Conn}) ->
     ?assertEqual(ok, dpiCall(Safe, stmt_bindByName, [Stmt, <<"A">>, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -750,7 +731,7 @@ stmtBindByName_NegativePosType({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_bindByName, [Stmt, foobar, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -760,7 +741,7 @@ stmtBindByName_NegativeVarType({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"insert into test_dpi values (:A)">>, <<"">>]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_bindByName, [Stmt, <<"A">>, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
     ok.
 
@@ -775,26 +756,8 @@ stmtBindByName_NegativeFailCall({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_bindByName, [Stmt, <<"B">>, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ?EXEC_STMT(Conn, <<"drop table test_dpi">>), 
-    ok.
-
-stmtRelease_test({Safe, _Context, Conn}) -> 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"making a statement">>, <<"">>]),
-    ?assertEqual(ok, dpiCall(Safe, stmt_release, [Stmt])),
-    ok.
-
-stmtRelease_NegativeStmtType({Safe, _Context, Conn}) -> 
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"making a statement">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, stmt_release, [foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]), %% cleanup
-    ok.
-
-%% fails due to the reference being wrong
-stmtRelease_NegativeFailCall({Safe, _Context, Conn}) -> 
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, stmt_release, [Conn])),
     ok.
 
 stmtDefine_test({Safe, _Context, Conn}) -> 
@@ -805,7 +768,7 @@ stmtDefine_test({Safe, _Context, Conn}) ->
     ?assertEqual(ok, dpiCall(Safe, stmt_define, [Stmt, 1, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtDefine_NegativeStmtType({Safe, _Context, Conn}) -> 
@@ -826,7 +789,7 @@ stmtDefine_NegativePosType({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_define, [Stmt, foobar, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtDefine_NegativeVarType({Safe, _Context, Conn}) -> 
@@ -834,7 +797,7 @@ stmtDefine_NegativeVarType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
     dpiCall(Safe, stmt_define, [Stmt, 1, foobar])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to the pos being invalid
@@ -847,14 +810,14 @@ stmtDefine_NegativeFailCall({Safe, _Context, Conn}) ->
         dpiCall(Safe, stmt_define, [Stmt, 12345, Var])),
     [dpiCall(Safe, data_release, [X]) || X <- Data],
     dpiCall(Safe, var_release, [Var]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtDefineValue_test({Safe, _Context, Conn}) -> 
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertEqual(ok, dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 stmtDefineValue_NegativeStmtType({Safe, _Context, Conn}) -> 
@@ -867,7 +830,7 @@ stmtDefineValue_NegativePosType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, foobar, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 
@@ -876,7 +839,7 @@ stmtDefineValue_NegativeOraTypeType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, 1, "foobar", 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 
@@ -885,7 +848,7 @@ stmtDefineValue_NegativeNativeTypeType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', "foobar", 0, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 
@@ -894,7 +857,7 @@ stmtDefineValue_NegativeSizeType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', foobar, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 
@@ -903,7 +866,7 @@ stmtDefineValue_NegativeSizeInBytesType({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, 1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, "foobar", null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %% fails due to invalid position
@@ -912,7 +875,7 @@ stmtDefineValue_NegativeFailCall({Safe, _Context, Conn}) ->
     dpiCall(Safe, stmt_execute, [Stmt, []]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, stmt_defineValue, [Stmt, -1, 'DPI_ORACLE_TYPE_NATIVE_INT', 'DPI_NATIVE_TYPE_INT64', 0, false, null])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 %%%
@@ -1024,74 +987,6 @@ varSetFromBytes_NegativeFailCall({Safe, _Context, Conn}) ->
     dpiCall(Safe, var_release, [Var]),
     ok.
 
-varSetFromStmt_test({Safe, _Context, Conn}) ->
-    #{var := Var, data := Data} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
-            false, false, null
-        ]
-    ),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertEqual(ok, dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt])),
-
-    dpiCall(Safe, stmt_release, [Stmt]),
-    [dpiCall(Safe, data_release, [X]) || X <- Data],
-    dpiCall(Safe, var_release, [Var]),
-    ok.
-
-varSetFromStmt_NegativeVarType({Safe, _Context, Conn}) ->
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, var_setFromStmt, [foobar, 0, Stmt])),
-    ok.
-
-varSetFromStmt_NegativePosType({Safe, _Context, Conn}) ->
-    #{var := Var, data := Data} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
-            false, false, null
-        ]
-    ),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, var_setFromStmt, [Var, foobar, Stmt])),
-
-    dpiCall(Safe, stmt_release, [Stmt]),
-    [dpiCall(Safe, data_release, [X]) || X <- Data],
-    dpiCall(Safe, var_release, [Var]),
-    ok.
-
-varSetFromStmt_NegativeStmtType({Safe, _Context, Conn}) ->
-    #{var := Var, data := Data} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
-            false, false, null
-        ]
-    ),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, var_setFromBytes, [Var, 0, foobar])),
-    
-    [dpiCall(Safe, data_release, [X]) || X <- Data],
-    dpiCall(Safe, var_release, [Var]),
-    ok.
-
-%% fails due to position being invalid
-varSetFromStmt_NegativeFailCall({Safe, _Context, Conn}) ->
-    #{var := Var, data := Data} = dpiCall(
-        Safe, conn_newVar, [
-            Conn, 'DPI_ORACLE_TYPE_STMT', 'DPI_NATIVE_TYPE_STMT', 100, 100,
-            false, false, null
-        ]
-    ),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, var_setFromStmt, [Var, -1, Stmt])),
-    
-    dpiCall(Safe, stmt_release, [Stmt]),
-    [dpiCall(Safe, data_release, [X]) || X <- Data],
-    dpiCall(Safe, var_release, [Var]),
-    ok.
-
 varRelease_test({Safe, _Context, Conn}) ->
     #{var := Var, data := Data} = dpiCall(
         Safe, conn_newVar, [
@@ -1143,7 +1038,7 @@ queryInfoGet_test({Safe, _Context, Conn}) ->
     ?assert(is_integer(SizeInChars)),
     
     dpiCall(Safe, queryInfo_delete, [QueryInfoRef]),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 queryInfoGet_NegativeQueryInfoType({Safe, _Context, Conn}) ->
@@ -1157,14 +1052,14 @@ queryInfoGet_NegativeFailCall({Safe, _Context, Conn}) ->
     QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
     ?assertException(error, {error, _File, _Line, _Exception},
         dpiCall(Safe, queryInfo_get, [Conn])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 queryInfoDelete_test({Safe, _Context, Conn}) ->
     Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
     QueryInfoRef = dpiCall(Safe, stmt_getQueryInfo, [Stmt, 1]),
     ?assertEqual(ok, dpiCall(Safe, queryInfo_delete, [QueryInfoRef])),
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     ok.
 
 queryInfoDelete_NegativeQueryInfoType({Safe, _Context, Conn}) ->
@@ -1463,40 +1358,6 @@ dataSetBytes_NegativeFailCall({Safe, _Context, Conn}) ->
     dpiCall(Safe, data_release, [Data]),
     ok.
 
-dataSetStmt_test({Safe, _Context, Conn}) ->
-    Data = dpiCall(Safe, data_ctor, []),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertEqual(ok,
-        dpiCall(Safe, data_setStmt, [Data, Stmt])),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, data_release, [Data]),
-    ok.
-
-dataSetStmt_NegativeDataType({Safe, _Context, Conn}) ->
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, data_setBytes, [foobar, <<"my string">>])),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    ok.
-
-dataSetStmt_NegativeStmtType({Safe, _Context, _Conn}) ->
-    Data = dpiCall(Safe, data_ctor, []),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, data_setBytes, [Data, foobar])),
-    dpiCall(Safe, data_release, [Data]),
-    ok.
-
-%% fails due to the Data ref passed being completely wrong
-dataSetStmt_NegativeFailCall({Safe, _Context, Conn}) ->
-    Data = dpiCall(Safe, data_ctor, []),
-    Stmt = dpiCall(Safe, conn_prepareStmt, [Conn, false, <<"select 1 from dual">>, <<"">>]),
-    ?assertException(error, {error, _File, _Line, _Exception},
-        dpiCall(Safe, data_setBytes, [Conn, <<"my string">>])),
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, data_release, [Data]),
-    ok.
-
-
 dataSetIsNull_testTrue({Safe, _Context, _Conn}) ->
     Data = dpiCall(Safe, data_ctor, []),
     ?assertEqual(ok,
@@ -1696,7 +1557,7 @@ dataGet_testStmt({Safe, _Context, Conn}) ->
     dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt]),
     ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
     ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% cached re-get
-    dpiCall(Safe, stmt_release, [Stmt]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
     dpiCall(Safe, data_release, [Data]),
     dpiCall(Safe, var_release, [Var]),
     ok.
@@ -1714,8 +1575,8 @@ dataGet_testStmtChange({Safe, _Context, Conn}) ->
     ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% first-time get
     dpiCall(Safe, var_setFromStmt, [Var, 0, Stmt2]),
     ?assert(is_reference( dpiCall(Safe, data_get, [Data]))), %% "ref cursor changed"
-    dpiCall(Safe, stmt_release, [Stmt]),
-    dpiCall(Safe, stmt_release, [Stmt2]),
+    dpiCall(Safe, stmt_close, [Stmt, <<>>]),
+    dpiCall(Safe, stmt_close, [Stmt2, <<>>]),
     dpiCall(Safe, data_release, [Data]),
     dpiCall(Safe, var_release, [Var]),
     ok.
@@ -1897,7 +1758,7 @@ setup(Safe) ->
 cleanup({Safe, _SlaveNode, Context, Connnnection}) ->
     cleanup({Safe, Context, Connnnection});
 cleanup({Safe, Context, Connnnection}) ->
-    dpiCall(Safe, conn_release, [Connnnection]),
+    dpiCall(Safe, conn_close, [Connnnection, [], <<>>]),
     dpiCall(Safe, context_destroy, [Context]),
     if Safe -> dpiCall(Safe, unload, []); true -> ok end.
 
@@ -1966,9 +1827,6 @@ cleanup_no_input({Safe}) ->
     ?F(connPing_test),
     ?F(connPing_NegativeConnType),
     ?F(connPing_NegativeFailCall),
-    ?F(connRelease_test),
-    ?F(connRelease_NegativeConnType),
-    ?F(connRelease_NegativeFailCall),
     ?F(connClose_test),
     ?F(connClose_testWithModes),
     ?F(connClose_NegativeConnType),
@@ -2022,9 +1880,6 @@ cleanup_no_input({Safe}) ->
     ?F(stmtBindByName_NegativePosType),
     ?F(stmtBindByName_NegativeVarType),
     ?F(stmtBindByName_NegativeFailCall),
-    ?F(stmtRelease_test),
-    ?F(stmtRelease_NegativeStmtType),
-    ?F(stmtRelease_NegativeFailCall),
     ?F(stmtDefine_test),
     ?F(stmtDefine_NegativeStmtType),
     ?F(stmtDefine_NegativePosType),
@@ -2047,11 +1902,6 @@ cleanup_no_input({Safe}) ->
     ?F(varSetFromBytes_NegativePosType),
     ?F(varSetFromBytes_NegativeBinaryType),
     ?F(varSetFromBytes_NegativeFailCall),
-    ?F(varSetFromStmt_test),
-    ?F(varSetFromStmt_NegativeVarType),
-    ?F(varSetFromStmt_NegativePosType),
-    ?F(varSetFromStmt_NegativeStmtType),
-    ?F(varSetFromStmt_NegativeFailCall),
     ?F(varRelease_test),
     ?F(varRelease_NegativeVarType),
     ?F(varRelease_NegativeFailCall),
@@ -2098,10 +1948,6 @@ cleanup_no_input({Safe}) ->
     ?F(dataSetBytes_NegativeDataType),
     ?F(dataSetBytes_NegativeBinaryType),
     ?F(dataSetBytes_NegativeFailCall),
-    ?F(dataSetStmt_test),
-    ?F(dataSetStmt_NegativeDataType),
-    ?F(dataSetStmt_NegativeStmtType),
-    ?F(dataSetStmt_NegativeFailCall),
     ?F(dataSetIsNull_testTrue),
     ?F(dataSetIsNull_testFalse),
     ?F(dataSetIsNull_NegativeDataType),

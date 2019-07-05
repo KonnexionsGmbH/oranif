@@ -9,6 +9,7 @@
     {data_getBytes, [reference]},
     {data_getInt64, [reference]},
     {data_setBytes, [reference, binary]},
+    {data_setStmt, [reference, reference]},
     {data_setInt64, [reference, integer]},
     {data_setIntervalDS,
         [reference, integer, integer, integer, integer, integer]},

@@ -276,6 +276,22 @@ DPI_NIF_FUN(stmt_bindByName)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(stmt_release)
+{
+    CHECK_ARGCOUNT(1);
+
+    dpiStmt_res *stmtRes;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context, dpiStmt_release(stmtRes->stmt), stmtRes);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(stmt_close)
 {
     CHECK_ARGCOUNT(2);

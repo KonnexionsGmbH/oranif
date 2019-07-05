@@ -229,6 +229,31 @@ DPI_NIF_FUN(data_setBytes)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(data_setStmt) // TODO: integration test, also implement the var version
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiData_res *dataRes = NULL;
+    dpiData *data = NULL;
+    dpiStmt_res *stmt;
+
+    //as with setBytes, it can't be run with a pointer
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
+    {
+        data = &dataRes->dpiData;
+    }
+    else
+        BADARG_EXCEPTION(0, "resource data/ptr");
+
+    if (!enif_get_resource(env, argv[1], dpiStmt_type, (void **)&stmt))
+        BADARG_EXCEPTION(1, "resource statement");
+
+    dpiData_setStmt(data, stmt->stmt);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(data_setIsNull)
 {
     CHECK_ARGCOUNT(2);

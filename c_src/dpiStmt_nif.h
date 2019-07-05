@@ -28,6 +28,7 @@ extern DPI_NIF_FUN(stmt_define);
 extern DPI_NIF_FUN(stmt_defineValue);
 extern DPI_NIF_FUN(stmt_execute);
 extern DPI_NIF_FUN(stmt_fetch);
+extern DPI_NIF_FUN(stmt_release);
 extern DPI_NIF_FUN(stmt_getQueryInfo);
 extern DPI_NIF_FUN(stmt_getQueryValue);
 extern DPI_NIF_FUN(stmt_getNumQueryColumns);
@@ -42,6 +43,7 @@ extern DPI_NIF_FUN(stmt_close);
         IOB_NIF(stmt_defineValue, 7),        \
         IOB_NIF(stmt_execute, 2),            \
         IOB_NIF(stmt_fetch, 1),              \
+        IOB_NIF(stmt_release, 1),            \
         IOB_NIF(stmt_getQueryInfo, 2),       \
         IOB_NIF(stmt_getQueryValue, 2),      \
         IOB_NIF(stmt_getNumQueryColumns, 1), \

@@ -1,5 +1,6 @@
 #include "dpiVar_nif.h"
 #include "dpiData_nif.h"
+#include "dpiStmt_nif.h"
 
 ErlNifResourceType *dpiVar_type;
 
@@ -49,6 +50,32 @@ DPI_NIF_FUN(var_setFromBytes)
         vRes->context,
         dpiVar_setFromBytes(
             vRes->var, pos, (const char *)value.data, value.size),
+        NULL);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
+DPI_NIF_FUN(var_setFromStmt) // TODO: integration test
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiVar_res *vRes = NULL;
+    dpiStmt_res *stmt = NULL;
+    uint32_t pos;
+
+    if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
+        BADARG_EXCEPTION(0, "resource vat");
+    if (!enif_get_uint(env, argv[1], &pos))
+        BADARG_EXCEPTION(1, "uint pos");
+
+if (!enif_get_resource(env, argv[2], dpiStmt_type, (void **)&stmt))
+        BADARG_EXCEPTION(1, "resource statement");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        vRes->context,
+        dpiVar_setFromStmt(
+            vRes->var, pos, stmt->stmt),
         NULL);
 
     RETURNED_TRACE;

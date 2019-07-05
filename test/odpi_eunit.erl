@@ -11,9 +11,9 @@ callS(Conn, Context, SQL) ->
     Ret -> 
         dpi:stmt_close(Stmt, <<>>),
         Ret
-    catch _:_ ->
+    catch _:Error ->
         dpi:stmt_close(Stmt, <<>>),
-        dpi:context_getError(Context)
+        Error
     end.
 
 -define(CALL(SQL), callS(Conn, Context, SQL)).
@@ -25,9 +25,9 @@ callS_nif(Conn, Context, SQL) ->
     Ret -> 
         dpi:dpiStmt_release_nif(Stmt),
         Ret
-    catch _:_ ->
+    catch _:Error ->
         dpi:dpiStmt_release_nif(Stmt),
-        dpi:dpiContext_getError_nif(Context)
+        Error
     end.
 
 -define(CALL_nif(SQL), callS_nif(Conn, Context, SQL)).
@@ -159,12 +159,6 @@ truncate_table([Context, Conn]) ->
     dpi:data_release(Query_refResult2),
     dpi:stmt_close(Stmt_fetch2, <<>>),
     ?CALL(<<"drop table test_dpi2">>),
-    ?_assert(true).
-
-drop_nonexistent_table([Context, Conn]) -> 
-    ?CALL(<<"drop table test_dpi3">>),
-    ?CALL(<<"drop table test_dpi3">>),
-    ?assertEqual(false, maps:get(isRecoverable, dpi:context_getError(Context))),
     ?_assert(true).
 
 update_where([Context, Conn]) -> 
@@ -1182,7 +1176,6 @@ eunit_test_() ->
         fun simple_fetch/1,
         fun create_insert_select_drop/1, 
         fun truncate_table/1,
-        fun drop_nonexistent_table/1,
         fun update_where/1,             
         fun select_from_where/1,
         fun get_column_names/1,         

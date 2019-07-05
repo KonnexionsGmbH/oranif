@@ -43,6 +43,12 @@ parse_transform(Forms, Options) ->
         false ->
             ?L("no more -nifs([...]) found~n"),
             ?L("transform complete~n"),
+            %Source = [case catch erl_pp:form(Form) of
+            %    {'EXIT', _} -> ?L("ERROR : erl_pp:form(~p)~n", [Form]),
+            %        [];
+            %    Processed -> Processed
+            %end || Form <- Forms],
+            %catch file:write_file("test/dpi.orig", [list_to_binary(Source)]),
             Forms;
         {attribute, Line, nifs, {NifClass, NifDefns0}} ->
             put(nif_class, NifClass),

@@ -277,26 +277,6 @@ DPI_NIF_FUN(conn_ping)
     return ATOM_OK;
 }
 
-DPI_NIF_FUN(conn_release)
-{
-    CHECK_ARGCOUNT(1);
-
-    dpiConn_res *connRes;
-
-    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
-        BADARG_EXCEPTION(0, "resource connection");
-
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_release(connRes->conn),
-        NULL);
-
-    enif_release_resource(connRes);
-
-    RETURNED_TRACE;
-    return ATOM_OK;
-}
-
 DPI_NIF_FUN(conn_close)
 {
     CHECK_ARGCOUNT(3);
@@ -308,15 +288,17 @@ DPI_NIF_FUN(conn_close)
     if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
 
-    if (!enif_is_list(env, argv[1]) &&
-        !enif_get_list_cell(env, argv[1], &head, &tail))
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "atom list modes, not a list");
+    if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
         BADARG_EXCEPTION(1, "atom list modes");
+
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");
 
     dpiConnCloseMode m = 0, mode = 0;
-    unsigned int len;
-    enif_get_list_length(env, argv[1], &len);
+
     if (len > 0)
         do
         {
@@ -389,4 +371,25 @@ DPI_NIF_FUN(conn_getServerVersion)
          fullVersionNum => integer} */
     RETURNED_TRACE;
     return map;
+}
+
+DPI_NIF_FUN(conn_setClientIdentifier)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiConn_res *connRes = NULL;
+    ErlNifBinary value;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_inspect_binary(env, argv[1], &value))
+        BADARG_EXCEPTION(1, "string/binary value");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_setClientIdentifier(
+            connRes->conn, value.data, value.size),
+        NULL);
+
+    return ATOM_OK;
 }

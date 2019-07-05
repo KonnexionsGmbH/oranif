@@ -19,5 +19,5 @@ extern DPI_NIF_FUN(context_getClientVersion);
 #define DPICONTEXT_NIFS DEF_NIF(context_create, 2),           \
                         DEF_NIF(context_destroy, 1),          \
                         DEF_NIF(context_getClientVersion, 1)
-
+                        
 #endif // _DPICONTEXT_NIF_H_

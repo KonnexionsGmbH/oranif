@@ -1,6 +1,6 @@
 {application, oranif,
  [{description, "NIF based driver for Oracle Call Interface"},
-  {vsn, "0.2.0"},
+  {vsn, "0.2.1"},
   {registered, []},
   {applications,
    [kernel,

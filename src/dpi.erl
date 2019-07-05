@@ -116,7 +116,7 @@ rpc_call(Node, Mod, Fun, Args) ->
             error(Error);
         {badrpc, nodedown} ->
             erase(dpi_node),
-            {error, slave_down};
+            error(slave_down);
         Result ->
             Result
     end.

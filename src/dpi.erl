@@ -1,10 +1,10 @@
 -module(dpi).
 -compile({parse_transform, dpi_transform}).
 
--export([load/1, unload/0]).
+-export([load/1, unload/1]).
 
 -export([load_unsafe/0]).
--export([safe/1, safe/2, safe/3]).
+-export([safe/2, safe/3, safe/4]).
 
 -include("dpiContext.hrl").
 -include("dpiConn.hrl").
@@ -18,39 +18,35 @@
 %===============================================================================
 
 load(SlaveNodeName) when is_atom(SlaveNodeName) ->
-    case get(dpi_node) of
-        undefined ->
-            case is_alive() of
-                false -> {error, not_distributed};
-                true ->
-                    case start_slave(SlaveNodeName) of
-                        {ok, SlaveNode} ->
-                            put(dpi_node, SlaveNode),
-                            ok = rpc_call(
-                                SlaveNode, code, add_paths, [code:get_path()]
-                            ),
-                            rpc_call(
-                                SlaveNode, dpi, load_unsafe, []
-                            ),
-                            ok;
-                        {error, {already_running, SlaveNode}} ->
-                            put(dpi_node, SlaveNode),
-                            ok;
+    case is_alive() of
+        false -> {error, not_distributed};
+        true ->
+            case start_slave(SlaveNodeName) of
+                {ok, SlaveNode} ->
+                    case slave_call(SlaveNode, code, add_paths, [code:get_path()]) of
+                        ok ->
+                            case slave_call(SlaveNode, dpi, load_unsafe, []) of
+                                ok -> SlaveNode;
+                                Error -> Error
+                            end;
                         Error -> Error
-                    end
-            end;
-        SlaveNode ->
-            case catch rpc_call(SlaveNode, erlang, monotonic_time, []) of
-                Time when is_integer(Time) ->
-                    ok;
-                _ ->
-                    catch unload(),
-                    load(SlaveNodeName)
+                    end;
+                {error, {already_running, SlaveNode}} ->
+                    %% TODO: Revisit if this is required. 
+                    %  case catch rpc_call(SlaveNode, erlang, monotonic_time, []) of
+                    %      Time when is_integer(Time) -> ok;
+                    %      _ ->
+                    %          catch unload(),
+                    %          load(SlaveNodeName)
+                    %  end
+                    SlaveNode;
+                Error -> Error
             end
     end.
 
-unload() ->
-    SlaveNode = erase(dpi_node),
+
+-spec unload(atom()) -> ok.
+unload(SlaveNode) ->
     slave:stop(SlaveNode).
 
 %===============================================================================
@@ -105,30 +101,29 @@ start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
             )
     end.
 
-slave_call(Mod, Fun, Args) ->
-    rpc_call(get(dpi_node), Mod, Fun, Args).
-
-rpc_call(undefined, _Mod, _Fun, _Args) ->
-    {error, slave_down};
-rpc_call(Node, Mod, Fun, Args) ->
-    case (catch rpc:call(Node, Mod, Fun, Args)) of
-        {badrpc, {'EXIT', {Error, _}}} ->
-            error(Error);
-        {badrpc, nodedown} ->
-            erase(dpi_node),
-            error(slave_down);
-        Result ->
-            Result
+slave_call(SlaveNode, Mod, Fun, Args) ->
+    try rpc_call(SlaveNode, Mod, Fun, Args) of
+        Result -> Result
+    catch
+        _Class:Error ->
+            {error, Error}
     end.
 
--spec safe(atom(), atom(), list()) -> term().
-safe(Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
-    slave_call(Module, Fun, Args).
+rpc_call(Node, Mod, Fun, Args) ->
+    case (catch rpc:call(Node, Mod, Fun, Args)) of
+        {badrpc, {'EXIT', {Error, _}}} -> error(Error);
+        {badrpc, nodedown} -> error(slave_down);
+        Result -> Result
+    end.
 
--spec safe(function(), list()) -> term().
-safe(Fun, Args) when is_function(Fun), is_list(Args) ->
-    slave_call(erlang, apply, [Fun, Args]).
+-spec safe(atom(), atom(), atom(), list()) -> term().
+safe(SlaveNode, Module, Fun, Args) when is_atom(Module), is_atom(Fun), is_list(Args) ->
+    slave_call(SlaveNode, Module, Fun, Args).
 
--spec safe(function()) -> term().
-safe(Fun) when is_function(Fun)->
-    slave_call(erlang, apply, [Fun, []]).
+-spec safe(atom(), function(), list()) -> term().
+safe(SlaveNode, Fun, Args) when is_function(Fun), is_list(Args) ->
+    slave_call(SlaveNode, erlang, apply, [Fun, Args]).
+
+-spec safe(atom(), function()) -> term().
+safe(SlaveNode, Fun) when is_function(Fun)->
+    slave_call(SlaveNode, erlang, apply, [Fun, []]).

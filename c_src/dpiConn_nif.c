@@ -380,7 +380,7 @@ DPI_NIF_FUN(conn_setClientIdentifier)
     dpiConn_res *connRes = NULL;
     ErlNifBinary value;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
         BADARG_EXCEPTION(0, "resource connection");
     if (!enif_inspect_binary(env, argv[1], &value))
         BADARG_EXCEPTION(1, "string/binary value");
@@ -388,7 +388,7 @@ DPI_NIF_FUN(conn_setClientIdentifier)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         connRes->context,
         dpiConn_setClientIdentifier(
-            connRes->conn, value.data, value.size),
+            connRes->conn, (const char *)value.data, value.size),
         NULL);
 
     return ATOM_OK;

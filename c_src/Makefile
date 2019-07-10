@@ -42,3 +42,7 @@ clean:
 
 clean_all: clean
 	rm -rf $(ODPIROOT)
+
+test: CFLAGS += --coverage
+test: clean
+test: all

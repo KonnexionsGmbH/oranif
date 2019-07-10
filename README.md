@@ -1,4 +1,8 @@
 # oranif
+[![Build Status](https://travis-ci.org/K2InformaticsGmbH/oranif.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/oranif)
+[![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/oranif?branch=master)
+![GitHub](https://img.shields.io/github/license/K2InformaticsGmbH/oranif.svg)
+
 Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.
 
 ## Development
@@ -17,6 +21,10 @@ ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
 - For OSX use `basic` as `basic-lite` didn't work in our tests.
 - Requires a C compiler supporting the c11 standard.
+- code coverage
+```sh
+gcov -o ./ c_src/*.c
+```
 
 #### Create Environment variables
 ```

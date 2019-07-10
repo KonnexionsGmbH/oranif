@@ -1,5 +1,5 @@
 # oranif
-[![Build Status](https://travis-ci.org/K2InformaticsGmbH/oranif.svg?branch=travis_integration)](https://travis-ci.org/K2InformaticsGmbH/oranif)
+[![Build Status](https://travis-ci.org/K2InformaticsGmbH/oranif.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/oranif)
 [![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/oranif?branch=master)
 ![GitHub](https://img.shields.io/github/license/K2InformaticsGmbH/oranif.svg)
 

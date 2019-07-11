@@ -516,6 +516,35 @@ connGetServerVersionFail(#{context := Context} = TestCtx) ->
         dpiCall(TestCtx, conn_getServerVersion, [Context])
     ).
 
+connSetClientIdentifier(#{session := Conn} = TestCtx) ->
+   ?assertEqual(ok,
+        dpiCall(
+            TestCtx, conn_setClientIdentifier, 
+            [Conn, <<"myCoolConnection">>]
+        )
+    ).
+
+connSetClientIdentifierBadConn(TestCtx) ->
+    ?assertException(
+        error,
+        {error, _File, _Line, 
+            "Unable to retrieve resource connection from arg0"},
+        dpiCall(
+            TestCtx, conn_setClientIdentifier,
+            [?BAD_REF, <<"myCoolConnection">>]
+        )
+    ).
+
+connSetClientIdentifierBadValue(#{session := Conn} = TestCtx) ->
+    ?assertException(
+        error,
+        {error, _File, _Line, 
+            "Unable to retrieve string/binary value from arg1"},
+        dpiCall(
+            TestCtx, conn_setClientIdentifier, [Conn, badBinary]
+        )
+    ).
+
 %-------------------------------------------------------------------------------
 % Statement APIs
 %-------------------------------------------------------------------------------
@@ -1333,6 +1362,37 @@ stmtDefineValueFail(#{session := Conn} = TestCtx) ->
         )
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
+
+stmtClose(#{session := Conn} = TestCtx) -> 
+    Stmt = dpiCall(
+        TestCtx, conn_prepareStmt,
+        [Conn, false, <<"select 1 from dual">>, <<>>]
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, stmt_close, [Stmt, <<>>])).
+
+stmtCloseBadStmt(#{session := Conn} = TestCtx) -> 
+     ?assertException(
+        error, {error, _File, _Line, _Exception},
+        dpiCall(TestCtx, stmt_close, [?BAD_REF, <<>>])
+    ).
+
+stmtCloseBadTag(#{session := Conn} = TestCtx) -> 
+    Stmt = dpiCall(
+        TestCtx, conn_prepareStmt,
+        [Conn, false, <<"select 1 from dual">>, <<>>]
+    ),
+    ?assertException(
+        error, {error, _File, _Line, _Exception},
+        dpiCall(TestCtx, stmt_close, [Stmt, badBinary])
+    ),
+    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
+
+% fails due to wrong reference
+stmtCloseFail(#{session := Conn} = TestCtx) -> 
+     ?assertException(
+        error, {error, _File, _Line, _Exception},
+        dpiCall(TestCtx, stmt_close, [Conn, <<>>])
+    ).
 
 %-------------------------------------------------------------------------------
 % Variable APIs
@@ -2200,6 +2260,21 @@ dataGetFail(#{session := Conn} = TestCtx) ->
         dpiCall(TestCtx, data_get, [Conn])
     ).
 
+dataGetUnsupportedType(#{session := Conn} = TestCtx) ->
+    #{var := Var, data := [Data]} = dpiCall(
+        TestCtx, conn_newVar, 
+        [Conn, 'DPI_ORACLE_TYPE_CLOB', 'DPI_NATIVE_TYPE_LOB',
+            1, 0, false, false, null]
+    ),
+    dpiCall(TestCtx, data_setIsNull, [Data, false]),
+    ?assertException(
+        error,
+        {error, _File, _Line, "Unsupported nativeTypeNum"},
+        dpiCall(TestCtx, data_get, [Data])
+    ),
+    dpiCall(TestCtx, data_release, [Data]),
+    dpiCall(TestCtx, var_release, [Var]).
+
 dataGetInt64(#{session := Conn} = TestCtx) ->
     Data = dpiCall(TestCtx, data_ctor, []),
     dpiCall(TestCtx, data_setIsNull, [Data, false]),
@@ -2219,6 +2294,12 @@ dataGetInt64Fail(#{session := Conn} = TestCtx) ->
         error, {error, _File, _Line, _Exception},
         dpiCall(TestCtx, data_getInt64, [Conn])
     ).
+
+dataGetInt64Null(#{session := Conn} = TestCtx) ->
+    Data = dpiCall(TestCtx, data_ctor, []),
+    dpiCall(TestCtx, data_setIsNull, [Data, true]),
+    ?assertEqual(null, dpiCall(TestCtx, data_getInt64, [Data])),
+    dpiCall(TestCtx, data_release, [Data]).
 
 dataGetInt64ViaPointer(#{session := Conn} = TestCtx) ->
     #{var := Var, data := [Data]} = dpiCall(
@@ -2251,6 +2332,12 @@ dataGetBytesBadData(#{session := Conn} = TestCtx) ->
         {error, _File, _Line, "Unable to retrieve resource data/ptr from arg0"},
         dpiCall(TestCtx, data_getBytes, [?BAD_REF])
     ).
+
+dataGetBytesNull(#{session := Conn} = TestCtx) ->
+    Data = dpiCall(TestCtx, data_ctor, []),
+    dpiCall(TestCtx, data_setIsNull, [Data, true]),
+    ?assertEqual(null, dpiCall(TestCtx, data_getBytes, [Data])),
+    dpiCall(TestCtx, data_release, [Data]).
 
 % fails due to completely wrong reference
 dataGetBytesFail(#{session := Conn} = TestCtx) ->
@@ -2357,6 +2444,7 @@ cleanup(_) -> ok.
     ?F(connCreateBadContext),
     ?F(connCreateBadUsername),
     ?F(connCreateBadPass),
+    ?F(connCreateBadTNS),
     ?F(connCreateBadUsername),
     ?F(connCreateBadParams),
     ?F(connCreateBadEncoding),
@@ -2402,6 +2490,9 @@ cleanup(_) -> ok.
     ?F(connGetServerVersion),
     ?F(connGetServerVersionBadConn),
     ?F(connGetServerVersionFail),
+    ?F(connSetClientIdentifier),
+    ?F(connSetClientIdentifierBadConn),
+    ?F(connSetClientIdentifierBadValue),
     ?F(stmtExecute),
     ?F(stmtExecuteWithModes),
     ?F(stmtExecutebadStmt),
@@ -2457,6 +2548,10 @@ cleanup(_) -> ok.
     ?F(stmtDefineValueBadSize),
     ?F(stmtDefineValueBadSizeInBytes),
     ?F(stmtDefineValueFail),
+    ?F(stmtClose),
+    ?F(stmtCloseBadStmt),
+    ?F(stmtCloseBadTag),
+    ?F(stmtCloseFail),
     ?F(varSetNumElementsInArray),
     ?F(varSetNumElementsInArrayBadVar),
     ?F(varSetNumElementsInArrayBadNumElements),
@@ -2531,13 +2626,16 @@ cleanup(_) -> ok.
     ?F(dataGetStmtChange),
     ?F(dataGetBadData),
     ?F(dataGetFail),
+    ?F(dataGetUnsupportedType),
     ?F(dataGetInt64),
     ?F(dataGetInt64BadData),
     ?F(dataGetInt64Fail),
+    ?F(dataGetInt64Null),
     ?F(dataGetInt64ViaPointer),
     ?F(dataGetBytes),
     ?F(dataGetBytesBadData),
     ?F(dataGetBytesFail),
+    ?F(dataGetBytesNull),
     ?F(dataRelease),
     ?F(dataReleaseBadData),
     ?F(dataReleaseFail),

@@ -203,14 +203,9 @@ DPI_NIF_FUN(data_setBytes)
     CHECK_ARGCOUNT(2);
 
     dpiData_res *dataRes = NULL;
-    dpiDataPtr_res *dataPtr = NULL;
     dpiData *data = NULL;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
-    {
-        data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }

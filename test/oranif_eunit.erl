@@ -562,7 +562,7 @@ stmtExecuteBadModes(#{session := Conn} = TestCtx) ->
         [Conn, false, <<"select 1 from dual">>, <<>>]
     ),
     ?ASSERT_EX(
-        "Unable to retrieve atom list modes, not a list from arg1",
+        "Unable to retrieve list of atoms from arg1",
         dpiCall(TestCtx, stmt_execute, [Stmt, badList])
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
@@ -573,7 +573,7 @@ stmtExecuteBadModesInside(#{session := Conn} = TestCtx) ->
         [Conn, false, <<"select 1 from dual">>, <<>>]
     ),
     ?ASSERT_EX(
-        "Mode is list from arg is not atom",
+        "mode must be a list of atoms",
         dpiCall(TestCtx, stmt_execute, [Stmt, ["badAtom"]])
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).

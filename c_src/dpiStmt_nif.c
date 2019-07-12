@@ -27,7 +27,7 @@ DPI_NIF_FUN(stmt_execute)
     
     unsigned len;
     if (!enif_get_list_length(env, argv[1], &len))
-        BADARG_EXCEPTION(1, "atom list modes, not a list");
+        BADARG_EXCEPTION(1, "list of atoms"); 
     if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
         BADARG_EXCEPTION(1, "atom list modes");
 
@@ -36,7 +36,7 @@ DPI_NIF_FUN(stmt_execute)
         do
         {
             if (!enif_is_atom(env, head))
-                RAISE_STR_EXCEPTION("Mode is list from arg is not atom");
+                RAISE_STR_EXCEPTION("mode must be a list of atoms"); 
             DPI_EXEC_MODE_FROM_ATOM(head, m);
             mode |= m;
         } while (enif_get_list_cell(env, tail, &head, &tail));

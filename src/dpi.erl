@@ -33,7 +33,7 @@ load(SlaveNodeName) when is_atom(SlaveNodeName) ->
                     end;
                 {error, {already_running, SlaveNode}} ->
                     %% TODO: Revisit if this is required. 
-                    %  case catch rpc_call(SlaveNode, erlang, monotonic_time, []) of
+                    %  case catch slave_call(SlaveNode, erlang, monotonic_time, []) of
                     %      Time when is_integer(Time) -> ok;
                     %      _ ->
                     %          catch unload(),
@@ -115,17 +115,9 @@ start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
     end.
 
 slave_call(SlaveNode, Mod, Fun, Args) ->
-    try rpc_call(SlaveNode, Mod, Fun, Args) of
-        Result -> Result
-    catch
-        _Class:Error ->
-            {error, Error}
-    end.
-
-rpc_call(Node, Mod, Fun, Args) ->
-    case (catch rpc:call(Node, Mod, Fun, Args)) of
-        {badrpc, {'EXIT', {Error, _}}} -> error(Error);
-        {badrpc, nodedown} -> error(slave_down);
+    case rpc:call(SlaveNode, Mod, Fun, Args) of
+        {badrpc, nodedown} -> {error, slave_down};
+        {badrpc, {'EXIT', {Error, _}}} -> Error;
         Result -> Result
     end.
 

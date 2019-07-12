@@ -33,9 +33,10 @@ DPI_NIF_FUN(context_create)
         RETURNED_TRACE;
         return enif_raise_exception(
             env,
-            enif_make_tuple2(
+            enif_make_tuple4(
                 env, ATOM_ERROR,
-                dpiErrorInfoMap(env, error)));
+                enif_make_string(env, __FILE__, ERL_NIF_LATIN1),
+                enif_make_int(env, __LINE__), dpiErrorInfoMap(env, error)));
     }
 
     ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);

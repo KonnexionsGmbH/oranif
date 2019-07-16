@@ -24,7 +24,7 @@ DPI_NIF_FUN(stmt_execute)
         BADARG_EXCEPTION(0, "resource statement");
 
     ERL_NIF_TERM head, tail;
-    
+
     unsigned len;
     if (!enif_get_list_length(env, argv[1], &len))
         BADARG_EXCEPTION(1, "list of atoms"); 
@@ -295,6 +295,103 @@ DPI_NIF_FUN(stmt_close)
 
     RETURNED_TRACE;
     return ATOM_OK;
+}
+
+DPI_NIF_FUN(stmt_getInfo)
+{
+    CHECK_ARGCOUNT(1);
+
+    dpiStmt_res *stmtRes = NULL;
+    dpiStmtInfo info;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context,
+        dpiStmt_getInfo(stmtRes->stmt, &info),
+        stmtRes);
+
+    ERL_NIF_TERM map = enif_make_new_map(env);
+
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "isDDL"),
+        info.isDDL ? ATOM_TRUE : ATOM_FALSE,
+        &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "isDML"),
+        info.isDML ? ATOM_TRUE : ATOM_FALSE,
+        &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "isPLSQL"),
+        info.isPLSQL ? ATOM_TRUE : ATOM_FALSE,
+        &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "isQuery"),
+        info.isQuery ? ATOM_TRUE : ATOM_FALSE,
+        &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "isReturning"),
+        info.isReturning ? ATOM_TRUE : ATOM_FALSE,
+        &map);
+
+    ERL_NIF_TERM type;
+
+    switch (info.statementType)
+    {
+    case DPI_STMT_TYPE_UNKNOWN:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_UNKNOWN");
+        break;
+    case DPI_STMT_TYPE_SELECT:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_SELECT");
+        break;
+    case DPI_STMT_TYPE_UPDATE:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_UPDATE");
+        break;
+    case DPI_STMT_TYPE_DELETE:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_DELETE");
+        break;
+    case DPI_STMT_TYPE_INSERT:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_INSERT");
+        break;
+    case DPI_STMT_TYPE_CREATE:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_CREATE");
+        break;
+    case DPI_STMT_TYPE_DROP:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_DROP");
+        break;
+    case DPI_STMT_TYPE_ALTER:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_ALTER");
+        break;
+    case DPI_STMT_TYPE_BEGIN:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_BEGIN");
+        break;
+    case DPI_STMT_TYPE_DECLARE:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_DECLARE");
+        break;
+    case DPI_STMT_TYPE_CALL:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_CALL");
+        break;
+    case DPI_STMT_TYPE_MERGE:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_MERGE");
+        break;
+    case DPI_STMT_TYPE_EXPLAIN_PLAN:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_EXPLAIN_PLAN");
+        break;
+    case DPI_STMT_TYPE_COMMIT:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_COMMIT");
+        break;
+    case DPI_STMT_TYPE_ROLLBACK:
+        type = enif_make_atom(env, "DPI_STMT_TYPE_ROLLBACK");
+        break;
+    }
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "statementType"), type, &map);
+
+    // #{ isDDL => atom, isDML => atom, isPLSQL => atom, isQuery => atom,
+    //    isReturning => atom, statementType => atom }
+    RETURNED_TRACE;
+    return map;
 }
 
 DPI_NIF_FUN(stmt_define)

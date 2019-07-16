@@ -696,6 +696,56 @@ stmtGetQueryInfoFail(#{session := Conn} = TestCtx) ->
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
+stmtGetInfoBadStmt(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource statement from arg0",
+        dpiCall(TestCtx, stmt_getInfo, [?BAD_REF])
+    ).
+
+% fails due to the ref being wrong
+stmtGetInfoFail(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource statement from arg0",
+        dpiCall(TestCtx, stmt_getInfo, [Conn])
+    ).
+
+stmtGetInfoStmtTypes(#{session := Conn} = TestCtx) ->
+    lists:foreach(
+        fun({Match, StmtStr}) ->
+            Stmt = dpiCall(
+                TestCtx, conn_prepareStmt, [Conn, false, StmtStr, <<>>]
+            ),
+            #{
+                isDDL := IsDDL, isDML := IsDML,
+                isPLSQL := IsPLSQL, isQuery := IsQuery,
+                isReturning := IsReturning, statementType := StatementType
+            } = dpiCall(TestCtx, stmt_getInfo, [Stmt]),
+            dpiCall(TestCtx, stmt_close, [Stmt, <<>>]),
+            ?assert(is_boolean(IsDDL)),
+            ?assert(is_boolean(IsDML)),
+            ?assert(is_boolean(IsPLSQL)),
+            ?assert(is_boolean(IsQuery)),
+            ?assert(is_boolean(IsReturning)),
+            ?assertEqual(Match, StatementType) end,
+            [
+                {'DPI_STMT_TYPE_UNKNOWN', <<"another one bites the dust">>},
+                {'DPI_STMT_TYPE_SELECT', <<"select 2 from dual">>},
+                {'DPI_STMT_TYPE_UPDATE', <<"update a set b = 5 where c = 3">>},
+                {'DPI_STMT_TYPE_DELETE', <<"delete from a where b = 5">>},
+                {'DPI_STMT_TYPE_INSERT', <<"insert into a (b) values (5)">>},
+                {'DPI_STMT_TYPE_CREATE', <<"create table a (b int)">>},
+                {'DPI_STMT_TYPE_DROP', <<"drop table students">>},
+                {'DPI_STMT_TYPE_ALTER', <<"alter table a add b int">>},
+                {'DPI_STMT_TYPE_BEGIN', <<"begin null end">>},
+                {'DPI_STMT_TYPE_DECLARE', <<"declare mambo number(5)">>},
+                {'DPI_STMT_TYPE_CALL', <<"call a.b(c)">>},
+                {'DPI_STMT_TYPE_MERGE', <<"MERGE INTO a USING b ON (1 = 1)">>},
+                {'DPI_STMT_TYPE_EXPLAIN_PLAN', <<"EXPLAIN">>},
+                {'DPI_STMT_TYPE_COMMIT', <<"commit">>},
+                {'DPI_STMT_TYPE_ROLLBACK', <<"rollback">>}
+            ]
+        ).
+
 stmtGetNumQueryColumns(#{session := Conn} = TestCtx) ->
     Stmt = dpiCall(
         TestCtx, conn_prepareStmt, 
@@ -2412,6 +2462,9 @@ cleanup(_) -> ok.
     ?F(stmtGetQueryInfoBadStmt),
     ?F(stmtGetQueryInfoBadPos),
     ?F(stmtGetQueryInfoFail),
+    ?F(stmtGetInfoBadStmt),
+    ?F(stmtGetInfoFail),
+    ?F(stmtGetInfoStmtTypes),
     ?F(stmtGetNumQueryColumns),
     ?F(stmtGetNumQueryColumnsBadStmt),
     ?F(stmtGetNumQueryColumnsFail),

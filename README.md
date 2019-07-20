@@ -5,6 +5,11 @@
 
 [Oracle Database Programming Interface for C (ODPI-C)](https://oracle.github.io/odpi/) driver using dirty NIFs. **Requires Erlang/OTP 20 or later with full dirty nif support.**
 
+## ODPI-C News and References
+* [New Product Launch: Oracle Database Programming Interface for C (ODPI-C)](https://blogs.oracle.com/opal/new-product-launch:-oracle-database-programming-interface-for-c-odpi-c)
+* [ODPI-C version 3.2](https://oracle.github.io/odpi/)
+* [Oracle C and C++ Interfaces](https://www.oracle.com/au/database/technologies/appdev/oci.html)
+
 ## Development
 Currently builds in Window, Linux and OS X
 
@@ -77,8 +82,15 @@ ODPI-C API|ORANIF
     ```
     - odpi `struct`s are maps (with keys from the original `struct` member name from ODPI-C documentation). For example [dpiConn_create](https://oracle.github.io/odpi/doc/functions/dpiConn.html#c.dpiConn_create) is called as:
     `dpi:conn_create, (Context, User, Password, Tns, #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{})` where parameter `commonParams` of type [`dpicommoncreateparams`](https://oracle.github.io/odpi/doc/structs/dpiCommonCreateParams.html#dpicommoncreateparams) is passed as a map of `#{struct_field => value}`
+* errors are thrown directly as if [`dpiContext_getError`](https://oracle.github.io/odpi/doc/functions/dpiContext.html#c.dpiContext_getError) was implicitly called (_site example_)
 
 ### Usage Example (TBD)
+#### Through a slave node
+`oranif`can be through erlang [slave](http://erlang.org/doc/man/slave.html) node. The advantage is if any NIF error causes the erlang VM to crach it is contained within the salve node and impact is limited to an oracle session and not the complete shutdown of the application. This gives the host application a chance detection and recovery. This isolation comes as a cost of RPC overhead.
+```erlang
+
+```
+#### Direct
 ```erlang
 
 ```

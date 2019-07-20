@@ -3,7 +3,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/oranif?branch=master)
 ![GitHub](https://img.shields.io/github/license/K2InformaticsGmbH/oranif.svg)
 
-Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.
+[Oracle Database Programming Interface for C (ODPI-C)](https://oracle.github.io/odpi/) driver using dirty NIFs. **Requires Erlang/OTP 20 or later with full dirty nif support.**
 
 ## Development
 Currently builds in Window, Linux and OS X
@@ -19,7 +19,7 @@ ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 ### OSX/Linux
 
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
-- For OSX use `basic` as `basic-lite` didn't work in our tests.
+- For OSX use `basic` (only `basic-lite` didn't work in our tests).
 - Requires a C compiler supporting the c11 standard.
 - code coverage
 ```sh
@@ -37,6 +37,50 @@ Example `.bashrc` snippet:
 export OTP_ERTS_DIR=$(find /usr/lib/erlang/ -maxdepth 1 -type d -name erts-*)
 export ERL_INTERFACE_DIR=$(find /usr/lib/erlang/lib/ -maxdepth 1 -type d -name erl_interface-*)
 ...
+```
+
+## Usage
+`oranif` tries to be as _thin_ as ODPI-C is to OCI. Here are some design notes on how is that attempted:
+* ODPI API are named in the pattern of `dpiClass_FUNCTION` which is tranlated to `dpi:class_FUNCTION`. For example:
+
+ODPI-C API|ORANIF
+---|---
+[`dpiContext_create`](https://oracle.github.io/odpi/doc/functions/dpiContext.html#c.dpiContext_create)|`dpi:context_create`
+[`dpiConn_create`](https://oracle.github.io/odpi/doc/functions/dpiConn.html#c.dpiConn_create)|`dpi:conn_create`
+[`dpiConn_prepareStmt`](https://oracle.github.io/odpi/doc/functions/dpiConn.html#c.dpiConn_prepareStmt)|`dpi:conn_prepareStmt`
+[`dpiStmt_execute`](https://oracle.github.io/odpi/doc/functions/dpiStmt.html#c.dpiStmt_execute)|`dpi:stmt_execute`
+**Hence there isn't any need to maintain API documentation in `oranif` simultaneously!** Please refer to [ODPI-C](https://oracle.github.io/odpi/doc/) for API reference.
+
+* Data type mapping
+    - all numeric C datatypes are mapped to erlang equivalents (`int`, `unsigned int` etc to `integer()`, ...)
+    - strings (`char *`, `const char*`) in input are erlang `binary()`
+    - the length of **non** NULL terminated strings are implicitly determined from the corresponding `binary()` argument. All length-of-previous-string type parameters in ODPI-C thus is omitted from interface.
+    - all `[OUT]` parameters are returned from function call
+    - multiple `[OUT]` parameters are returned as erlang maps where keys are the original parameter name (atom) as in ODPI-C documantation
+    - enumerations are passed as atoms [example STMT enum use](https://github.com/K2InformaticsGmbH/oranif/blob/6d581f3793715d7d4563c0e778177f7c1e7b4272/test/oranif_eunit.erl#L731-L745)
+    ```erlang
+    {'DPI_STMT_TYPE_UNKNOWN', <<"another one bites the dust">>},
+    {'DPI_STMT_TYPE_SELECT', <<"select 2 from dual">>},
+    {'DPI_STMT_TYPE_UPDATE', <<"update a set b = 5 where c = 3">>},
+    {'DPI_STMT_TYPE_DELETE', <<"delete from a where b = 5">>},
+    {'DPI_STMT_TYPE_INSERT', <<"insert into a (b) values (5)">>},
+    {'DPI_STMT_TYPE_CREATE', <<"create table a (b int)">>},
+    {'DPI_STMT_TYPE_DROP', <<"drop table students">>},
+    {'DPI_STMT_TYPE_ALTER', <<"alter table a add b int">>},
+    {'DPI_STMT_TYPE_BEGIN', <<"begin null end">>},
+    {'DPI_STMT_TYPE_DECLARE', <<"declare mambo number(5)">>},
+    {'DPI_STMT_TYPE_CALL', <<"call a.b(c)">>},
+    {'DPI_STMT_TYPE_MERGE', <<"MERGE INTO a USING b ON (1 = 1)">>},
+    {'DPI_STMT_TYPE_EXPLAIN_PLAN', <<"EXPLAIN">>},
+    {'DPI_STMT_TYPE_COMMIT', <<"commit">>},
+    {'DPI_STMT_TYPE_ROLLBACK', <<"rollback">>}
+    ```
+    - odpi `struct`s are maps (with keys from the original `struct` member name from ODPI-C documentation). For example [dpiConn_create](https://oracle.github.io/odpi/doc/functions/dpiConn.html#c.dpiConn_create) is called as:
+    `dpi:conn_create, (Context, User, Password, Tns, #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{})` where parameter `commonParams` of type [`dpicommoncreateparams`](https://oracle.github.io/odpi/doc/structs/dpiCommonCreateParams.html#dpicommoncreateparams) is passed as a map of `#{struct_field => value}`
+
+### Usage Example (TBD)
+```erlang
+
 ```
 
 ## Testing
@@ -69,7 +113,7 @@ grant create indextype to scott;
 exit
 ```
 ```cmd
-C:\> sqlplus scott/tiger@192.168.1.49:1521/xe
+C:\> sqlplus scott/tiger@host:1521/xe
 ```
 ```sql
 select * from session_privs;

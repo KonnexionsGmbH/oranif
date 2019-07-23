@@ -28,8 +28,8 @@ DPI_NIF_FUN(stmt_execute)
     unsigned len;
     if (!enif_get_list_length(env, argv[1], &len))
         BADARG_EXCEPTION(1, "list of atoms"); 
-    if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
-        BADARG_EXCEPTION(1, "atom list modes");
+    if (len > 0)
+        enif_get_list_cell(env, argv[1], &head, &tail);
 
     dpiExecMode m = 0, mode = 0;
     if (len > 0)

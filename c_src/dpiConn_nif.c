@@ -291,8 +291,8 @@ DPI_NIF_FUN(conn_close)
     unsigned len;
     if (!enif_get_list_length(env, argv[1], &len))
         BADARG_EXCEPTION(1, "atom list modes, not a list");
-    if (len > 0 && !enif_get_list_cell(env, argv[1], &head, &tail))
-        BADARG_EXCEPTION(1, "atom list modes");
+    if (len > 0)
+        enif_get_list_cell(env, argv[1], &head, &tail);
 
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");

@@ -115,7 +115,6 @@ static int upgrade(ErlNifEnv *env, void **priv_data,
                    void **old_priv_data, ERL_NIF_TERM load_info)
 {
     CALL_TRACE;
-
     RETURNED_TRACE;
     return 0;
 }

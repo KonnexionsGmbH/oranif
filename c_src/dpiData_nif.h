@@ -13,6 +13,7 @@ typedef struct
 typedef struct
 {
     dpiData *dpiDataPtr;
+    dpiContext *context;
     dpiNativeTypeNum type;
     void *next;
     void *stmtRes;

@@ -100,6 +100,7 @@ DPI_NIF_FUN(stmt_getQueryValue)
     data->next = NULL;
     data->stmtRes = NULL;
     data->isQueryValue = 1;
+    data->context = stmtRes->context;
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,

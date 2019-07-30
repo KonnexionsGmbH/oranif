@@ -2064,6 +2064,18 @@ dataGetBinary(#{session := Conn} = TestCtx) ->
     dpiCall(TestCtx, data_release, [Data]),
     dpiCall(TestCtx, var_release, [Var]).
 
+dataGetRowid(#{session := Conn} = TestCtx) ->
+    Stmt = dpiCall(
+        TestCtx, conn_prepareStmt,
+        [Conn, false, <<"select rowid from dual">>, <<>>]
+    ),
+    dpiCall(TestCtx, stmt_execute, [Stmt, []]),
+    dpiCall(TestCtx, stmt_fetch, [Stmt]),
+    #{data := Data} = dpiCall(TestCtx, stmt_getQueryValue, [Stmt, 1]),
+    ?assert(is_binary(dpiCall(TestCtx, data_get, [Data]))),
+    dpiCall(TestCtx, data_release, [Data]),
+    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
+
 dataGetTimestamp(#{session := Conn} = TestCtx) ->
     #{var := Var, data := [Data]} = dpiCall(
         TestCtx, conn_newVar, [
@@ -2574,6 +2586,7 @@ cleanup(_) -> ok.
     ?F(dataGetFloat),
     ?F(dataGetDouble),
     ?F(dataGetBinary),
+    ?F(dataGetRowid),
     ?F(dataGetTimestamp),
     ?F(dataGetIntervalDS),
     ?F(dataGetIntervalYM),

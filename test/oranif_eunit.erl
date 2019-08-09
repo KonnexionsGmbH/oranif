@@ -530,6 +530,64 @@ connSetClientIdentifierBadValue(#{session := Conn} = TestCtx) ->
 % Statement APIs
 %-------------------------------------------------------------------------------
 
+stmtExecuteMany(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource statement from arg0",
+        dpiCall(TestCtx, stmt_executeMany, [?BAD_REF, [], 0])
+    ),
+    StmtDrop = dpiCall(
+        TestCtx, conn_prepareStmt, 
+        [Conn, false, <<"drop table oranif_test">>, <<>>]
+    ),
+    catch dpiCall(TestCtx, stmt_execute, [StmtDrop, []]),
+    catch dpiCall(TestCtx, stmt_close, [StmtDrop, <<>>]),
+    StmtCreate = dpiCall(
+        TestCtx, conn_prepareStmt, 
+        [Conn, false, <<"create table oranif_test (col1 varchar2(100))">>, <<>>]
+    ),
+    0 = dpiCall(TestCtx, stmt_execute, [StmtCreate, []]),
+    ok = dpiCall(TestCtx, stmt_close, [StmtCreate, <<>>]),
+    Stmt = dpiCall(
+        TestCtx, conn_prepareStmt, 
+        [Conn, false, <<"insert into oranif_test values(:col1)">>, <<>>]
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve list of atoms from arg1",
+        dpiCall(TestCtx, stmt_executeMany, [Stmt, badList, 0])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve uint32 numIters from arg2",
+        dpiCall(TestCtx, stmt_executeMany, [Stmt, [], ?BAD_INT])
+    ),
+    ?ASSERT_EX(
+        "mode must be a list of atoms",
+        dpiCall(TestCtx, stmt_executeMany, [Stmt, ["badAtom"], 0])
+    ),
+    #{var := Var, data := DataList} = dpiCall(
+        TestCtx, conn_newVar,
+        [
+            Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 10,
+            10, true, false, null
+        ]
+    ),
+    dpiCall(TestCtx, stmt_bindByName, [Stmt, <<"col1">>, Var]),
+    Data = lists:seq($0, $z),
+    DataLen = length(Data),
+    [dpiCall(
+        TestCtx, var_setFromBytes,
+        [
+            Var, Idx,
+            << <<(lists:nth(random:uniform(DataLen), Data))>>
+                || _ <- lists:seq(1, 10) >>
+        ]
+    ) || Idx <- lists:seq(0, 9)],
+    ExecManyResult = dpiCall(
+        TestCtx, stmt_executeMany,
+        [Stmt, ['DPI_MODE_EXEC_COMMIT_ON_SUCCESS'], 10]
+    ),
+    ?assertEqual(ok, ExecManyResult),
+    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
+
 stmtExecute(#{session := Conn} = TestCtx) ->
     Stmt = dpiCall(
         TestCtx, conn_prepareStmt, 
@@ -1450,7 +1508,7 @@ varSetFromBytes(#{session := Conn} = TestCtx) ->
 
 varSetFromBytesBadVar(TestCtx) ->
     ?ASSERT_EX(
-        "Unable to retrieve resource vat from arg0",
+        "Unable to retrieve resource var from arg0",
         dpiCall(TestCtx, var_setFromBytes, [?BAD_REF, 0, <<"abc">>])
     ).
 
@@ -2458,6 +2516,7 @@ cleanup(_) -> ok.
     ?F(connSetClientIdentifierBadConn),
     ?F(connSetClientIdentifierBadValue),
     ?F(stmtExecute),
+    ?F(stmtExecuteMany),
     ?F(stmtExecuteWithModes),
     ?F(stmtExecutebadStmt),
     ?F(stmtExecuteBadModes),

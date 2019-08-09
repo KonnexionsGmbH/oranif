@@ -50,6 +50,46 @@ DPI_NIF_FUN(stmt_execute)
     return enif_make_uint(env, numCols);
 }
 
+DPI_NIF_FUN(stmt_executeMany)
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiStmt_res *stmtRes;
+    uint32_t numIters;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    ERL_NIF_TERM head, tail;
+
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "list of atoms");
+    if (len > 0)
+        enif_get_list_cell(env, argv[1], &head, &tail);
+
+    if (!enif_get_uint(env, argv[2], &numIters))
+        BADARG_EXCEPTION(2, "uint32 numIters");
+
+    dpiExecMode m = 0, mode = 0;
+    if (len > 0)
+        do
+        {
+            if (!enif_is_atom(env, head))
+                RAISE_STR_EXCEPTION("mode must be a list of atoms"); 
+            DPI_EXEC_MODE_FROM_ATOM(head, m);
+            mode |= m;
+        } while (enif_get_list_cell(env, tail, &head, &tail));
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context,
+        dpiStmt_executeMany(stmtRes->stmt, mode, numIters),
+        NULL);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(stmt_fetch)
 {
     CHECK_ARGCOUNT(1);

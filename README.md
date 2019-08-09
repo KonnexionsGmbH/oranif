@@ -26,6 +26,27 @@ ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 gcov -o ./ c_src/*.c
 ```
 
+### Ubuntu (Windows Subsystem for Linux)
+```sh
+$ uname -a
+Linux WKS006 4.4.0-17763-Microsoft #379-Microsoft Wed Mar 06 19:16:00 PST 2019 x86_64 x86_64 x86_64 GNU/Linux
+$ sudo apt-get install libaio1
+$ export OTP_ERTS_DIR=/usr/lib/erlang/erts-10.4.4/
+$ export LD_LIBRARY_PATH=$ROOT/oranif/c_src/odpi/lib/
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/oracle/19.3/client64/lib/ # or `sudo ldconfig`
+```
+#### code coverage setup (first time)
+```sh
+$ wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+$ tar xf lcov_1.11.orig.tar.gz
+$ sudo make -C lcov-1.11/ install
+```
+#### code coverage report
+```sh
+lcov --directory . --capture --output-file coverage.info
+lcov --list coverage.info
+```
+
 #### Create Environment variables
 ```
 OTP_ERTS_DIR       = path to erlang run time system

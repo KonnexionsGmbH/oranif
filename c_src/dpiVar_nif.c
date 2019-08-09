@@ -38,7 +38,7 @@ DPI_NIF_FUN(var_setFromBytes)
     uint32_t pos;
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
-        BADARG_EXCEPTION(0, "resource vat");
+        BADARG_EXCEPTION(0, "resource var");
     if (!enif_get_uint(env, argv[1], &pos))
         BADARG_EXCEPTION(1, "uint pos");
 

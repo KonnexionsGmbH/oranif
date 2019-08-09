@@ -46,10 +46,7 @@ $(TEST_OBJS) :
     link $(LDFLAGS) $T\*.obj /out:$@
 
 {$O}.obj{$O}.dll:
-    link $(LDFLAGS) /dll\
-        /libpath:"$(ERL_INTERFACE_DIR)/lib"\
-        $O\*.obj erl_interface.lib ei.lib\
-        /out:$@
+    link $(LDFLAGS) /dll $O\*.obj /out:$@
 
 odpi:
 !IF !EXISTS($S\odpi)

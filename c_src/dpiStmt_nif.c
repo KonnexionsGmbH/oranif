@@ -1,9 +1,8 @@
+#include "dpiVar_nif.h"
 #include "dpiStmt_nif.h"
 #include "dpiConn_nif.h"
-#include "dpiQueryInfo_nif.h"
 #include "dpiData_nif.h"
-#include "dpiVar_nif.h"
-#include <stdio.h>
+#include "dpiQueryInfo_nif.h"
 
 ErlNifResourceType *dpiStmt_type;
 
@@ -27,7 +26,7 @@ DPI_NIF_FUN(stmt_execute)
 
     unsigned len;
     if (!enif_get_list_length(env, argv[1], &len))
-        BADARG_EXCEPTION(1, "list of atoms"); 
+        BADARG_EXCEPTION(1, "list of atoms");
     if (len > 0)
         enif_get_list_cell(env, argv[1], &head, &tail);
 
@@ -36,7 +35,7 @@ DPI_NIF_FUN(stmt_execute)
         do
         {
             if (!enif_is_atom(env, head))
-                RAISE_STR_EXCEPTION("mode must be a list of atoms"); 
+                RAISE_STR_EXCEPTION("mode must be a list of atoms");
             DPI_EXEC_MODE_FROM_ATOM(head, m);
             mode |= m;
         } while (enif_get_list_cell(env, tail, &head, &tail));
@@ -180,18 +179,68 @@ DPI_NIF_FUN(stmt_getQueryInfo)
     if (!enif_get_uint(env, argv[1], &pos))
         BADARG_EXCEPTION(1, "uint pos");
 
-    dpiQueryInfo_res *infoPointer = enif_alloc_resource(
-        dpiQueryInfo_type, sizeof(dpiQueryInfo_res));
-
+    dpiQueryInfo queryInfo;
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_getQueryInfo(stmtRes->stmt, pos, &(infoPointer->queryInfo)),
-        infoPointer);
+        dpiStmt_getQueryInfo(stmtRes->stmt, pos, &queryInfo),
+        NULL);
 
-    ERL_NIF_TERM infoRes = enif_make_resource(env, infoPointer);
+    dpiDataTypeInfo dti = queryInfo.typeInfo;
+    ERL_NIF_TERM typeInfo = enif_make_new_map(env);
 
+    // constructuing a map of
+    // https://oracle.github.io/odpi/doc/structs/dpiDataTypeInfo.html
+    ERL_NIF_TERM oracleTypeNumAtom;
+    DPI_ORACLE_TYPE_NUM_TO_ATOM(dti.oracleTypeNum, oracleTypeNumAtom);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "oracleTypeNum"),
+                      oracleTypeNumAtom, &typeInfo);
+
+    ERL_NIF_TERM defaultNativeTypeNumAtom;
+    DPI_NATIVE_TYPE_NUM_TO_ATOM(
+        dti.defaultNativeTypeNum, defaultNativeTypeNumAtom);
+
+    enif_make_map_put(env, typeInfo,
+                      enif_make_atom(env, "defaultNativeTypeNum"),
+                      defaultNativeTypeNumAtom, &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "ociTypeCode"),
+                      enif_make_uint(env, dti.ociTypeCode), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "dbSizeInBytes"),
+                      enif_make_uint(env, dti.dbSizeInBytes), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "clientSizeInBytes"),
+                      enif_make_uint(env, dti.clientSizeInBytes), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "sizeInChars"),
+                      enif_make_uint(env, dti.sizeInChars), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "precision"),
+                      enif_make_int(env, dti.precision), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "scale"),
+                      enif_make_int(env, dti.scale), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "fsPrecision"),
+                      enif_make_int(env, dti.fsPrecision), &typeInfo);
+    enif_make_map_put(env, typeInfo, enif_make_atom(env, "objectType"),
+                      enif_make_atom(env, "featureNotImplemented"), &typeInfo);
+
+    ERL_NIF_TERM resultMap = enif_make_new_map(env);
+    enif_make_map_put(env, resultMap, enif_make_atom(env, "typeInfo"),
+                      typeInfo, &resultMap);
+    enif_make_map_put(env, resultMap, enif_make_atom(env, "name"),
+                      enif_make_string_len(env, queryInfo.name,
+                                           queryInfo.nameLength,
+                                           ERL_NIF_LATIN1),
+                      &resultMap);
+    enif_make_map_put(env, resultMap, enif_make_atom(env, "nullOk"),
+                      enif_make_atom(
+                          env, queryInfo.nullOk ? "true" : "false"),
+                      &resultMap);
+
+    /* #{name => "A", nullOk => atom,
+         typeInfo => #{clientSizeInBytes => integer, dbSizeInBytes => integer,
+                       defaultNativeTypeNum => atom, fsPrecision => integer,
+                       objectType => atom, ociTypeCode => integer,
+                       oracleTypeNum => atom , precision => integer,
+                       scale => integer, sizeInChars => integer}
+        } */
     RETURNED_TRACE;
-    return infoRes;
+    return resultMap;
 }
 
 DPI_NIF_FUN(stmt_getNumQueryColumns)

@@ -4,21 +4,6 @@
 #include "dpi_nif.h"
 #include "dpi.h"
 
-typedef struct
-{
-    dpiQueryInfo queryInfo;
-} dpiQueryInfo_res;
-
-extern ErlNifResourceType *dpiQueryInfo_type;
-
-extern void dpiQueryInfo_res_dtor(ErlNifEnv *env, void *resource);
-
-extern DPI_NIF_FUN(queryInfo_get);
-extern DPI_NIF_FUN(queryInfo_delete);
-
-#define DPIQUERYINFO_NIFS DEF_NIF(queryInfo_get, 1), \
-                          DEF_NIF(queryInfo_delete, 1)
-
 #define DPI_ORACLE_TYPE_NUM_FROM_ATOM(_atom, _assign)        \
     A2M(DPI_ORACLE_TYPE_VARCHAR, _atom, _assign);            \
     else A2M(DPI_ORACLE_TYPE_NVARCHAR, _atom, _assign);      \

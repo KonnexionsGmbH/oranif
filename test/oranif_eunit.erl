@@ -716,12 +716,34 @@ stmtGetQueryValueFail(#{session := Conn} = TestCtx) ->
 
 stmtGetQueryInfo(#{session := Conn} = TestCtx) ->
     Stmt = dpiCall(
-        TestCtx, conn_prepareStmt, 
-        [Conn, false, <<"select 1337 from dual">>, <<>>]
+        TestCtx, conn_prepareStmt,
+        [Conn, false, <<"select 1 from dual">>, <<>>]
     ),
-    Info = dpiCall(TestCtx, stmt_getQueryInfo, [Stmt, 1]),
-    ?assert(is_reference(Info)),
-    dpiCall(TestCtx, queryInfo_delete, [Info]),
+    dpiCall(TestCtx, stmt_execute, [Stmt, []]),
+    #{name := Name, nullOk := NullOk,
+        typeInfo := #{clientSizeInBytes := ClientSizeInBytes,
+            dbSizeInBytes := DbSizeInBytes,
+            defaultNativeTypeNum := DefaultNativeTypeNum,
+            fsPrecision := FsPrecision,
+            objectType := ObjectType, ociTypeCode := OciTypeCode,
+            oracleTypeNum := OracleTypeNum , precision := Precision,
+            scale := Scale, sizeInChars := SizeInChars
+        }
+    } = dpiCall(TestCtx, stmt_getQueryInfo, [Stmt, 1]),
+
+    ?assert(is_list(Name)),
+    ?assert(is_atom(NullOk)),
+    ?assert(is_integer(ClientSizeInBytes)),
+    ?assert(is_integer(DbSizeInBytes)),
+    ?assert(is_atom(DefaultNativeTypeNum)),
+    ?assert(is_integer(FsPrecision)),
+    ?assert(is_atom(ObjectType)),
+    ?assert(is_integer(OciTypeCode)),
+    ?assert(is_atom(OracleTypeNum)),
+    ?assert(is_integer(Precision)),
+    ?assert(is_integer(Scale)),
+    ?assert(is_integer(SizeInChars)),
+    
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
 stmtGetQueryInfoBadStmt(TestCtx) ->
@@ -1579,78 +1601,6 @@ varReleaseFail(#{context := Context} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource var from arg0",
         dpiCall(TestCtx, var_release, [Context])
-    ).
-
-%-------------------------------------------------------------------------------
-% QueryInfo APIs
-%-------------------------------------------------------------------------------
-
-queryInfoGet(#{session := Conn} = TestCtx) ->
-    Stmt = dpiCall(
-        TestCtx, conn_prepareStmt,
-        [Conn, false, <<"select 1 from dual">>, <<>>]
-    ),
-    dpiCall(TestCtx, stmt_execute, [Stmt, []]),
-    QueryInfoRef = dpiCall(TestCtx, stmt_getQueryInfo, [Stmt, 1]),
-    #{name := Name, nullOk := NullOk,
-        typeInfo := #{clientSizeInBytes := ClientSizeInBytes,
-            dbSizeInBytes := DbSizeInBytes,
-            defaultNativeTypeNum := DefaultNativeTypeNum,
-            fsPrecision := FsPrecision,
-            objectType := ObjectType, ociTypeCode := OciTypeCode,
-            oracleTypeNum := OracleTypeNum , precision := Precision,
-            scale := Scale, sizeInChars := SizeInChars
-        }
-    } = dpiCall(TestCtx, queryInfo_get, [QueryInfoRef]),
-
-    ?assert(is_list(Name)),
-    ?assert(is_atom(NullOk)),
-    ?assert(is_integer(ClientSizeInBytes)),
-    ?assert(is_integer(DbSizeInBytes)),
-    ?assert(is_atom(DefaultNativeTypeNum)),
-    ?assert(is_integer(FsPrecision)),
-    ?assert(is_atom(ObjectType)),
-    ?assert(is_integer(OciTypeCode)),
-    ?assert(is_atom(OracleTypeNum)),
-    ?assert(is_integer(Precision)),
-    ?assert(is_integer(Scale)),
-    ?assert(is_integer(SizeInChars)),
-    
-    dpiCall(TestCtx, queryInfo_delete, [QueryInfoRef]),
-    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
-
-queryInfoGetBadQueryInfo(TestCtx) ->
-    ?ASSERT_EX(
-        "Unable to retrieve resource queryinfo from arg0",
-        dpiCall(TestCtx, queryInfo_get, [?BAD_REF])
-    ).
-
-queryInfoGetFail(#{session := Conn} = TestCtx) ->
-    ?ASSERT_EX(
-        "Unable to retrieve resource queryinfo from arg0",
-        dpiCall(TestCtx, queryInfo_get, [Conn])
-    ).
-
-queryInfoDelete(#{session := Conn} = TestCtx) ->
-    Stmt = dpiCall(
-        TestCtx, conn_prepareStmt,
-        [Conn, false, <<"select 1 from dual">>, <<>>]
-    ),
-    QueryInfoRef = dpiCall(TestCtx, stmt_getQueryInfo, [Stmt, 1]),
-    ?assertEqual(ok, dpiCall(TestCtx, queryInfo_delete, [QueryInfoRef])),
-    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
-
-queryInfoDeleteBadQueryInfo(TestCtx) ->
-    ?ASSERT_EX(
-        "Unable to retrieve resource queryInfo from arg0",
-        dpiCall(TestCtx, queryInfo_delete, [?BAD_REF])
-    ).
-
-% fails due to getting a completely wrong reference
-queryInfoDeleteFail(#{session := Conn} = TestCtx) ->
-    ?ASSERT_EX(
-        "Unable to retrieve resource queryInfo from arg0",
-        dpiCall(TestCtx, queryInfo_delete, [Conn])
     ).
 
 %-------------------------------------------------------------------------------
@@ -2590,12 +2540,6 @@ cleanup(_) -> ok.
     ?F(varRelease),
     ?F(varReleaseBadVar),
     ?F(varReleaseFail),
-    ?F(queryInfoGet),
-    ?F(queryInfoGetBadQueryInfo),
-    ?F(queryInfoGetFail),
-    ?F(queryInfoDelete),
-    ?F(queryInfoDeleteBadQueryInfo),
-    ?F(queryInfoDeleteFail),
     ?F(dataSetTimestamp),
     ?F(dataSetTimestampBadData),
     ?F(dataSetTimestampBadYear),

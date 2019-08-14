@@ -8,10 +8,14 @@ Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later w
 ## Development
 Currently builds in Window, Linux and OS X
 
-## Compile (as OSs)
+## Compile (all OSs)
 
 ```sh
+# embed odpic source (default)
 rebar3 compile
+# link with compiled odpic library
+# (c_src/odpi/lib/ needed at runtime for NIF load)
+LINKODPI=true rebar3 compile
 ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 # see dpi_nif.h for ORANIF_DEBUG values and debug log granularities
 ```

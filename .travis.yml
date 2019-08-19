@@ -47,7 +47,7 @@ script:
  - export ERL_INTERFACE_DIR="${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}"
  - export OTP_ERTS_DIR="${OTP_ERTS_DIR:0:$((${#OTP_ERTS_DIR} - 1))}"
  - ./rebar3 version
- - ./rebar3 as test compile
+ - LINKODPI=true ./rebar3 as test compile
  - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
  - export LD_LIBRARY_PATH=./c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
  - while [ "`docker inspect -f {{.State.Health.Status}} oranif_db`" != "healthy" ]; do docker ps -a; sleep 60; done
@@ -59,9 +59,10 @@ script:
  - cd -
  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
  - $OTP_ERTS_DIR/bin/epmd &
- - ./rebar3 eunit
+ - LINKODPI=true ./rebar3 eunit
 
 after_success:
  - lcov --directory . --capture --output-file coverage.info # capture coverage info
- - lcov --list coverage.info # debug before upload
- - coveralls-lcov coverage.info # uploads to coveralls
+ - lcov -r coverage.info "*.h" -o coverage_stripped.info # header files are not covered
+ - lcov --list coverage_stripped.info # debug before upload
+ - coveralls-lcov coverage_stripped.info # uploads to coveralls

@@ -21,7 +21,6 @@ static ErlNifFunc nif_funcs[] = {
     DPICONTEXT_NIFS,
     DPICONN_NIFS,
     DPISTMT_NIFS,
-    DPIQUERYINFO_NIFS,
     DPIDATA_NIFS,
     DPIVAR_NIFS};
 
@@ -95,7 +94,6 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     DEF_RES(dpiContext);
     DEF_RES(dpiConn);
     DEF_RES(dpiStmt);
-    DEF_RES(dpiQueryInfo);
     DEF_RES(dpiData);
     DEF_RES(dpiDataPtr);
     DEF_RES(dpiVar);
@@ -115,7 +113,6 @@ static int upgrade(ErlNifEnv *env, void **priv_data,
                    void **old_priv_data, ERL_NIF_TERM load_info)
 {
     CALL_TRACE;
-
     RETURNED_TRACE;
     return 0;
 }

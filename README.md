@@ -1,13 +1,21 @@
 # oranif
+[![Build Status](https://travis-ci.org/K2InformaticsGmbH/oranif.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/oranif)
+[![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/oranif?branch=master)
+![GitHub](https://img.shields.io/github/license/K2InformaticsGmbH/oranif.svg)
+
 Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.
 
 ## Development
 Currently builds in Window, Linux and OS X
 
-## Compile (as OSs)
+## Compile (all OSs)
 
 ```sh
+# embed odpic source (default)
 rebar3 compile
+# link with compiled odpic library
+# (c_src/odpi/lib/ needed at runtime for NIF load)
+LINKODPI=true rebar3 compile
 ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 # see dpi_nif.h for ORANIF_DEBUG values and debug log granularities
 ```
@@ -17,6 +25,31 @@ ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
 - For OSX use `basic` as `basic-lite` didn't work in our tests.
 - Requires a C compiler supporting the c11 standard.
+- code coverage
+```sh
+gcov -o ./ c_src/*.c
+```
+
+### Ubuntu (Windows Subsystem for Linux)
+```sh
+$ uname -a
+Linux WKS006 4.4.0-17763-Microsoft #379-Microsoft Wed Mar 06 19:16:00 PST 2019 x86_64 x86_64 x86_64 GNU/Linux
+$ sudo apt-get install libaio1
+$ export OTP_ERTS_DIR=/usr/lib/erlang/erts-10.4.4/
+$ export LD_LIBRARY_PATH=$ROOT/oranif/c_src/odpi/lib/
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/oracle/19.3/client64/lib/ # or `sudo ldconfig`
+```
+#### code coverage setup (first time)
+```sh
+$ wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+$ tar xf lcov_1.11.orig.tar.gz
+$ sudo make -C lcov-1.11/ install
+```
+#### code coverage report
+```sh
+lcov --directory . --capture --output-file coverage.info
+lcov --list coverage.info
+```
 
 #### Create Environment variables
 ```

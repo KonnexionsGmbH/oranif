@@ -99,14 +99,15 @@
 #define RAISE_STR_EXCEPTION(__EB) \
     RAISE_EXCEPTION(enif_make_string(env, (const char *)(__EB), ERL_NIF_LATIN1))
 
-#define RAISE_EXCEPTION(__T)                                                      \
-    {                                                                             \
-        RETURNED_TRACE;                                                           \
-        return enif_raise_exception(                                              \
-            env,                                                                  \
-            enif_make_tuple4(                                                     \
-                env, ATOM_ERROR, enif_make_string(env, __FILE__, ERL_NIF_LATIN1), \
-                enif_make_int(env, __LINE__), (__T)));                            \
+#define RAISE_EXCEPTION(__T)                                     \
+    {                                                            \
+        RETURNED_TRACE;                                          \
+        return enif_raise_exception(                             \
+            env,                                                 \
+            enif_make_tuple4(                                    \
+                env, ATOM_ERROR,                                 \
+                enif_make_string(env, __FILE__, ERL_NIF_LATIN1), \
+                enif_make_int(env, __LINE__), (__T)));           \
     }
 
 #define CHECK_ARGCOUNT(_Count)                               \

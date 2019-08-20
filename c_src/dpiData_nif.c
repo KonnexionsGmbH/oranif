@@ -203,14 +203,9 @@ DPI_NIF_FUN(data_setBytes)
     CHECK_ARGCOUNT(2);
 
     dpiData_res *dataRes = NULL;
-    dpiDataPtr_res *dataPtr = NULL;
     dpiData *data = NULL;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
-    {
-        data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
     {
         data = &dataRes->dpiData;
     }
@@ -393,6 +388,21 @@ DPI_NIF_FUN(data_get)
             }
         }
         dataRet = enif_make_resource(env, stmtRes);
+    }
+    break;
+    case DPI_NATIVE_TYPE_ROWID:
+    {
+        const char* string;
+        uint32_t stringlen; 
+        RAISE_EXCEPTION_ON_DPI_ERROR(
+            dataRes->context,
+            dpiRowid_getStringValue(data->value.asRowid, &string, &stringlen),
+            NULL
+        );
+        ErlNifBinary bin;
+        enif_alloc_binary(stringlen, &bin);
+        memcpy(bin.data, string, stringlen);
+        dataRet = enif_make_binary(env, &bin);
     }
     break;
     default:

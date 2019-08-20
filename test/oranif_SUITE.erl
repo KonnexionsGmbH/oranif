@@ -8,7 +8,6 @@
 -export([insertStress/1, dataMemStress/1]).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_common.hrl").
 
 -define(value(Key, Config), proplists:get_value(Key, Config)).
 -define(B(__L), list_to_binary(__L)).

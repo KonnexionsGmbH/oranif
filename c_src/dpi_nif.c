@@ -21,7 +21,6 @@ static ErlNifFunc nif_funcs[] = {
     DPICONTEXT_NIFS,
     DPICONN_NIFS,
     DPISTMT_NIFS,
-    DPIQUERYINFO_NIFS,
     DPIDATA_NIFS,
     DPIVAR_NIFS};
 
@@ -31,7 +30,7 @@ static ErlNifFunc nif_funcs[] = {
 
 ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
 {
-    TRACE;
+    CALL_TRACE;
 
     ERL_NIF_TERM map = enif_make_new_map(env);
 
@@ -74,6 +73,7 @@ ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *env, dpiErrorInfo e)
     /* #{ code => integer(), offset => integer(), message => string(),
           encoding => string(), fnName => string(), action => string(),
           sqlState => string, isRecoverable => true | false } */
+    RETURNED_TRACE;
     return map;
 }
 
@@ -92,12 +92,11 @@ typedef struct {
 
 static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
 {
-    TRACE;
+    CALL_TRACE;
 
     DEF_RES(dpiContext);
     DEF_RES(dpiConn);
     DEF_RES(dpiStmt);
-    DEF_RES(dpiQueryInfo);
     DEF_RES(dpiData);
     DEF_RES(dpiDataPtr);
     DEF_RES(dpiVar);
@@ -109,20 +108,22 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     ATOM_ERROR = enif_make_atom(env, "error");
     ATOM_ENOMEM = enif_make_atom(env, "enomem");
 
+    RETURNED_TRACE;
     return 0;
 }
 
 static int upgrade(ErlNifEnv *env, void **priv_data,
                    void **old_priv_data, ERL_NIF_TERM load_info)
 {
-    TRACE;
-
+    CALL_TRACE;
+    RETURNED_TRACE;
     return 0;
 }
 
 static void unload(ErlNifEnv *env, void *priv_data)
 {
-    TRACE;
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 ERL_NIF_INIT(dpi, nif_funcs, load, NULL, upgrade, unload)

@@ -1,27 +1,55 @@
-# ocinif
-Oracle Call Interface driver using dirty NIFs
+# oranif
+[![Build Status](https://travis-ci.org/K2InformaticsGmbH/oranif.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/oranif)
+[![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/oranif?branch=master)
+![GitHub](https://img.shields.io/github/license/K2InformaticsGmbH/oranif.svg)
 
-Requires Erlang/OTP 20 or later with full dirty nif support.
-
-All remote oci operations are run within the pool of ERL_NIF_DIRTY_JOB_IO_BOUND threads
-
-Status: Early prototype
-
-Todo:
-
-- [ ] Tests
+Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.
 
 ## Development
 Currently builds in Window, Linux and OS X
-### Windows
+
+## Compile (all OSs)
+
 ```sh
+# embed odpic source (default)
 rebar3 compile
+# link with compiled odpic library
+# (c_src/odpi/lib/ needed at runtime for NIF load)
+LINKODPI=true rebar3 compile
+ORANIF_DEBUG=_verbosity_ rebar3 compile # debug log verbosity >= 1
+# see dpi_nif.h for ORANIF_DEBUG values and debug log granularities
 ```
+
 ### OSX/Linux
 
 - Requires Oracle Client library installed, see https://oracle.github.io/odpi/doc/installation.html for installation instructions.
 - For OSX use `basic` as `basic-lite` didn't work in our tests.
 - Requires a C compiler supporting the c11 standard.
+- code coverage
+```sh
+gcov -o ./ c_src/*.c
+```
+
+### Ubuntu (Windows Subsystem for Linux)
+```sh
+$ uname -a
+Linux WKS006 4.4.0-17763-Microsoft #379-Microsoft Wed Mar 06 19:16:00 PST 2019 x86_64 x86_64 x86_64 GNU/Linux
+$ sudo apt-get install libaio1
+$ export OTP_ERTS_DIR=/usr/lib/erlang/erts-10.4.4/
+$ export LD_LIBRARY_PATH=$ROOT/oranif/c_src/odpi/lib/
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/oracle/19.3/client64/lib/ # or `sudo ldconfig`
+```
+#### code coverage setup (first time)
+```sh
+$ wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+$ tar xf lcov_1.11.orig.tar.gz
+$ sudo make -C lcov-1.11/ install
+```
+#### code coverage report
+```sh
+lcov --directory . --capture --output-file coverage.info
+lcov --list coverage.info
+```
 
 #### Create Environment variables
 ```
@@ -36,11 +64,8 @@ export ERL_INTERFACE_DIR=$(find /usr/lib/erlang/lib/ -maxdepth 1 -type d -name e
 ...
 ```
 
-#### Compile
-
-```sh
-rebar3 compile
-```
+## Testing
+There are some eunit tests which can be executed through `rebar3 do clean, compile, eunit` (Oracle Server connect info **MUST** be supplied through `tests/connect.config` first).
 
 ## DB Init SQL (XE)
 ```cmd

@@ -563,7 +563,7 @@ stmtExecuteMany(#{session := Conn} = TestCtx) ->
         "mode must be a list of atoms",
         dpiCall(TestCtx, stmt_executeMany, [Stmt, ["badAtom"], 0])
     ),
-    #{var := Var, data := DataList} = dpiCall(
+    #{var := Var, data := _DataList} = dpiCall(
         TestCtx, conn_newVar,
         [
             Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 10,
@@ -577,7 +577,7 @@ stmtExecuteMany(#{session := Conn} = TestCtx) ->
         TestCtx, var_setFromBytes,
         [
             Var, Idx,
-            << <<(lists:nth(random:uniform(DataLen), Data))>>
+            << <<(lists:nth(rand:uniform(DataLen), Data))>>
                 || _ <- lists:seq(1, 10) >>
         ]
     ) || Idx <- lists:seq(0, 9)],
@@ -776,7 +776,7 @@ stmtGetQueryInfoFail(#{session := Conn} = TestCtx) ->
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
-stmtGetInfoBadStmt(#{session := Conn} = TestCtx) ->
+stmtGetInfoBadStmt(#{session := _Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource statement from arg0",
         dpiCall(TestCtx, stmt_getInfo, [?BAD_REF])

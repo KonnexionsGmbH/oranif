@@ -32,3 +32,7 @@ ebin/
 *.gcov
 *.gcda
 *.gcno
+
+# ct files
+ct_run*
+variables-ct*

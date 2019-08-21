@@ -53,7 +53,7 @@ unload(SlaveNode) ->
 %===============================================================================
 
 load_unsafe() ->
-    PrivDir = case code:priv_dir(?MODULE) of
+    PrivDir = case code:priv_dir(oranif) of
         {error, _} ->
             io:format(
                 user, "{~p,~p,~p} priv not found~n",

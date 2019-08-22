@@ -49,8 +49,7 @@ script:
  - export LINKODPI=true
  - ./rebar3 version
  - ./rebar3 as test compile
- - export LD_LIBRARY_PATH=$(pwd)/priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - export LD_LIBRARY_PATH=$(pwd)/c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+ - export LD_LIBRARY_PATH=$(pwd)/priv/:$(pwd)/c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
  - while [ "`docker inspect -f {{.State.Health.Status}} oranif_db`" != "healthy" ]; do docker ps -a; sleep 30; done
  - sudo ldconfig
  - sleep 60
@@ -62,8 +61,6 @@ script:
  - $OTP_ERTS_DIR/bin/epmd &
  - ./rebar3 eunit
  - echo $LD_LIBRARY_PATH
- - echo $(pwd)
- - ls ./c_src/odpi/lib/
  - ./rebar3 ct -v --verbosity=1000 --config=test/travis.cfg
 
 after_success:

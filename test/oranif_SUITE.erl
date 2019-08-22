@@ -275,11 +275,11 @@ wait([], Acc) ->
 wait(Pids, Acc) ->
     receive
         {'EXIT', Pid, R} ->
-            io:format(user, "!", []),
+            io:format(user, "~p", [length(Pids)]),
             if R /= normal -> ?L("~p exit ~p", [Pid, R]); true -> ok end,
             wait(Pids -- [Pid], Acc);
         Result ->
-            io:format(user, "-", []),
+            io:format(user, " ", []),
             wait(Pids, [Result | Acc])
     after
         10000 ->

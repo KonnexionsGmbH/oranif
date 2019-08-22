@@ -42,16 +42,16 @@ script:
  - sudo apt install /tmp/oracle-instantclient19.3-basic_19.3.0.0.0-2_amd64.deb
  - sudo apt install /tmp/oracle-instantclient19.3-sqlplus_19.3.0.0.0-2_amd64.deb
  - export LD_LIBRARY_PATH=/usr/lib/oracle/19.3/client64/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - echo $LD_LIBRARY_PATH
  - ERL_INTERFACE_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/lib/erl_interface*/)"
  - OTP_ERTS_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/erts*/)"
  - export ERL_INTERFACE_DIR="${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}"
  - export OTP_ERTS_DIR="${OTP_ERTS_DIR:0:$((${#OTP_ERTS_DIR} - 1))}"
+ - export LINKODPI=true
  - ./rebar3 version
- - LINKODPI=true ./rebar3 as test compile
- - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - export LD_LIBRARY_PATH=./c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - while [ "`docker inspect -f {{.State.Health.Status}} oranif_db`" != "healthy" ]; do docker ps -a; sleep 60; done
+ - ./rebar3 as test compile
+ - export LD_LIBRARY_PATH=$(pwd)/priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+ - export LD_LIBRARY_PATH=$(pwd)/c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+ - while [ "`docker inspect -f {{.State.Health.Status}} oranif_db`" != "healthy" ]; do docker ps -a; sleep 30; done
  - sudo ldconfig
  - sleep 60
  - docker ps -a
@@ -60,10 +60,11 @@ script:
  - cd -
  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
  - $OTP_ERTS_DIR/bin/epmd &
- - LINKODPI=true ./rebar3 eunit
+ - ./rebar3 eunit
  - echo $LD_LIBRARY_PATH
+ - echo $(pwd)
  - ls ./c_src/odpi/lib/
- - LINKODPI=true ./rebar3 ct -v --verbosity=1000 --config=test/travis.cfg
+ - ./rebar3 ct -v --verbosity=1000 --config=test/travis.cfg
 
 after_success:
  - lcov --directory . --capture --output-file coverage.info # capture coverage info

@@ -50,7 +50,9 @@ suite() ->
 -define(DPI_MINOR_VERSION, 0).
 
 init_per_suite(Config) ->
-    ok = dpi:load_unsafe(),
+    Result = dpi:load_unsafe(),
+    ?L("Result ~p", [Result]),
+    ok = Result,
     Context = dpi:context_create(?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION),
     init_sut(
         [

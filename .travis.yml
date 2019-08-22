@@ -63,7 +63,7 @@ script:
  - LINKODPI=true ./rebar3 eunit
  - echo $LD_LIBRARY_PATH
  - ls ./c_src/odpi/lib/
- - LINKODPI=true ./rebar3 ct --readable=false --config=test/travis.cfg
+ - LINKODPI=true ./rebar3 ct --readable=false -v --verbosity=1000 --config=test/travis.cfg
 
 after_success:
  - lcov --directory . --capture --output-file coverage.info # capture coverage info

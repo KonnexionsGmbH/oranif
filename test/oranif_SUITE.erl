@@ -269,7 +269,9 @@ l2b(B) when is_binary(B) -> B;
 l2b(L) when is_list(L) -> list_to_binary(L).
 
 wait(Pids) -> wait(Pids, []).
-wait([], Acc) -> Acc;
+wait([], Acc) ->
+    io:format(user, "~n", []),
+    Acc;
 wait(Pids, Acc) ->
     receive
         {'EXIT', Pid, R} ->
@@ -278,7 +280,9 @@ wait(Pids, Acc) ->
         Result ->
             wait(Pids, [Result | Acc])
     after
-        10000 -> wait(Pids, Acc)
+        10000 ->
+            io:format(user, ".", []),
+            wait(Pids, Acc)
     end.
 
 init_sut(Config) ->

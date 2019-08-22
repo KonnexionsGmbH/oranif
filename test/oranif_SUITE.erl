@@ -29,6 +29,12 @@
         " (:thread_varchar2, :something_integer)"
     >>
 ).
+-define(SQL_UPDATE,
+    <<
+        "UPDATE oraniftest SET something = something + :something_integer"
+        " WHERE thread = :thread_varchar2"
+    >>
+).
 -define(SQL_SELECT,
     <<
         "SELECT * FROM oraniftest WHERE thread = :thread_varchar2"
@@ -73,32 +79,34 @@ init_per_testcase(Test, Config) ->
     [{test, Test}, {dpiConn, Connection} | Config].
 
 benchmark(Config) ->
+    ?L("connecting..."),
     {DurationConnect, Connections} = timer:tc(fun connect/1, [Config]),
     TotalConnections = length(Connections) * 1000000,
-    ?L(
-        "Connections ~p @ ~p connect per second",
-        [length(Connections), TotalConnections div DurationConnect]
-    ),
+    ?L("~s", [?SQL_INSERT]),
     {DurationInsert, {Inserts, Threads}} = timer:tc(fun insert/1, [Connections]),
     InsertCount = lists:sum(Inserts),
-    ?L(
-        "Inserts ~p @ ~p inserts per second",
-        [InsertCount, (InsertCount * 1000000) div DurationInsert]
-    ),
+    ?L("~s", [?SQL_UPDATE]),
     {DurationUpdate, Updates} = timer:tc(fun update/2, [Connections, Threads]),
     UpdateCount = lists:sum(Updates),
-    ?L(
-        "Updates ~p @ ~p Updates per second",
-        [UpdateCount, (UpdateCount * 1000000) div DurationUpdate]
-    ),
+    ?L("~s", [?SQL_SELECT]),
     {DurationSelect, Selects} = timer:tc(fun select/2, [Connections, Threads]),
     SelectCount = lists:sum(Selects),
-    ?L(
-        "Selects ~p @ ~p selects per second",
-        [SelectCount, (SelectCount * 1000000) div DurationSelect]
-    ),
+    ?L("disconnecting..."),
     {DurationDisconnect, ok} = timer:tc(fun disconnect/1, [Connections]),
-    ?L("~p disconnect per second", [TotalConnections div DurationDisconnect]),
+    ?L(
+        "~nConnect ~p\t@ ~p per second"
+        "~nInserts ~p\t@ ~p per second"
+        "~nUpdates ~p\t@ ~p per second"
+        "~nSelects ~p\t@ ~p per second"
+        "~nDisconnect\t@ ~p per second",
+        [
+            length(Connections), TotalConnections div DurationConnect,
+            InsertCount, (InsertCount * 1000000) div DurationInsert,
+            UpdateCount, (UpdateCount * 1000000) div DurationUpdate,
+            SelectCount, (SelectCount * 1000000) div DurationSelect,
+            TotalConnections div DurationDisconnect
+        ]
+    ),
     ok.
 
 end_per_testcase(_Test, Config) ->
@@ -219,13 +227,6 @@ select_all(Stmt, Count) when is_integer(Count) ->
             select_all(Stmt, Count + 1);
         _ -> Count
     end.
-
--define(SQL_UPDATE,
-    <<
-        "UPDATE oraniftest SET something = something + :something_integer"
-        " WHERE thread = :thread_varchar2"
-    >>
-).
 
 update(Connections, Threads) ->
     process_flag(trap_exit, true),

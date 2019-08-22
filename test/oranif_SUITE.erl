@@ -1,5 +1,7 @@
 -module(oranif_SUITE).
 
+% rebar3 ct --readable=false --config=test/default.cfg
+
 -export([
     all/0, suite/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2,
     end_per_testcase/2
@@ -9,7 +11,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -define(L(_F, _A),
-    %ct:pal(info, ?MODULE_STRING":~p:~p:~p "_F, [?FUNCTION_NAME, ?LINE, self() | _A])
+    %ct:pal(info, ?MAX_IMPORTANCE, ?MODULE_STRING":~p:~p:~p "_F, [?FUNCTION_NAME, ?LINE, self() | _A])
     io:format(user, "===> ["?MODULE_STRING":~p:~p:~p] "_F"~n", [?FUNCTION_NAME, ?LINE, self() | _A])
 ).
 -define(L(_S), ?L(_S, [])).
@@ -94,7 +96,7 @@ benchmark(Config) ->
         [SelectCount, (SelectCount * 1000000) div DurationSelect]
     ),
     {DurationDisconnect, ok} = timer:tc(fun disconnect/1, [Connections]),
-    ?L("~p disconnect per second,", [TotalConnections div DurationDisconnect]),
+    ?L("~p disconnect per second", [TotalConnections div DurationDisconnect]),
     ok.
 
 end_per_testcase(_Test, Config) ->

@@ -545,3 +545,22 @@ DPI_NIF_FUN(stmt_defineValue)
     RETURNED_TRACE;
     return ATOM_OK;
 }
+
+DPI_NIF_FUN(stmt_getRowCount)
+{
+    CHECK_ARGCOUNT(1);
+
+    dpiStmt_res *stmtRes;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    uint64_t count;
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context,
+        dpiStmt_getRowCount(stmtRes->stmt, &count),
+        NULL);
+
+    RETURNED_TRACE;
+    return enif_make_uint(env, count);
+}

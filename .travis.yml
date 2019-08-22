@@ -60,6 +60,7 @@ script:
  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
  - $OTP_ERTS_DIR/bin/epmd &
  - LINKODPI=true ./rebar3 eunit
+ - LINKODPI=true ./rebar3 ct -v --verbosity=1000 --config=test/travis.cfg
 
 after_success:
  - lcov --directory . --capture --output-file coverage.info # capture coverage info

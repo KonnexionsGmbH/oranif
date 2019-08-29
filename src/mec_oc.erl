@@ -16,6 +16,10 @@ BindVars = [
 ].
 BindValues = [4].
 
+nodes(hidden).
+slave:stop(hd(nodes(hidden))).
+
+c(mec_oc).
 f(Conn).
 Conn = mec_oc:connect(User, Password, Tns, SlaveName).
 mec_oc:test_ref_cursor(Conn, TestSql, 1000, BindVars, BindValues).
@@ -30,8 +34,9 @@ mec_oc:test_ref_cursor(Conn, TestSql, 1000, BindVars, BindValues).
 connect(User, Password, ConStr, SlaveName)
     when is_binary(User), is_binary(Password), is_binary(ConStr)
 ->
-    ok = dpi:load(SlaveName),
-    dpi:safe(fun ?MODULE:connect_internal/3, [User, Password, ConStr]).
+    Node = dpi:load(SlaveName),
+    Conn = dpi:safe(Node, fun ?MODULE:connect_internal/3, [User, Password, ConStr]),
+	Conn#{node => Node}.
 connect_internal(User, Password, ConStr) ->
     try
         Ctx = dpi:context_create(?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION),
@@ -49,36 +54,36 @@ connect_internal(User, Password, ConStr) ->
         }
     end.
 
-close(#{conn := Conn, context := Ctx}) ->
-    dpi:safe(fun ?MODULE:close_internal/2, [Conn, Ctx]).
+close(#{node := Node, conn := Conn, context := Ctx}) ->
+    dpi:safe(Node, fun ?MODULE:close_internal/2, [Conn, Ctx]).
 close_internal(Conn, Context)->
     try
-        ok = dpi:conn_release(Conn),
+        ok = dpi:conn_close(Conn, [], <<>>),
         ok = dpi:context_destroy(Context)
     catch
-        _Class:{error, _, _, #{message := Message}} -> {error, Message};
-        _Class:Exception -> {error, Exception}
+        _Class:Exception ->	{error, Exception}
     end.
 
-test_ref_cursor(#{conn := Conn} = State, Sql, Count, Vars, Values) ->
-	Stmt = dpi:safe(dpi, conn_prepareStmt, [Conn, false, Sql, <<>>]),
-	StartMem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
+test_ref_cursor(#{node := Node, conn := Conn} = State, Sql, Count, Vars, Values) ->
+	io:format("Resources ~p~n", [dpi:safe(Node, dpi, resource_count, [])]),
+	Stmt = dpi:safe(Node, dpi, conn_prepareStmt, [Conn, false, Sql, <<>>]),
+	StartMem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
 	test_ref_cursor(State, Stmt, Count, Vars, Values, StartMem),
-	Mem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
+	dpi:safe(Node, dpi, stmt_close, [Stmt, <<>>]),
+	Mem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
 	Incr = (Mem - StartMem) / StartMem,
-	io:format("{end, ~.2f%}~n", [Incr]),
-	dpi:safe(dpi, stmt_release, [Stmt]),
+	io:format("{end, ~.2f%}~nResources ~p~n", [Incr, dpi:safe(Node, dpi, resource_count, [])]),
 	close(State).
 
 test_ref_cursor(_State, _Stmt, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
-test_ref_cursor(State, Stmt, Count, Vars, Values, StartMem) ->
-    case dpi:safe(fun ?MODULE:test_ref_cursor_internal/4, [State, Stmt, Vars, Values]) of
+test_ref_cursor(#{node := Node} = State, Stmt, Count, Vars, Values, StartMem) ->
+    case dpi:safe(Node, fun ?MODULE:test_ref_cursor_internal/4, [State, Stmt, Vars, Values]) of
 		{ok, _} -> ok;
 		Result ->
 			 io:format("ERROR : ~p Result ~p~n", [Count, Result])
 	end,
 	if Count rem 100 == 0 ->
-			Mem = dpi:safe(fun ?MODULE:get_mem_internal/0, []),
+			Mem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
 			Incr = (Mem - StartMem) / StartMem,
 			io:format("{~p, ~.2f%} ", [Count, Incr]);
 		true -> ok
@@ -88,7 +93,8 @@ test_ref_cursor_internal(#{conn := Conn}, Stmt, Vars, Values) ->
     try
         OutVars = bind_vars(Conn, Stmt, Vars, Values),
         dpi:stmt_execute(Stmt, []),
-        {_Name, _Type, Var, Data} = lists:keyfind(<<":SQLT_OUT_CURSOR">>, 1, OutVars),
+		{value, {_Name, _Type, Var, Data}, OutVars1}
+         = lists:keytake(<<":SQLT_OUT_CURSOR">>, 1, OutVars),
         RefCursor = dpi:data_get(Data),
         Info = query_info_stmt_internal(RefCursor),
         Row1 = fetch_stmt_internal(RefCursor),
@@ -96,6 +102,7 @@ test_ref_cursor_internal(#{conn := Conn}, Stmt, Vars, Values) ->
         Row3 = fetch_stmt_internal(RefCursor),
         dpi:var_release(Var),
 		dpi:data_release(Data),
+		[dpi:var_release(V) || {_, _, V, _} <- OutVars1],
         {ok, {Info, [Row1, Row2, Row3]}}
     catch
         _Class:{error, _, _, #{message := Message}} -> {error, Message};
@@ -140,9 +147,7 @@ get_column_values(Stmt, ColIdx, Limit) ->
 
 get_column_info(_Stmt, ColIdx, Limit) when ColIdx > Limit -> [];
 get_column_info(Stmt, ColIdx, Limit) ->
-    QueryInfoRef = dpi:stmt_getQueryInfo(Stmt, ColIdx),
-    QueryInfo = dpi:queryInfo_get(QueryInfoRef),
-    dpi:queryInfo_delete(QueryInfoRef),
+    QueryInfo = dpi:stmt_getQueryInfo(Stmt, ColIdx),
     [QueryInfo | get_column_info(Stmt, ColIdx + 1, Limit)].
 
 native_type('DPI_ORACLE_TYPE_NUMBER') -> 'DPI_NATIVE_TYPE_INT64';

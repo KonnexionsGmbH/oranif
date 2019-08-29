@@ -29,6 +29,6 @@ c_src/odpi
 priv/
 ebin/
 \.*/
-*.gcov
-*.gcda
-*.gcno
+*.gc*
+*.info
+cov_html/

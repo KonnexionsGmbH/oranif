@@ -30,7 +30,8 @@
     else A2M(DPI_ORACLE_TYPE_BOOLEAN, _atom, _assign);       \
     else A2M(DPI_ORACLE_TYPE_OBJECT, _atom, _assign);        \
     else A2M(DPI_ORACLE_TYPE_LONG_VARCHAR, _atom, _assign);  \
-    else A2M(DPI_ORACLE_TYPE_LONG_RAW, _atom, _assign);
+    else A2M(DPI_ORACLE_TYPE_LONG_RAW, _atom, _assign);      \
+    else RAISE_STR_EXCEPTION("wrong or unsupported dpiOracleType type");
 
 #define DPI_ORACLE_TYPE_NUM_TO_ATOM(_type, _assign)                  \
     switch (_type)                                                   \

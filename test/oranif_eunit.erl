@@ -530,7 +530,7 @@ connSetClientIdentifierBadValue(#{session := Conn} = TestCtx) ->
 % Statement APIs
 %-------------------------------------------------------------------------------
 
-stmtExecuteMany(#{session := Conn} = TestCtx) ->
+stmtExecuteMany_varGetReturnedData(#{session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource statement from arg0",
         dpiCall(TestCtx, stmt_executeMany, [?BAD_REF, [], 0])
@@ -549,7 +549,14 @@ stmtExecuteMany(#{session := Conn} = TestCtx) ->
     ok = dpiCall(TestCtx, stmt_close, [StmtCreate, <<>>]),
     Stmt = dpiCall(
         TestCtx, conn_prepareStmt, 
-        [Conn, false, <<"insert into oranif_test values(:col1)">>, <<>>]
+        [
+            Conn, false,
+            <<
+                "insert into oranif_test values(:col1)"
+                " returning rowid into :rid"
+            >>,
+            <<>>
+        ]
     ),
     ?ASSERT_EX(
         "Unable to retrieve list of atoms from arg1",
@@ -563,29 +570,55 @@ stmtExecuteMany(#{session := Conn} = TestCtx) ->
         "mode must be a list of atoms",
         dpiCall(TestCtx, stmt_executeMany, [Stmt, ["badAtom"], 0])
     ),
-    #{var := Var, data := DataList} = dpiCall(
+    #{var := Var} = dpiCall(
         TestCtx, conn_newVar,
         [
             Conn, 'DPI_ORACLE_TYPE_VARCHAR', 'DPI_NATIVE_TYPE_BYTES', 10,
             10, true, false, null
         ]
     ),
+    #{var := VarRowId} = dpiCall(
+        TestCtx, conn_newVar,
+        [
+            Conn, 'DPI_ORACLE_TYPE_ROWID', 'DPI_NATIVE_TYPE_ROWID',
+            10, 0, false, false, null
+        ]
+    ),
     dpiCall(TestCtx, stmt_bindByName, [Stmt, <<"col1">>, Var]),
+    dpiCall(TestCtx, stmt_bindByName, [Stmt, <<"rid">>, VarRowId]),
     Data = lists:seq($0, $z),
     DataLen = length(Data),
+    Indices = lists:seq(0, 9),
+    rand:seed(exsplus, {0, 0, 0}),
     [dpiCall(
         TestCtx, var_setFromBytes,
         [
             Var, Idx,
-            << <<(lists:nth(random:uniform(DataLen), Data))>>
+            << <<(lists:nth(rand:uniform(DataLen), Data))>>
                 || _ <- lists:seq(1, 10) >>
         ]
-    ) || Idx <- lists:seq(0, 9)],
-    ExecManyResult = dpiCall(
-        TestCtx, stmt_executeMany,
-        [Stmt, ['DPI_MODE_EXEC_COMMIT_ON_SUCCESS'], 10]
+    ) || Idx <- Indices],
+    ?assertEqual(
+        ok,
+        dpiCall(
+            TestCtx, stmt_executeMany,
+            [Stmt, ['DPI_MODE_EXEC_COMMIT_ON_SUCCESS'], 10]
+        )
     ),
-    ?assertEqual(ok, ExecManyResult),
+    ?ASSERT_EX(
+        "Unable to retrieve resource var from arg0",
+        dpiCall(TestCtx, var_getReturnedData, [?BAD_REF, 0])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve uint pos from arg1",
+        dpiCall(TestCtx, var_getReturnedData, [VarRowId, ?BAD_INT])
+    ),
+    [begin
+        Result = dpiCall(TestCtx, var_getReturnedData, [VarRowId, Idx]),
+        ?assertMatch(#{numElements := 1, data := [_]}, Result),
+        [D] = maps:get(data, Result),
+        ?assert(byte_size(dpiCall(TestCtx, data_get, [D])) > 0)
+    end || Idx <- Indices],
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
 stmtExecute(#{session := Conn} = TestCtx) ->
@@ -776,7 +809,7 @@ stmtGetQueryInfoFail(#{session := Conn} = TestCtx) ->
     ),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
-stmtGetInfoBadStmt(#{session := Conn} = TestCtx) ->
+stmtGetInfoBadStmt(#{session := _Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource statement from arg0",
         dpiCall(TestCtx, stmt_getInfo, [?BAD_REF])
@@ -2466,7 +2499,7 @@ cleanup(_) -> ok.
     ?F(connSetClientIdentifierBadConn),
     ?F(connSetClientIdentifierBadValue),
     ?F(stmtExecute),
-    ?F(stmtExecuteMany),
+    ?F(stmtExecuteMany_varGetReturnedData),
     ?F(stmtExecuteWithModes),
     ?F(stmtExecutebadStmt),
     ?F(stmtExecuteBadModes),

@@ -38,8 +38,7 @@ DPI_NIF_FUN(conn_create)
     dpiCommonCreateParams commonParams;
     RAISE_EXCEPTION_ON_DPI_ERROR(
         contextRes->context,
-        dpiContext_initCommonCreateParams(contextRes->context, &commonParams),
-        NULL);
+        dpiContext_initCommonCreateParams(contextRes->context, &commonParams));
 
     if (commonParamsMapSize > 0)
     {
@@ -71,10 +70,10 @@ DPI_NIF_FUN(conn_create)
         }
     }
 
-    dpiConn_res *connRes =
-        enif_alloc_resource(dpiConn_type, sizeof(dpiConn_res));
+    dpiConn_res *connRes;
+    ALLOC_RESOURCE(connRes, dpiConn);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         contextRes->context,
         dpiConn_create(
             contextRes->context, (const char *)userName.data, userName.size,
@@ -83,7 +82,7 @@ DPI_NIF_FUN(conn_create)
             &commonParams,
             NULL, // TODO implement connCreateParams
             &connRes->conn),
-        connRes);
+        connRes, dpiConn);
 
     // Save context into connection for access from dpiError
     connRes->context = contextRes->context;
@@ -117,16 +116,16 @@ DPI_NIF_FUN(conn_prepareStmt)
     if (!enif_inspect_binary(env, argv[3], &tag))
         BADARG_EXCEPTION(3, "binary/string tag");
 
-    dpiStmt_res *stmtRes =
-        enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+    dpiStmt_res *stmtRes;
+    ALLOC_RESOURCE(stmtRes, dpiStmt);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         connRes->context,
         dpiConn_prepareStmt(
             connRes->conn, scrollable, (const char *)sql.data, sql.size,
             tag.size > 0 ? (const char *)tag.data : NULL, tag.size,
             &stmtRes->stmt),
-        stmtRes);
+        stmtRes, dpiStmt);
 
     stmtRes->context = connRes->context;
 
@@ -175,16 +174,16 @@ DPI_NIF_FUN(conn_newVar)
     if (enif_compare(argv[7], ATOM_NULL))
         BADARG_EXCEPTION(7, "atom objType");
 
-    dpiVar_res *varRes =
-        enif_alloc_resource(dpiVar_type, sizeof(dpiVar_res));
+    dpiVar_res *varRes;
+    ALLOC_RESOURCE(varRes, dpiVar);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         connRes->context,
         dpiConn_newVar(
             connRes->conn, oracleTypeNum, nativeTypeNum, maxArraySize, size,
             sizeIsBytes, isArray,
             NULL, &varRes->var, &data),
-        varRes);
+        varRes, dpiVar);
 
     varRes->context = connRes->context;
 
@@ -196,7 +195,7 @@ DPI_NIF_FUN(conn_newVar)
     varRes->head = NULL;
     for (int i = maxArraySize - 1; i >= 0; i--)
     {
-        dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
+        ALLOC_RESOURCE(dataRes, dpiDataPtr);
         dataRes->stmtRes = NULL;
         dataRes->next = NULL;
         dataRes->isQueryValue = 0;
@@ -234,9 +233,7 @@ DPI_NIF_FUN(conn_commit)
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_commit(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_commit(connRes->conn));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -252,9 +249,7 @@ DPI_NIF_FUN(conn_rollback)
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_rollback(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_rollback(connRes->conn));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -270,9 +265,7 @@ DPI_NIF_FUN(conn_ping)
         BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_ping(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_ping(connRes->conn));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -314,8 +307,9 @@ DPI_NIF_FUN(conn_close)
         dpiConn_close(
             connRes->conn, mode,
             tag.size > 0 ? (const char *)tag.data : NULL,
-            tag.size),
-        NULL);
+            tag.size));
+
+    RELEASE_RESOURCE(connRes, dpiConn);
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -389,8 +383,7 @@ DPI_NIF_FUN(conn_setClientIdentifier)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         connRes->context,
         dpiConn_setClientIdentifier(
-            connRes->conn, (const char *)value.data, value.size),
-        NULL);
+            connRes->conn, (const char *)value.data, value.size));
 
     return ATOM_OK;
 }

@@ -42,8 +42,7 @@ DPI_NIF_FUN(stmt_execute)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_execute(stmtRes->stmt, mode, &numCols),
-        NULL);
+        dpiStmt_execute(stmtRes->stmt, mode, &numCols));
 
     RETURNED_TRACE;
     return enif_make_uint(env, numCols);
@@ -75,15 +74,14 @@ DPI_NIF_FUN(stmt_executeMany)
         do
         {
             if (!enif_is_atom(env, head))
-                RAISE_STR_EXCEPTION("mode must be a list of atoms"); 
+                RAISE_STR_EXCEPTION("mode must be a list of atoms");
             DPI_EXEC_MODE_FROM_ATOM(head, m);
             mode |= m;
         } while (enif_get_list_cell(env, tail, &head, &tail));
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_executeMany(stmtRes->stmt, mode, numIters),
-        NULL);
+        dpiStmt_executeMany(stmtRes->stmt, mode, numIters));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -102,8 +100,7 @@ DPI_NIF_FUN(stmt_fetch)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_fetch(stmtRes->stmt, &found, &bufferRowIndex),
-        NULL);
+        dpiStmt_fetch(stmtRes->stmt, &found, &bufferRowIndex));
 
     ERL_NIF_TERM map = enif_make_new_map(env);
     enif_make_map_put(
@@ -134,18 +131,19 @@ DPI_NIF_FUN(stmt_getQueryValue)
     if (!enif_get_uint(env, argv[1], &pos))
         BADARG_EXCEPTION(1, "uint pos");
 
-    dpiDataPtr_res *data = enif_alloc_resource(
-        dpiDataPtr_type, sizeof(dpiDataPtr_res));
+    dpiDataPtr_res *data;
+    ALLOC_RESOURCE(data, dpiDataPtr);
+
     data->next = NULL;
     data->stmtRes = NULL;
     data->isQueryValue = 1;
     data->context = stmtRes->context;
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         stmtRes->context,
         dpiStmt_getQueryValue(
             stmtRes->stmt, pos, &nativeTypeNum, &(data->dpiDataPtr)),
-        data);
+        data, dpiDataPtr);
 
     data->type = nativeTypeNum;
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
@@ -182,8 +180,7 @@ DPI_NIF_FUN(stmt_getQueryInfo)
     dpiQueryInfo queryInfo;
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_getQueryInfo(stmtRes->stmt, pos, &queryInfo),
-        NULL);
+        dpiStmt_getQueryInfo(stmtRes->stmt, pos, &queryInfo));
 
     dpiDataTypeInfo dti = queryInfo.typeInfo;
     ERL_NIF_TERM typeInfo = enif_make_new_map(env);
@@ -255,8 +252,7 @@ DPI_NIF_FUN(stmt_getNumQueryColumns)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_getNumQueryColumns(stmtRes->stmt, &numQueryColumns),
-        NULL);
+        dpiStmt_getNumQueryColumns(stmtRes->stmt, &numQueryColumns));
 
     RETURNED_TRACE;
     return enif_make_uint(env, numQueryColumns);
@@ -282,8 +278,8 @@ DPI_NIF_FUN(stmt_bindValueByPos)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_bindValueByPos(stmtRes->stmt, pos, bindType, &dataRes->dpiData),
-        NULL);
+        dpiStmt_bindValueByPos(stmtRes->stmt, pos, bindType,
+                               &dataRes->dpiData));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -311,8 +307,7 @@ DPI_NIF_FUN(stmt_bindValueByName)
         stmtRes->context,
         dpiStmt_bindValueByName(
             stmtRes->stmt, (const char *)binary.data, binary.size, bindType,
-            &dataRes->dpiData),
-        NULL);
+            &dataRes->dpiData));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -335,7 +330,7 @@ DPI_NIF_FUN(stmt_bindByPos)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_bindByPos(stmtRes->stmt, pos, varRes->var), NULL);
+        dpiStmt_bindByPos(stmtRes->stmt, pos, varRes->var));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -359,8 +354,8 @@ DPI_NIF_FUN(stmt_bindByName)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
         dpiStmt_bindByName(
-            stmtRes->stmt, (const char *)binary.data, binary.size, varRes->var),
-        NULL);
+            stmtRes->stmt, (const char *)binary.data, binary.size,
+            varRes->var));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -378,10 +373,12 @@ DPI_NIF_FUN(stmt_close)
     if (!enif_inspect_binary(env, argv[1], &tag))
         BADARG_EXCEPTION(1, "string tag");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         stmtRes->context,
         dpiStmt_close(stmtRes->stmt, (const char *)tag.data, tag.size),
-        stmtRes);
+        stmtRes, dpiStmt);
+
+    RELEASE_RESOURCE(stmtRes, dpiStmt);
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -397,10 +394,9 @@ DPI_NIF_FUN(stmt_getInfo)
     if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
         BADARG_EXCEPTION(0, "resource statement");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        stmtRes->context,
-        dpiStmt_getInfo(stmtRes->stmt, &info),
-        stmtRes);
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        stmtRes->context, dpiStmt_getInfo(stmtRes->stmt, &info),
+        stmtRes, dpiStmt);
 
     ERL_NIF_TERM map = enif_make_new_map(env);
 
@@ -501,7 +497,7 @@ DPI_NIF_FUN(stmt_define)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
-        dpiStmt_define(stmtRes->stmt, pos, varRes->var), NULL);
+        dpiStmt_define(stmtRes->stmt, pos, varRes->var));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -539,8 +535,7 @@ DPI_NIF_FUN(stmt_defineValue)
         dpiStmt_defineValue(
             stmtRes->stmt, pos, oraType, nativeType, size, sizeIsBytes,
             NULL // TODO: support dpiObjectType
-            ),
-        NULL);
+            ));
 
     RETURNED_TRACE;
     return ATOM_OK;

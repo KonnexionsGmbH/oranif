@@ -88,7 +88,8 @@ contextGetClientVersion(TestCtx) ->
         dpiCall(TestCtx, context_getClientVersion, [Context]),
     ?assert(is_integer(CRNum)),
     ?assert(is_integer(CVNum)),
-    ?assert(is_integer(CFNum)).
+    ?assert(is_integer(CFNum)),
+    dpiCall(TestCtx, context_destroy, [Context]).
 
 %-------------------------------------------------------------------------------
 % Connection APIs
@@ -490,6 +491,8 @@ stmtExecuteMany_varGetReturnedData(#{session := Conn} = TestCtx) ->
         [D] = maps:get(data, Result),
         ?assert(byte_size(dpiCall(TestCtx, data_get, [D])) > 0)
     end || Idx <- Indices],
+    dpiCall(TestCtx, var_release, [Var]),
+    dpiCall(TestCtx, var_release, [VarRowId]),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
 stmtExecute(#{session := Conn} = TestCtx) ->
@@ -1399,9 +1402,10 @@ dataGetStmt(#{session := Conn} = TestCtx) ->
     dpiCall(TestCtx, data_release, [DataChoice]),
     dpiCall(TestCtx, var_release, [VarChoice]),
     dpiCall(TestCtx, data_release, [DataStmt]),
-    dpiCall(TestCtx, var_release, [VarStmt]).
+    dpiCall(TestCtx, var_release, [VarStmt]),
+    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
-dataGetInt64(#{session := Conn} = TestCtx) ->
+dataGetInt64(TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource data/ptr from arg0",
         dpiCall(TestCtx, data_getInt64, [?BAD_REF])
@@ -1456,6 +1460,66 @@ dataRelease(#{session := Conn} = TestCtx) ->
     ?assertEqual(ok, dpiCall(TestCtx, data_release, [Data1])),
     dpiCall(TestCtx, var_release, [Var]).
 
+resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
+    #{tns := Tns, user := User, password := Password} = getConfig(),
+    Indices = lists:seq(1, 5),
+    #{
+        context     := ICtxs,
+        variable    := IVars,
+        connection  := IConns,
+        data        := IDatas,
+        statement   := IStmts,
+        datapointer := IDataPtrs
+    } = InitialRC = dpiCall(TestCtx, resource_count, []),
+    Resources = [{
+        dpiCall(
+            TestCtx, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]
+        ),
+        dpiCall(
+            TestCtx, conn_create, [
+                Context, User, Password, Tns,
+                #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
+            ]
+        ),
+        dpiCall(
+            TestCtx, conn_prepareStmt,
+            [Conn, false, <<"select * from dual">>, <<>>]
+        ),
+        dpiCall(
+            TestCtx, conn_newVar, 
+            [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
+            1, 0, false, false, null]
+        ),
+        dpiCall(TestCtx, data_ctor, [])
+    } || _ <- Indices],
+
+    #{
+        context     := Ctxs,
+        variable    := Vars,
+        connection  := Conns,
+        data        := Datas,
+        statement   := Stmts,
+        datapointer := DataPtrs
+    } = dpiCall(TestCtx, resource_count, []),
+    ?assertEqual(5, Ctxs - ICtxs),
+    ?assertEqual(5, Vars - IVars),
+    ?assertEqual(5, Conns - IConns),
+    ?assertEqual(5, Stmts - IStmts),
+    ?assertEqual(5, Datas - IDatas),
+    ?assertEqual(5, DataPtrs - IDataPtrs),
+
+    lists:foreach(
+        fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
+            ok = dpiCall(TestCtx, var_release, [Var]),
+            ok = dpiCall(TestCtx, stmt_close, [Stmt, <<>>]),
+            ok = dpiCall(TestCtx, conn_close, [LConn, [], <<>>]),
+            ok = dpiCall(TestCtx, context_destroy, [Ctx]),
+            ok = dpiCall(TestCtx, data_release, [Data])
+        end,
+        Resources
+    ),
+    ?assertEqual(InitialRC, dpiCall(TestCtx, resource_count, [])).
+
 %-------------------------------------------------------------------------------
 % eunit infrastructure callbacks
 %-------------------------------------------------------------------------------
@@ -1471,6 +1535,15 @@ setup(#{safe := true}) ->
 
 setup_context(TestCtx) ->
     SlaveCtx = setup(TestCtx),
+    maps:fold(
+        fun(K, V, _) ->
+            if V > 0 -> ?debugFmt("~p ~p = ~p", [?FUNCTION_NAME, K, V]);
+            true -> ok
+            end
+        end,
+        noacc,
+        dpiCall(SlaveCtx, resource_count, [])
+    ),
     SlaveCtx#{
         context => dpiCall(
             SlaveCtx, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]
@@ -1480,6 +1553,15 @@ setup_context(TestCtx) ->
 setup_connecion(TestCtx) ->
     ContextCtx = #{context := Context} = setup_context(TestCtx),
     #{tns := Tns, user := User, password := Password} = getConfig(),
+    maps:fold(
+        fun
+            (_K, 0, _) -> ok;
+            (context, 1, _) -> ok;
+            (K, V, _) -> ?assertEqual({K, 0}, {K, V})
+        end,
+        noacc,
+        dpiCall(ContextCtx, resource_count, [])
+    ),
     ContextCtx#{
         session => dpiCall(
             ContextCtx, conn_create,
@@ -1492,9 +1574,26 @@ setup_connecion(TestCtx) ->
 
 cleanup(#{session := Connnnection} = Ctx) ->
     dpiCall(Ctx, conn_close, [Connnnection, [], <<>>]),
+    maps:fold(
+        fun
+            (_K, 0, _) -> ok;
+            (context, 1, _) -> ok;
+            (K, V, _) -> ?debugFmt("~p ~p = ~p", [?FUNCTION_NAME, K, V])
+        end,
+        noacc,
+        dpiCall(Ctx, resource_count, [])
+    ),
     cleanup(maps:without([session], Ctx));
 cleanup(#{context := Context} = Ctx) ->
     dpiCall(Ctx, context_destroy, [Context]),
+    maps:fold(
+        fun
+            (_K, 0, _) -> ok;
+            (K, V, _) -> ?assertEqual({K, 0}, {K, V})
+        end,
+        noacc,
+        dpiCall(Ctx, resource_count, [])
+    ),
     cleanup(maps:without([context], Ctx));
 cleanup(_) -> ok.
 
@@ -1581,7 +1680,8 @@ getConfig() ->
     ?F(dataGetStmt),
     ?F(dataGetInt64),
     ?F(dataGetBytes),
-    ?F(dataRelease)
+    ?F(dataRelease),
+    ?F(resourceCounting)
 ]).
 
 unsafe_no_context_test_() ->

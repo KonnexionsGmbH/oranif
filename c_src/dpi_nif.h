@@ -153,14 +153,22 @@ extern ERL_NIF_TERM ATOM_ENOMEM;
         ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
 extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
-#define RAISE_EXCEPTION_ON_DPI_ERROR(_ctx, _exprn, _opt_res) \
-    if (DPI_FAILURE == (_exprn))                             \
-    {                                                        \
-        dpiErrorInfo __err;                                  \
-        if (_opt_res)                                        \
-            enif_release_resource(_opt_res);                 \
-        dpiContext_getError(_ctx, &__err);                   \
-        RAISE_EXCEPTION(dpiErrorInfoMap(env, __err));        \
+#define RAISE_EXCEPTION_ON_DPI_ERROR(_ctx, _exprn)    \
+    if (DPI_FAILURE == (_exprn))                      \
+    {                                                 \
+        dpiErrorInfo __err;                           \
+        dpiContext_getError(_ctx, &__err);            \
+        RAISE_EXCEPTION(dpiErrorInfoMap(env, __err)); \
+    }
+
+#define RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(_ctx, _exprn, _opt_res, _res) \
+    if (DPI_FAILURE == (_exprn))                                            \
+    {                                                                       \
+        dpiErrorInfo __err;                                                 \
+        if (_opt_res)                                                       \
+            RELEASE_RESOURCE(_opt_res, _res);                               \
+        dpiContext_getError(_ctx, &__err);                                  \
+        RAISE_EXCEPTION(dpiErrorInfoMap(env, __err));                       \
     }
 
 #define CASE_MACRO2STR(_Macro, _StrVar) \
@@ -176,5 +184,34 @@ extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
     case _macro:                                \
         _assign = enif_make_atom(env, #_macro); \
         break
+
+typedef struct
+{
+    unsigned long dpiContext_count;
+    unsigned long dpiConn_count;
+    unsigned long dpiStmt_count;
+    unsigned long dpiData_count;
+    unsigned long dpiDataPtr_count;
+    unsigned long dpiVar_count;
+    ErlNifMutex *lock;
+} oranif_st;
+
+#define ALLOC_RESOURCE(_var, _dpiType)                                       \
+    {                                                                        \
+        oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
+        enif_mutex_lock(st->lock);                                           \
+        _var = enif_alloc_resource(_dpiType##_type, sizeof(_dpiType##_res)); \
+        st->_dpiType##_count++;                                              \
+        enif_mutex_unlock(st->lock);                                         \
+    }
+
+#define RELEASE_RESOURCE(_var, _dpiType)                  \
+    {                                                     \
+        oranif_st *st = (oranif_st *)enif_priv_data(env); \
+        enif_mutex_lock(st->lock);                        \
+        enif_release_resource(_var);                      \
+        st->_dpiType##_count--;                           \
+        enif_mutex_unlock(st->lock);                      \
+    }
 
 #endif // _DPI_NIF_H_

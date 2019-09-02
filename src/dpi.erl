@@ -6,6 +6,8 @@
 -export([load_unsafe/0]).
 -export([safe/2, safe/3, safe/4]).
 
+-export([resource_count/0]).
+
 -include("dpiContext.hrl").
 -include("dpiConn.hrl").
 -include("dpiStmt.hrl").
@@ -131,3 +133,5 @@ safe(SlaveNode, Fun, Args) when is_function(Fun), is_list(Args) ->
 -spec safe(atom(), function()) -> term().
 safe(SlaveNode, Fun) when is_function(Fun)->
     slave_call(SlaveNode, erlang, apply, [Fun, []]).
+
+resource_count() -> ?NIF_NOT_LOADED.

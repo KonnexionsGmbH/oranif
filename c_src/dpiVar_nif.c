@@ -23,7 +23,7 @@ DPI_NIF_FUN(var_setNumElementsInArray)
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         vRes->context,
-        dpiVar_setNumElementsInArray(vRes->var, numElements), NULL);
+        dpiVar_setNumElementsInArray(vRes->var, numElements));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -48,8 +48,7 @@ DPI_NIF_FUN(var_setFromBytes)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         vRes->context,
         dpiVar_setFromBytes(
-            vRes->var, pos, (const char *)value.data, value.size),
-        NULL);
+            vRes->var, pos, (const char *)value.data, value.size));
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -64,18 +63,17 @@ DPI_NIF_FUN(var_release)
     if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
         BADARG_EXCEPTION(0, "resource var");
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        vRes->context, dpiVar_release(vRes->var), NULL);
+    RAISE_EXCEPTION_ON_DPI_ERROR(vRes->context, dpiVar_release(vRes->var));
 
     dpiDataPtr_res *t_itr;
     for (dpiDataPtr_res *itr = vRes->head; itr != NULL;)
     {
         t_itr = itr;
         itr = itr->next;
-        enif_release_resource(t_itr);
+        RELEASE_RESOURCE(t_itr, dpiDataPtr);
     }
 
-    enif_release_resource(vRes);
+    RELEASE_RESOURCE(vRes, dpiVar);
 
     RETURNED_TRACE;
     return ATOM_OK;
@@ -98,8 +96,7 @@ DPI_NIF_FUN(var_getReturnedData)
     dpiData *data;
     RAISE_EXCEPTION_ON_DPI_ERROR(
         varRes->context,
-        dpiVar_getReturnedData(varRes->var, pos, &numElements, &data),
-        NULL);
+        dpiVar_getReturnedData(varRes->var, pos, &numElements, &data));
 
     ERL_NIF_TERM dataList = enif_make_list(env, 0);
 

@@ -6,11 +6,6 @@
 
 typedef struct
 {
-    dpiData *ptr;
-} dpiDataPointer_res;
-
-typedef struct
-{
     dpiStmt *stmt;
     dpiContext *context;
 } dpiStmt_res;
@@ -18,7 +13,6 @@ typedef struct
 extern ErlNifResourceType *dpiStmt_type;
 
 extern void dpiStmt_res_dtor(ErlNifEnv *env, void *resource);
-extern void dpiDataPointer_res_dtor(ErlNifEnv *env, void *resource);
 
 extern DPI_NIF_FUN(stmt_bindByName);
 extern DPI_NIF_FUN(stmt_bindByPos);

@@ -1595,6 +1595,8 @@ cleanup(#{context := Context} = Ctx) ->
         dpiCall(Ctx, resource_count, [])
     ),
     cleanup(maps:without([context], Ctx));
+cleanup(#{safe := true, node := SlaveNode}) ->
+    unloaded = dpi:unload(SlaveNode);
 cleanup(_) -> ok.
 
 %-------------------------------------------------------------------------------
@@ -1736,3 +1738,103 @@ load_test() ->
     % delete that old code, too. Now all the code is gone, triggering unload
     % callback again
     code:purge(dpi).
+
+slave_reuse_test() ->
+
+    % single load / unload test
+    Node = dpi:load(?SLAVE),
+    ?assertEqual([Node], nodes(hidden)),
+    ?assertEqual([self()], reg_pids(Node)),
+    ?assertEqual(unloaded, dpi:unload(Node)),
+    ?assertEqual([], reg_pids(Node)),
+
+    % multiple load / unload test
+    RxTO = 1000,
+
+    % - first process which creates the slave node
+    Self = self(),
+    Pid1 = spawn(fun() -> slave_client_proc(Self) end),
+    Pid1 ! load,
+    ?assertEqual(ok, receive {Pid1, loaded} -> ok after RxTO -> timeout end),
+    ?assertEqual([Node], nodes(hidden)),
+
+    % - create three more processes sharing the same slave node
+    Pids0 = [spawn(fun() -> slave_client_proc(Self) end) || _ <- lists:seq(1, 3)],
+    ok = lists:foreach(fun(Pid) -> Pid ! load end, Pids0),
+
+    ?assertEqual(done, 
+        (fun
+            WaitLoad([]) -> done;
+            WaitLoad(Workers) when length(Workers) > 0 ->
+                receive {Pid, loaded} -> WaitLoad(Workers -- [Pid])
+                after RxTO -> timeout
+                end
+        end)(Pids0)
+    ),
+
+    Pids = [P1, P2, P3, P4] = lists:usort([Pid1 | Pids0]),
+    ?assertEqual(Pids, lists:usort(reg_pids(Node))),
+
+    % slave is still running after first process calls dpi:unload/1
+    P1 ! {unload, Node},
+    ?assertEqual(ok, receive {P1, unloaded} -> ok after RxTO -> timeout end),
+    ?assertEqual(lists:usort(Pids -- [P1]), lists:usort(reg_pids(Node))),
+    ?assertEqual([Node], nodes(hidden)),
+
+    % slave is still running after second process exists without
+    % calling dpi:unload/1 (crash simulation)
+    P2 ! exit,
+    ?assertEqual(ok, receive {P2, exited} -> ok after RxTO -> timeout end),
+    ?assertEqual(lists:usort(Pids -- [P1, P2]), lists:usort(reg_pids(Node))),
+    ?assertEqual([Node], nodes(hidden)),
+
+    % slave is still running after third process calls dpi:unload/1
+    P3 ! {unload, Node},
+    ?assertEqual(ok, receive {P3, unloaded} -> ok after RxTO -> timeout end),
+    ?assertEqual(
+        lists:usort(Pids -- [P1, P2, P3]),
+        lists:usort(reg_pids(Node))
+    ),
+    ?assertEqual([Node], nodes(hidden)),
+
+    % slave is still running after last process exists without
+    % calling dpi:unload/1 (last process crash simulation)
+    P4 ! exit,
+    ?assertEqual(ok, receive {P4, exited} -> ok after RxTO -> timeout end),
+    ?assertEqual([], reg_pids(Node)), % global register is empty
+    lists:foreach( % all processes are also dead
+        fun(Pid) -> ?assertEqual(false, is_process_alive(Pid)) end,
+        Pids
+    ),
+    ?assertEqual([Node], nodes(hidden)),
+
+    % console cleanup simulation after last process carsh
+    ?assertEqual(unloaded, dpi:unload(Node)),
+    ?assertEqual([], reg_pids(Node)),
+    ?assertEqual([], nodes(hidden)).
+    
+slave_client_proc(TestPid) ->
+    receive
+        load ->
+            dpi:load(?SLAVE),
+            TestPid ! {self(), loaded},
+            slave_client_proc(TestPid);
+        {unload, Node} ->
+            ok = dpi:unload(Node),
+            TestPid ! {self(), unloaded};
+        exit ->
+            TestPid ! {self(), exited}
+    end.
+
+reg_pids(Node) ->
+    lists:filtermap(
+        fun
+            ({dpi, N, SN, _} = Name) when N == Node, SN == node() ->
+                case global:whereis_name(Name) of
+                    Pid when is_pid(Pid) -> {true, Pid};
+                    _ -> false
+                end;
+            (_) -> false
+        end,
+        global:registered_names()
+    ).

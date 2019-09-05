@@ -18,37 +18,62 @@
 %   Slave Node APIs
 %===============================================================================
 
+-spec load(atom()) -> node().
 load(SlaveNodeName) when is_atom(SlaveNodeName) ->
     case is_alive() of
         false -> {error, not_distributed};
         true ->
             case start_slave(SlaveNodeName) of
                 {ok, SlaveNode} ->
-                    case slave_call(SlaveNode, code, add_paths, [code:get_path()]) of
+                    case slave_call(
+                        SlaveNode, code, add_paths, [code:get_path()]
+                    ) of
                         ok ->
                             case slave_call(SlaveNode, dpi, load_unsafe, []) of
-                                ok -> SlaveNode;
+                                ok ->
+                                    case reg(SlaveNode) of
+                                        SlaveNode -> SlaveNode;
+                                        Error ->
+                                            slave:stop(SlaveNode),
+                                            Error
+                                    end;
                                 Error -> Error
                             end;
                         Error -> Error
                     end;
                 {error, {already_running, SlaveNode}} ->
-                    %% TODO: Revisit if this is required. 
-                    %  case catch slave_call(SlaveNode, erlang, monotonic_time, []) of
-                    %      Time when is_integer(Time) -> ok;
-                    %      _ ->
-                    %          catch unload(),
-                    %          load(SlaveNodeName)
-                    %  end
-                    SlaveNode;
+                    reg(SlaveNode);
                 Error -> Error
             end
     end.
 
-
--spec unload(atom()) -> ok.
-unload(SlaveNode) ->
-    slave:stop(SlaveNode).
+-spec unload(atom()) -> ok | unloaded.
+unload(SlaveNode) when is_atom(SlaveNode) ->
+    UnloadingPid = self(),
+    case lists:foldl(
+        fun
+            ({?MODULE, SN, N, _} = Name, Acc)
+                when SN == SlaveNode, N == node()
+            ->
+                Pid = global:whereis_name(Name),
+                case
+                    is_pid(Pid) andalso
+                    Pid /= UnloadingPid andalso
+                    rpc:call(node(Pid), erlang, is_process_alive, [Pid])
+                of
+                    true -> [Pid | Acc];
+                    _ ->
+                        ok = global:unregister_name(Name),
+                        Acc
+                end;
+            (_, Acc) -> Acc
+        end, [], global:registered_names()
+    ) of
+        [] ->
+          slave:stop(SlaveNode),
+          unloaded;
+        _ -> ok
+    end.
 
 %===============================================================================
 %   NIF test / debug interface (DO NOT use in production)
@@ -84,6 +109,13 @@ load_unsafe() ->
 %===============================================================================
 %   local helper functions
 %===============================================================================
+
+reg(SlaveNode) ->
+    Name = {?MODULE, SlaveNode, node(), make_ref()},
+    case global:register_name(Name, self()) of
+        yes -> SlaveNode;
+        no -> {error, "failed to register process globally"}
+    end.
 
 start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
     [_,SlaveHost] = string:tokens(atom_to_list(node()), "@"),

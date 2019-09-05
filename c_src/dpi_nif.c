@@ -27,12 +27,6 @@ static ErlNifFunc nif_funcs[] = {
     DPIVAR_NIFS,
     {"resource_count", 0, resource_count}};
 
-typedef struct
-{
-    int test;
-    dpiContext *context;
-} oranif_priv;
-
 /*******************************************************************************
  * Helper internal functions
  ******************************************************************************/
@@ -127,7 +121,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     oranif_st *st = enif_alloc(sizeof(oranif_st));
     if (st == NULL)
     {
-        E("failed allocate private structure of %zd bytes\r\n", sizeof(oranif_st));
+        E("failed allocate private structure of %zu bytes\r\n", sizeof(oranif_st));
         return 1;
     }
 
@@ -165,15 +159,16 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     return 0;
 }
 
-static int upgrade(ErlNifEnv *env, void **priv_data,
-                   void **old_priv_data, ERL_NIF_TERM load_info)
+static int upgrade(
+    ErlNifEnv *env, void **priv_data, void **old_priv_data,
+    ERL_NIF_TERM load_info)
 {
     CALL_TRACE;
 
     oranif_st *st = enif_alloc(sizeof(oranif_st));
     if (st == NULL)
     {
-        E("failed allocate private structure of %zd bytes\r\n", sizeof(oranif_st));
+        E("failed allocate private structure of %zu bytes\r\n", sizeof(oranif_st));
         return 1;
     }
 
@@ -202,7 +197,8 @@ static void unload(ErlNifEnv *env, void *priv_data)
 {
     CALL_TRACE;
 
-    enif_mutex_destroy(((oranif_st *)priv_data)->lock);
+    oranif_st *st = (oranif_st *)priv_data;
+    enif_mutex_destroy(st->lock);
     enif_free(priv_data);
 
     RETURNED_TRACE;

@@ -93,6 +93,83 @@ DPI_NIF_FUN(conn_create)
     return connResTerm;
 }
 
+DPI_NIF_FUN(conn_create_n)
+{
+    CHECK_ARGCOUNT(7);
+
+    dpiContext_res *contextRes;
+    ErlNifBinary userName, password, connectString, resName;
+    
+    size_t commonParamsMapSize = 0;
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
+        BADARG_EXCEPTION(0, "resource context");
+    if (!enif_inspect_binary(env, argv[1], &userName))
+        BADARG_EXCEPTION(1, "string/binary userName");
+    if (!enif_inspect_binary(env, argv[2], &password))
+        BADARG_EXCEPTION(2, "string/binary password");
+    if (!enif_inspect_binary(env, argv[3], &connectString))
+        BADARG_EXCEPTION(3, "string/binary connectString");
+    if (!enif_get_map_size(env, argv[4], &commonParamsMapSize))
+        BADARG_EXCEPTION(4, "map commonParams");
+    if (!enif_inspect_binary(env, argv[6], &resName))
+        BADARG_EXCEPTION(6, "res name");
+    dpiCommonCreateParams commonParams;
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        contextRes->context,
+        dpiContext_initCommonCreateParams(contextRes->context, &commonParams));
+
+    if (commonParamsMapSize > 0)
+    {
+        // lazy create
+        if (!(ATOM_encoding | ATOM_nencoding))
+        {
+            ATOM_encoding = enif_make_atom(env, "encoding");
+            ATOM_nencoding = enif_make_atom(env, "nencoding");
+        }
+
+        ERL_NIF_TERM mapval;
+        char encodeStr[128];
+        if (enif_get_map_value(env, argv[4], ATOM_encoding, &mapval))
+        {
+            if (!enif_get_string(
+                    env, mapval, encodeStr, sizeof(encodeStr), ERL_NIF_LATIN1))
+                BADARG_EXCEPTION(4, "string\0 commonParams.encoding");
+            commonParams.encoding = encodeStr;
+        }
+
+        char nencodeStr[128];
+        if (enif_get_map_value(env, argv[4], ATOM_nencoding, &mapval))
+        {
+            if (!enif_get_string(
+                    env, mapval, nencodeStr, sizeof(nencodeStr),
+                    ERL_NIF_LATIN1))
+                BADARG_EXCEPTION(4, "string\0 commonParams.nencoding");
+            commonParams.nencoding = nencodeStr;
+        }
+    }
+    dpiConn_res *connRes;
+    //ALLOC_RESOURCE_N(connRes, dpiConn, resName.data, resName.size);
+
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        contextRes->context,
+        dpiConn_create(
+            contextRes->context, (const char *)userName.data, userName.size,
+            (const char *)password.data, password.size,
+            (const char *)connectString.data, connectString.size,
+            &commonParams,
+            NULL, // TODO implement connCreateParams
+            &connRes->conn),
+        connRes, dpiConn);
+
+    // Save context into connection for access from dpiError
+    connRes->context = contextRes->context;
+
+    ERL_NIF_TERM connResTerm = enif_make_resource(env, connRes);
+
+    RETURNED_TRACE;
+    return connResTerm;
+}
+
 DPI_NIF_FUN(conn_prepareStmt)
 {
     CHECK_ARGCOUNT(4);
@@ -290,6 +367,53 @@ DPI_NIF_FUN(conn_close)
 
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");
+
+    dpiConnCloseMode m = 0, mode = 0;
+
+    if (len > 0)
+        do
+        {
+            if (!enif_is_atom(env, head))
+                BADARG_EXCEPTION(1, "mode list value");
+            DPI_CLOSE_MODE_FROM_ATOM(head, m);
+            mode |= m;
+        } while (enif_get_list_cell(env, tail, &head, &tail));
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_close(
+            connRes->conn, mode,
+            tag.size > 0 ? (const char *)tag.data : NULL,
+            tag.size));
+
+    RELEASE_RESOURCE(connRes, dpiConn);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
+DPI_NIF_FUN(conn_close_n)
+{
+    CHECK_ARGCOUNT(4);
+
+    dpiConn_res *connRes;
+    ErlNifBinary tag, resName;
+    ERL_NIF_TERM head, tail;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "atom list modes, not a list");
+    if (len > 0)
+        enif_get_list_cell(env, argv[1], &head, &tail);
+
+    if (!enif_inspect_binary(env, argv[2], &tag))
+        BADARG_EXCEPTION(2, "binary/string tag");
+
+    if (!enif_inspect_binary(env, argv[3], &tag))
+        BADARG_EXCEPTION(3, "res name");
 
     dpiConnCloseMode m = 0, mode = 0;
 

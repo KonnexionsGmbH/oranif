@@ -57,6 +57,15 @@ DPI_NIF_FUN(resource_count)
         env, ret, enif_make_atom(env, "datapointer"),
         enif_make_ulong(env, st->dpiDataPtr_count), &ret);
 
+    ERL_NIF_TERM list = enif_make_list(env, 0);
+    llist* head = st->resList;
+    while(head){
+        enif_make_list_cell(
+        env,
+        enif_make_string(env, head->string, ERL_NIF_LATIN1),
+        list);
+        head = head->next;
+    }
     RETURNED_TRACE;
     return ret;
 }
@@ -205,3 +214,65 @@ static void unload(ErlNifEnv *env, void *priv_data)
 }
 
 ERL_NIF_INIT(dpi, nif_funcs, load, NULL, upgrade, unload)
+
+char *strdup(const char *s1)
+{
+  char *str;
+  size_t size = strlen(s1) + 1;
+
+  str = malloc(size);
+  if (str) {
+    memcpy(str, s1, size);
+  }
+  return str;
+}
+
+llist* createNode(char* data){
+    llist* temp; // declare a node
+    temp = malloc(sizeof(llist)); // allocate memory using malloc()
+    temp->next = NULL;// make next point to NULL
+    temp->string = strdup(data);
+    return temp;//return the new node
+}
+
+void eraseNode(llist* previous, llist* current, llist* nextElement){
+    if (previous)
+        previous->next = nextElement;
+    free(current->string);
+    free(current);
+}
+
+void removeNode(llist** head, char* value){
+    llist *previous = 0, *current = *head, *nextElement  = 0;
+    while(current != NULL){
+        if (!strcmp(value, current->string)){
+            eraseNode(previous, current, nextElement);
+            if (current == *head)
+                *head = 0;
+            return;
+        }
+        previous = current;
+        current = current->next;
+        if (current)
+            nextElement = current->next;
+        else
+            nextElement = 0;
+        
+    }
+    return;
+}
+
+llist* addNode(llist* head, char* value){
+    llist* temp, *p;// declare two nodes temp and p
+    temp = createNode(value);//createNode will return a new node with data = value and next pointing to NULL.
+    if(head == NULL)
+        head = temp;     //when linked list is empty
+    else{
+        p  = head;//assign head to p 
+        while(p->next != NULL){
+            p = p->next;//traverse the list until p is the last node.The last node always points to NULL.
+        }
+        p->next = temp;//Point the previous last node to the new node created.
+    }
+    return head;
+}

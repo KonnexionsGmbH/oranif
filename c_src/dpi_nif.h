@@ -1,7 +1,7 @@
 #ifndef _DPI_NIF_H_
 #define _DPI_NIF_H_
 #include "erl_nif.h"
-
+#include "string.h"
 #include "stdio.h"
 #include "dpi.h"
 
@@ -185,6 +185,18 @@ extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
         _assign = enif_make_atom(env, #_macro); \
         break
 
+
+char *strdup(const char *s1);
+
+typedef struct linkedList{
+    char* string;
+    struct linkedList *next;
+ } llist;
+
+llist* createNode(char* data);
+void eraseNode(llist* previous, llist* current, llist* nextElement);
+void removeNode(llist** head, char* value);
+llist* addNode(llist* head, char* value);
 typedef struct
 {
     ErlNifMutex *lock;
@@ -194,6 +206,7 @@ typedef struct
     unsigned long dpiData_count;
     unsigned long dpiDataPtr_count;
     unsigned long dpiVar_count;
+    llist* resList;
 } oranif_st;
 
 #define ALLOC_RESOURCE(_var, _dpiType)                                       \
@@ -211,6 +224,30 @@ typedef struct
         enif_mutex_lock(st->lock);                        \
         enif_release_resource(_var);                      \
         st->_dpiType##_count--;                           \
+        enif_mutex_unlock(st->lock);                      \
+    }
+
+#define ALLOC_RESOURCE_N(_var, _dpiType, _string, len)                            \
+    {                                                                        \
+        oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
+        enif_mutex_lock(st->lock);                                           \
+        _var = enif_alloc_resource(_dpiType##_type, sizeof(_dpiType##_res)); \
+        st->_dpiType##_count++;                                              \
+        char* sd = malloc(len+1);\
+        memcpy(sd, _string, len);\
+        addNode(st->resList, _string);\
+        sd[len] = 0;                                        \
+        enif_mutex_unlock(st->lock);                                         \
+        free(sd); \
+    }
+    
+#define RELEASE_RESOURCE_N(_var, _dpiType)                \
+    {                                                     \
+        oranif_st *st = (oranif_st *)enif_priv_data(env); \
+        enif_mutex_lock(st->lock);                        \
+        enif_release_resource(_var);                      \
+        st->_dpiType##_count--;                           \
+        removeNode(&st->resList, _string)                 \
         enif_mutex_unlock(st->lock);                      \
     }
 

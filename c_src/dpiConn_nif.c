@@ -148,7 +148,6 @@ DPI_NIF_FUN(conn_create_n)
         }
     }
     dpiConn_res *connRes;
-    printf("RES NAME %.*s SIZE %zu\n", (int)resName.size, resName.data, resName.size); fflush(stdout);
     ALLOC_RESOURCE_N(connRes, dpiConn, resName.data, resName.size);
 
     RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(

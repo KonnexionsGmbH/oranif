@@ -16,12 +16,14 @@ extern ErlNifResourceType *dpiVar_type;
 extern void dpiVar_res_dtor(ErlNifEnv *env, void *resource);
 
 extern DPI_NIF_FUN(var_release);
+extern DPI_NIF_FUN(var_release_n);
 extern DPI_NIF_FUN(var_setFromBytes);
 extern DPI_NIF_FUN(var_setNumElementsInArray);
 extern DPI_NIF_FUN(var_getReturnedData);
 
 #define DPIVAR_NIFS                            \
     DEF_NIF(var_release, 1),                   \
+    DEF_NIF(var_release_n, 2),                   \
         IOB_NIF(var_setFromBytes, 3),          \
         DEF_NIF(var_setNumElementsInArray, 2), \
         DEF_NIF(var_getReturnedData, 2)

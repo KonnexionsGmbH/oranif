@@ -7,6 +7,7 @@
 
 -nifs({dpiVar, [
     {var_release, [reference]},
+    {var_release_n, [reference, binary]},
     {var_setFromBytes, [reference, integer, binary]},
     {var_setNumElementsInArray, [reference, integer]},
     {var_getReturnedData, [reference, integer]}

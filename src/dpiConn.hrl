@@ -13,6 +13,7 @@
     {conn_create_n, [reference, binary, binary, binary, {map, null}, {map, null}, binary]},
     {conn_getServerVersion, [reference]},
     {conn_newVar, [reference, atom, atom, integer, integer, atom, atom, atom]}, %% bools are to be checked if atom true|false in NIF-C code
+    {conn_newVar_n, [reference, atom, atom, integer, integer, atom, atom, atom, binary]}, %% bools are to be checked if atom true|false in NIF-C code
     {conn_ping, [reference]},
     {conn_prepareStmt, [reference, atom, binary, binary]}, %% bool to be checked if atom true|false in NIF-C code
     {conn_rollback, [reference]},

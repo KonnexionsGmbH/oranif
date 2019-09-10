@@ -1486,9 +1486,9 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
             [Conn, false, <<"select * from dual">>, <<>>]
         ),
         dpiCall(
-            TestCtx, conn_newVar, 
+            TestCtx, conn_newVar_n, 
             [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
-            1, 0, false, false, null]
+            1, 0, false, false, null, <<"kek">>]
         ),
         dpiCall(TestCtx, data_ctor, [])
     } || _ <- Indices],
@@ -1510,7 +1510,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
 
     lists:foreach(
         fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
-            ok = dpiCall(TestCtx, var_release, [Var]),
+            ok = dpiCall(TestCtx, var_release_n, [Var, <<"kek">>]),
             ok = dpiCall(TestCtx, stmt_close, [Stmt, <<>>]),
             ok = dpiCall(TestCtx, conn_close_n, [LConn, [], <<>>, <<"qwertzuiop">>]),
             ok = dpiCall(TestCtx, context_destroy, [Ctx]),

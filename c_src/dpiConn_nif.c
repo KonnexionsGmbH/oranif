@@ -301,6 +301,97 @@ DPI_NIF_FUN(conn_newVar)
     return ret;
 }
 
+DPI_NIF_FUN(conn_newVar_n)
+{
+    CHECK_ARGCOUNT(9);
+
+    dpiConn_res *connRes = NULL;
+    dpiOracleTypeNum oracleTypeNum = 0;
+    dpiNativeTypeNum nativeTypeNum = 0;
+    uint32_t maxArraySize = 0;
+    uint32_t size = 0;
+    int sizeIsBytes = 0, isArray = 0;
+    dpiData *data;
+    ErlNifBinary resName;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+
+    DPI_ORACLE_TYPE_NUM_FROM_ATOM(argv[1], oracleTypeNum);
+    DPI_NATIVE_TYPE_NUM_FROM_ATOM(argv[2], nativeTypeNum);
+    if (!enif_get_uint(env, argv[3], &maxArraySize))
+        BADARG_EXCEPTION(3, "uint size");
+    if (!enif_get_uint(env, argv[4], &size))
+        BADARG_EXCEPTION(4, "uint size");
+    if (!enif_inspect_binary(env, argv[8], &resName))
+        BADARG_EXCEPTION(8, "res name");
+
+    if (enif_compare(argv[5], ATOM_TRUE) == 0)
+        sizeIsBytes = 1;
+    else if (enif_compare(argv[5], ATOM_FALSE) == 0)
+        sizeIsBytes = 0;
+    else
+        BADARG_EXCEPTION(5, "atom sizeIsBytes");
+
+    if (enif_compare(argv[6], ATOM_TRUE) == 0)
+        isArray = 1;
+    else if (enif_compare(argv[6], ATOM_FALSE) == 0)
+        isArray = 0;
+    else
+        BADARG_EXCEPTION(6, "atom isArray");
+
+    if (enif_compare(argv[7], ATOM_NULL))
+        BADARG_EXCEPTION(7, "atom objType");
+
+    dpiVar_res *varRes;
+    ALLOC_RESOURCE_N(varRes, dpiVar, resName.data, resName.size);
+
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        connRes->context,
+        dpiConn_newVar(
+            connRes->conn, oracleTypeNum, nativeTypeNum, maxArraySize, size,
+            sizeIsBytes, isArray,
+            NULL, &varRes->var, &data),
+        varRes, dpiVar);
+
+    varRes->context = connRes->context;
+
+    ERL_NIF_TERM varResTerm = enif_make_resource(env, varRes);
+
+    ERL_NIF_TERM dataList = enif_make_list(env, 0);
+
+    dpiDataPtr_res *dataRes;
+    varRes->head = NULL;
+    for (int i = maxArraySize - 1; i >= 0; i--)
+    {
+        ALLOC_RESOURCE(dataRes, dpiDataPtr);
+        dataRes->stmtRes = NULL;
+        dataRes->next = NULL;
+        dataRes->isQueryValue = 0;
+        dataRes->context = connRes->context;
+        if (varRes->head == NULL)
+        {
+            varRes->head = dataRes;
+        }
+        else
+        {
+            dataRes->next = varRes->head;
+            varRes->head = dataRes;
+        }
+        dataRes->dpiDataPtr = data + i;
+        dataRes->type = nativeTypeNum;
+        ERL_NIF_TERM dataResTerm = enif_make_resource(env, dataRes);
+        dataList = enif_make_list_cell(env, dataResTerm, dataList);
+    }
+    ERL_NIF_TERM ret = enif_make_new_map(env);
+    ret = enif_make_new_map(env);
+    enif_make_map_put(env, ret, enif_make_atom(env, "var"), varResTerm, &ret);
+    enif_make_map_put(env, ret, enif_make_atom(env, "data"), dataList, &ret);
+
+    RETURNED_TRACE;
+    return ret;
+}
+
 DPI_NIF_FUN(conn_commit)
 {
     CHECK_ARGCOUNT(1);

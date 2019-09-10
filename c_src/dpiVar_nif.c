@@ -79,6 +79,34 @@ DPI_NIF_FUN(var_release)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(var_release_n)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiVar_res *vRes = NULL;
+    ErlNifBinary resName;
+
+    if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
+        BADARG_EXCEPTION(0, "resource var");
+        if (!enif_inspect_binary(env, argv[1], &resName))
+        BADARG_EXCEPTION(1, "res name");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(vRes->context, dpiVar_release(vRes->var));
+
+    dpiDataPtr_res *t_itr;
+    for (dpiDataPtr_res *itr = vRes->head; itr != NULL;)
+    {
+        t_itr = itr;
+        itr = itr->next;
+        RELEASE_RESOURCE(t_itr, dpiDataPtr);
+    }
+    
+    RELEASE_RESOURCE_N(vRes, dpiVar, resName.data, resName.size);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(var_getReturnedData)
 {
     CHECK_ARGCOUNT(2);

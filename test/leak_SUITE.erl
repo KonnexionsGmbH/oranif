@@ -1,4 +1,5 @@
 -module(leak_SUITE).
+-include_lib("common_test/include/ct.hrl").
 
 % rebar3 ct --readable=false --suite=test/leak_SUITE
 
@@ -23,28 +24,45 @@
     <<"begin TESTNEWPROC(:SQLT_INT_PERSID, :SQLT_OUT_CURSOR); end;">>
 ).
 
+-define(L(_F, _A),
+    %ct:pal(info, ?MAX_IMPORTANCE, ?MODULE_STRING":~p:~p:~p "_F, [?FUNCTION_NAME, ?LINE, self() | _A])
+    io:format(user, "===> ["?MODULE_STRING":~p:~p:~p] "_F"~n", [?FUNCTION_NAME, ?LINE, self() | _A])
+).
+-define(L(_S), ?L(_S, [])).
+
 all() ->
+    ?L(""),
     [leak].
 
 suite() ->
+    ?L(""),
     [
-        {timetrap, infinity},
-        {require, tns},
-        {require, user},
-        {require, password}
+        {timetrap, infinity}%,
+        %{require, tns},
+        %{require, user},
+        %{require, password}
     ].
 
 leak(_Config) ->
     SlaveNode = dpi:load(oranif_test_slave),
+    StartMem = dpi:safe(SlaveNode, fun ?MODULE:get_mem_internal/0, []),
+	?L("~nResources ~p", [dpi:safe(SlaveNode, dpi, resource_count, [])]),
     Conn = connect(<<"scott">>, <<"regit">>, ?TNS, SlaveNode),
     BindVars = [
         {<<":SQLT_INT_PERSID">>,in,'DPI_ORACLE_TYPE_NUMBER'},
         {<<":SQLT_OUT_CURSOR">>,out,'DPI_ORACLE_TYPE_STMT'}
     ],
     BindValues = [4],
-    test_ref_cursor(Conn, ?TEST_SQL, 1000, BindVars, BindValues),
+    test_ref_cursor(Conn, ?TEST_SQL, 2000, BindVars, BindValues),
     close(Conn),
-    dpi:unload(SlaveNode).
+    EndMem = dpi:safe(SlaveNode, fun ?MODULE:get_mem_internal/0, []),
+    Incr = ((EndMem - StartMem) / StartMem) * 100,
+	?L(
+        "~nMemory increase ~.5f%~nResources ~p",
+        [Incr, dpi:safe(SlaveNode, dpi, resource_count, [])]
+    ),
+    unloaded = dpi:unload(SlaveNode),
+    ok.
 
 connect(User, Password, ConStr, Node) ->
     Conn = dpi:safe(Node, fun ?MODULE:connect_internal/3, [User, Password, ConStr]),
@@ -83,27 +101,25 @@ close_internal(Conn, Context)->
     end.
 
 test_ref_cursor(#{node := Node, conn := Conn} = State, Sql, Count, Vars, Values) ->
-	io:format("Resources ~p~n", [dpi:safe(Node, dpi, resource_count, [])]),
-	Stmt = dpi:safe(Node, dpi, conn_prepareStmt, [Conn, false, Sql, <<>>]),
 	StartMem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
+	Stmt = dpi:safe(Node, dpi, conn_prepareStmt, [Conn, false, Sql, <<>>]),
 	test_ref_cursor(State, Stmt, Count, Vars, Values, StartMem),
 	dpi:safe(Node, dpi, stmt_close, [Stmt, <<>>]),
 	Mem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
 	Incr = (Mem - StartMem) / StartMem,
-	io:format("{end, ~.2f%}~nResources ~p~n", [Incr, dpi:safe(Node, dpi, resource_count, [])]),
-	close(State).
+	?L("{end, ~.2f%}", [Incr]).
 
 test_ref_cursor(_State, _Stmt, Count, _Vars, _Values, _StartMem) when Count =< 0 -> ok;
 test_ref_cursor(#{node := Node} = State, Stmt, Count, Vars, Values, StartMem) ->
     case dpi:safe(Node, fun ?MODULE:test_ref_cursor_internal/4, [State, Stmt, Vars, Values]) of
 		{ok, _} -> ok;
 		Result ->
-			 io:format("ERROR : ~p Result ~p~n", [Count, Result])
+			 ?L("ERROR : ~p Result ~p", [Count, Result])
 	end,
 	if Count rem 100 == 0 ->
 			Mem = dpi:safe(Node, fun ?MODULE:get_mem_internal/0, []),
-			Incr = (Mem - StartMem) / StartMem,
-			io:format("{~p, ~.2f%} ", [Count, Incr]);
+			Incr = ((Mem - StartMem) / StartMem) * 100,
+			?L("{~p, ~.2f%} ", [Count, Incr]);
 		true -> ok
 	end,
     test_ref_cursor(State, Stmt, Count - 1, Vars, Values, StartMem).

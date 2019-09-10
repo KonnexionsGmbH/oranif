@@ -236,13 +236,10 @@ typedef struct
         char* sd = malloc(len+1);\
         memcpy(sd, _string, len);\
         sd[len] = 0;     \
-        printf("pass %d\n", 1); fflush(stdout);\
         addNode(&st->resList, sd);\
-        printf("pass %d\n", 2); fflush(stdout);                                   \
         free(sd); \
         llist* head = st->resList;\
         while (head){\
-            printf("list content: %s\n", head->string); fflush(stdout);\
             head = head->next;\
         }\
         enif_mutex_unlock(st->lock);                                         \
@@ -250,7 +247,6 @@ typedef struct
     
 #define RELEASE_RESOURCE_N(_var, _dpiType, _string, len)                \
     {                                                     \
-        printf("remove node %d len %d\n", 1, len); fflush(stdout);\
         oranif_st *st = (oranif_st *)enif_priv_data(env); \
         enif_mutex_lock(st->lock);                        \
         enif_release_resource(_var);                      \
@@ -258,14 +254,10 @@ typedef struct
         char* sd = malloc(len+1);\
         memcpy(sd, _string, len);\
         sd[len] = 0; \
-        printf("pass %d\n", 1); fflush(stdout);\
         removeNode(&st->resList, sd);\
-        printf("pass %d\n", 2); fflush(stdout);                                       \
         free(sd);                     \
         llist* head = st->resList;\
-        printf("list content following\n"); fflush(stdout);\
         while (head){\
-            printf("list content: %s\n", head->string); fflush(stdout);\
             head = head->next;\
         }\
         enif_mutex_unlock(st->lock);                                         \

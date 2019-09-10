@@ -240,24 +240,18 @@ llist* createNode(char* data){
 }
 
 void eraseNode(llist* previous, llist** current, llist* nextElement){
-    printf("erase start yo\n");  fflush(stdout);
-    printf("erase start %p %p %p %p\n", previous, current, nextElement, *current); fflush(stdout);
     free((*current)->string);
     free(*current);
     if (previous)
         previous->next = nextElement;
     else
         *current = nextElement;
-    printf("erase stop %p %p %p %p\n", previous, current, nextElement, *current); fflush(stdout);
 }
 
 void removeNode(llist** head, char* value){
     llist *previous = 0, *current = *head;
     llist *nextElement = current->next;
-    printf("elements %p %p %p\n", previous, current, nextElement); fflush(stdout);
-    printf("remove node %s\n", value); fflush(stdout);
     while(current != NULL){
-         printf("remove node %s while run\n", value); fflush(stdout);
         if (!strcmp(value, current->string)){
             eraseNode(previous, &current, nextElement);
             if ((current == *head) && (!current->next))

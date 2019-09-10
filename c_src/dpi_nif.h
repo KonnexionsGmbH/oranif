@@ -194,9 +194,9 @@ typedef struct linkedList{
  } llist;
 
 llist* createNode(char* data);
-void eraseNode(llist* previous, llist* current, llist* nextElement);
+void eraseNode(llist* previous, llist** current, llist* nextElement);
 void removeNode(llist** head, char* value);
-llist* addNode(llist* head, char* value);
+void addNode(llist** head, char* value);
 typedef struct
 {
     ErlNifMutex *lock;
@@ -235,20 +235,40 @@ typedef struct
         st->_dpiType##_count++;                                              \
         char* sd = malloc(len+1);\
         memcpy(sd, _string, len);\
-        addNode(st->resList, _string);\
-        sd[len] = 0;                                        \
-        enif_mutex_unlock(st->lock);                                         \
+        sd[len] = 0;     \
+        printf("pass %d\n", 1); fflush(stdout);\
+        addNode(&st->resList, sd);\
+        printf("pass %d\n", 2); fflush(stdout);                                   \
         free(sd); \
+        llist* head = st->resList;\
+        while (head){\
+            printf("list content: %s\n", head->string); fflush(stdout);\
+            head = head->next;\
+        }\
+        enif_mutex_unlock(st->lock);                                         \
     }
     
-#define RELEASE_RESOURCE_N(_var, _dpiType)                \
+#define RELEASE_RESOURCE_N(_var, _dpiType, _string, len)                \
     {                                                     \
+        printf("remove node %d len %d\n", 1, len); fflush(stdout);\
         oranif_st *st = (oranif_st *)enif_priv_data(env); \
         enif_mutex_lock(st->lock);                        \
         enif_release_resource(_var);                      \
         st->_dpiType##_count--;                           \
-        removeNode(&st->resList, _string)                 \
-        enif_mutex_unlock(st->lock);                      \
+        char* sd = malloc(len+1);\
+        memcpy(sd, _string, len);\
+        sd[len] = 0; \
+        printf("pass %d\n", 1); fflush(stdout);\
+        removeNode(&st->resList, sd);\
+        printf("pass %d\n", 2); fflush(stdout);                                       \
+        free(sd);                     \
+        llist* head = st->resList;\
+        printf("list content following\n"); fflush(stdout);\
+        while (head){\
+            printf("list content: %s\n", head->string); fflush(stdout);\
+            head = head->next;\
+        }\
+        enif_mutex_unlock(st->lock);                                         \
     }
 
 #endif // _DPI_NIF_H_

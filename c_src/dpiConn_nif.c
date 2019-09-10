@@ -148,7 +148,8 @@ DPI_NIF_FUN(conn_create_n)
         }
     }
     dpiConn_res *connRes;
-    //ALLOC_RESOURCE_N(connRes, dpiConn, resName.data, resName.size);
+    printf("RES NAME %.*s SIZE %zu\n", (int)resName.size, resName.data, resName.size); fflush(stdout);
+    ALLOC_RESOURCE_N(connRes, dpiConn, resName.data, resName.size);
 
     RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         contextRes->context,
@@ -412,7 +413,7 @@ DPI_NIF_FUN(conn_close_n)
     if (!enif_inspect_binary(env, argv[2], &tag))
         BADARG_EXCEPTION(2, "binary/string tag");
 
-    if (!enif_inspect_binary(env, argv[3], &tag))
+    if (!enif_inspect_binary(env, argv[3], &resName))
         BADARG_EXCEPTION(3, "res name");
 
     dpiConnCloseMode m = 0, mode = 0;
@@ -433,7 +434,7 @@ DPI_NIF_FUN(conn_close_n)
             tag.size > 0 ? (const char *)tag.data : NULL,
             tag.size));
 
-    RELEASE_RESOURCE(connRes, dpiConn);
+    RELEASE_RESOURCE_N(connRes, dpiConn, resName.data, resName.size);
 
     RETURNED_TRACE;
     return ATOM_OK;

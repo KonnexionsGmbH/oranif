@@ -14,8 +14,10 @@ extern ErlNifResourceType *dpiConn_type;
 extern void dpiConn_res_dtor(ErlNifEnv *env, void *resource);
 
 extern DPI_NIF_FUN(conn_close);
+extern DPI_NIF_FUN(conn_close_n);
 extern DPI_NIF_FUN(conn_commit);
 extern DPI_NIF_FUN(conn_create);
+extern DPI_NIF_FUN(conn_create_n);
 extern DPI_NIF_FUN(conn_getServerVersion);
 extern DPI_NIF_FUN(conn_newVar);
 extern DPI_NIF_FUN(conn_ping);
@@ -24,9 +26,11 @@ extern DPI_NIF_FUN(conn_rollback);
 extern DPI_NIF_FUN(conn_setClientIdentifier);
 
 #define DPICONN_NIFS                       \
-    DEF_NIF(conn_close, 3),                \
+        DEF_NIF(conn_close, 3),                \
+    DEF_NIF(conn_close_n, 4),                \
         DEF_NIF(conn_commit, 1),           \
         IOB_NIF(conn_create, 6),           \
+        IOB_NIF(conn_create_n, 7),           \
         DEF_NIF(conn_getServerVersion, 1), \
         DEF_NIF(conn_newVar, 8),           \
         DEF_NIF(conn_ping, 1),             \

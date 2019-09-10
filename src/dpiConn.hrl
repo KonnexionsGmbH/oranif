@@ -7,8 +7,10 @@
 
 -nifs({dpiConn, [
     {conn_close, [reference, list, binary]},
+    {conn_close_n, [reference, list, binary, binary]},
     {conn_commit, [reference]},
     {conn_create, [reference, binary, binary, binary, {map, null}, {map, null}]},
+    {conn_create_n, [reference, binary, binary, binary, {map, null}, {map, null}, binary]},
     {conn_getServerVersion, [reference]},
     {conn_newVar, [reference, atom, atom, integer, integer, atom, atom, atom]}, %% bools are to be checked if atom true|false in NIF-C code
     {conn_ping, [reference]},

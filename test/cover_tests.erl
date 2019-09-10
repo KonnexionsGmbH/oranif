@@ -1476,9 +1476,9 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
             TestCtx, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]
         ),
         dpiCall(
-            TestCtx, conn_create, [
+            TestCtx, conn_create_n, [
                 Context, User, Password, Tns,
-                #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}
+                #{encoding => "AL32UTF8", nencoding => "AL32UTF8"}, #{}, <<"qwertzuiop">>
             ]
         ),
         dpiCall(
@@ -1512,7 +1512,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
         fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
             ok = dpiCall(TestCtx, var_release, [Var]),
             ok = dpiCall(TestCtx, stmt_close, [Stmt, <<>>]),
-            ok = dpiCall(TestCtx, conn_close, [LConn, [], <<>>]),
+            ok = dpiCall(TestCtx, conn_close_n, [LConn, [], <<>>, <<"qwertzuiop">>]),
             ok = dpiCall(TestCtx, context_destroy, [Ctx]),
             ok = dpiCall(TestCtx, data_release, [Data])
         end,
@@ -1557,6 +1557,7 @@ setup_connecion(TestCtx) ->
         fun
             (_K, 0, _) -> ok;
             (context, 1, _) -> ok;
+            (resList, [], _) -> ok;
             (K, V, _) -> ?assertEqual({K, 0}, {K, V})
         end,
         noacc,
@@ -1578,6 +1579,7 @@ cleanup(#{session := Connnnection} = Ctx) ->
         fun
             (_K, 0, _) -> ok;
             (context, 1, _) -> ok;
+            (resList, [], _) -> ok;
             (K, V, _) -> ?debugFmt("~p ~p = ~p", [?FUNCTION_NAME, K, V])
         end,
         noacc,
@@ -1589,6 +1591,7 @@ cleanup(#{context := Context} = Ctx) ->
     maps:fold(
         fun
             (_K, 0, _) -> ok;
+            (resList, [], _) -> ok;
             (K, V, _) -> ?assertEqual({K, 0}, {K, V})
         end,
         noacc,

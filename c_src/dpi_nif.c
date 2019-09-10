@@ -60,12 +60,15 @@ DPI_NIF_FUN(resource_count)
     ERL_NIF_TERM list = enif_make_list(env, 0);
     llist* head = st->resList;
     while(head){
-        enif_make_list_cell(
-        env,
-        enif_make_string(env, head->string, ERL_NIF_LATIN1),
-        list);
+        list = enif_make_list_cell(
+            env,
+            enif_make_string(env, head->string, ERL_NIF_LATIN1),
+            list);
         head = head->next;
     }
+    enif_make_map_put(
+        env, ret, enif_make_atom(env, "resList"),
+        list, &ret);
     RETURNED_TRACE;
     return ret;
 }
@@ -147,6 +150,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     st->dpiConn_count = 0;
     st->dpiContext_count = 0;
     st->dpiDataPtr_count = 0;
+    st->resList = 0;
 
     DEF_RES(dpiContext);
     DEF_RES(dpiConn);
@@ -235,20 +239,30 @@ llist* createNode(char* data){
     return temp;//return the new node
 }
 
-void eraseNode(llist* previous, llist* current, llist* nextElement){
+void eraseNode(llist* previous, llist** current, llist* nextElement){
+    printf("erase start yo\n");  fflush(stdout);
+    printf("erase start %p %p %p %p\n", previous, current, nextElement, *current); fflush(stdout);
+    free((*current)->string);
+    free(*current);
     if (previous)
         previous->next = nextElement;
-    free(current->string);
-    free(current);
+    else
+        *current = nextElement;
+    printf("erase stop %p %p %p %p\n", previous, current, nextElement, *current); fflush(stdout);
 }
 
 void removeNode(llist** head, char* value){
-    llist *previous = 0, *current = *head, *nextElement  = 0;
+    llist *previous = 0, *current = *head;
+    llist *nextElement = current->next;
+    printf("elements %p %p %p\n", previous, current, nextElement); fflush(stdout);
+    printf("remove node %s\n", value); fflush(stdout);
     while(current != NULL){
+         printf("remove node %s while run\n", value); fflush(stdout);
         if (!strcmp(value, current->string)){
-            eraseNode(previous, current, nextElement);
-            if (current == *head)
+            eraseNode(previous, &current, nextElement);
+            if ((current == *head) && (!current->next))
                 *head = 0;
+            else if (!previous) *head = current; 
             return;
         }
         previous = current;
@@ -256,23 +270,28 @@ void removeNode(llist** head, char* value){
         if (current)
             nextElement = current->next;
         else
-            nextElement = 0;
-        
+            nextElement = 0;    
     }
+    #define OVR "Error! Released unallocated Ref: "
+    char* errorString = malloc(strlen(OVR)+1+strlen(value));
+    strcpy(errorString, OVR);
+    strcat(errorString, value);
+    #undef OVR
+    addNode(head, errorString);
+    free(errorString);
     return;
 }
 
-llist* addNode(llist* head, char* value){
+void addNode(llist** head, char* value){
     llist* temp, *p;// declare two nodes temp and p
     temp = createNode(value);//createNode will return a new node with data = value and next pointing to NULL.
-    if(head == NULL)
-        head = temp;     //when linked list is empty
+    if(*head == NULL)
+        *head = temp;     //when linked list is empty
     else{
-        p  = head;//assign head to p 
+        p  = *head;//assign head to p 
         while(p->next != NULL){
             p = p->next;//traverse the list until p is the last node.The last node always points to NULL.
         }
         p->next = temp;//Point the previous last node to the new node created.
     }
-    return head;
 }

@@ -13,8 +13,8 @@ ErlNifResourceType *dpiConn_type;
 
 void dpiConn_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
-    L("dpiConn destroyed\r\n");
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 DPI_NIF_FUN(conn_create)
@@ -24,22 +24,21 @@ DPI_NIF_FUN(conn_create)
     dpiContext_res *contextRes;
     ErlNifBinary userName, password, connectString;
     size_t commonParamsMapSize = 0;
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
-        return BADARG_EXCEPTION(0, "resource context");
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
+        BADARG_EXCEPTION(0, "resource context");
     if (!enif_inspect_binary(env, argv[1], &userName))
-        return BADARG_EXCEPTION(1, "string/binary userName");
+        BADARG_EXCEPTION(1, "string/binary userName");
     if (!enif_inspect_binary(env, argv[2], &password))
-        return BADARG_EXCEPTION(2, "string/binary password");
+        BADARG_EXCEPTION(2, "string/binary password");
     if (!enif_inspect_binary(env, argv[3], &connectString))
-        return BADARG_EXCEPTION(3, "string/binary connectString");
+        BADARG_EXCEPTION(3, "string/binary connectString");
     if (!enif_get_map_size(env, argv[4], &commonParamsMapSize))
-        return BADARG_EXCEPTION(4, "map commonParams");
+        BADARG_EXCEPTION(4, "map commonParams");
 
     dpiCommonCreateParams commonParams;
     RAISE_EXCEPTION_ON_DPI_ERROR(
         contextRes->context,
-        dpiContext_initCommonCreateParams(contextRes->context, &commonParams),
-        NULL);
+        dpiContext_initCommonCreateParams(contextRes->context, &commonParams));
 
     if (commonParamsMapSize > 0)
     {
@@ -52,43 +51,45 @@ DPI_NIF_FUN(conn_create)
 
         ERL_NIF_TERM mapval;
         char encodeStr[128];
-        if (enif_get_map_value(env, argv[4], ATOM_encoding, &mapval)) {
-            if(
-                !enif_get_string(
-                env, mapval, encodeStr, sizeof(encodeStr), ERL_NIF_LATIN1)
-            ) return BADARG_EXCEPTION(4, "string\0 commonParams.encoding");
+        if (enif_get_map_value(env, argv[4], ATOM_encoding, &mapval))
+        {
+            if (!enif_get_string(
+                    env, mapval, encodeStr, sizeof(encodeStr), ERL_NIF_LATIN1))
+                BADARG_EXCEPTION(4, "string\0 commonParams.encoding");
             commonParams.encoding = encodeStr;
         }
 
         char nencodeStr[128];
-        if (enif_get_map_value(env, argv[4], ATOM_nencoding, &mapval)) {
-            if(
-                !enif_get_string(
-                env, mapval, nencodeStr, sizeof(nencodeStr), ERL_NIF_LATIN1)
-            ) return BADARG_EXCEPTION(4, "string\0 commonParams.nencoding");
+        if (enif_get_map_value(env, argv[4], ATOM_nencoding, &mapval))
+        {
+            if (!enif_get_string(
+                    env, mapval, nencodeStr, sizeof(nencodeStr),
+                    ERL_NIF_LATIN1))
+                BADARG_EXCEPTION(4, "string\0 commonParams.nencoding");
             commonParams.nencoding = nencodeStr;
         }
     }
 
-    dpiConn_res *connRes =
-        enif_alloc_resource(dpiConn_type, sizeof(dpiConn_res));
+    dpiConn_res *connRes;
+    ALLOC_RESOURCE(connRes, dpiConn);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         contextRes->context,
         dpiConn_create(
-            contextRes->context, userName.data, userName.size,
-            password.data, password.size, connectString.data,
-            connectString.size,
+            contextRes->context, (const char *)userName.data, userName.size,
+            (const char *)password.data, password.size,
+            (const char *)connectString.data, connectString.size,
             &commonParams,
             NULL, // TODO implement connCreateParams
             &connRes->conn),
-        connRes);
+        connRes, dpiConn);
 
     // Save context into connection for access from dpiError
     connRes->context = contextRes->context;
 
     ERL_NIF_TERM connResTerm = enif_make_resource(env, connRes);
 
+    RETURNED_TRACE;
     return connResTerm;
 }
 
@@ -100,35 +101,37 @@ DPI_NIF_FUN(conn_prepareStmt)
     dpiConn_res *connRes;
     ErlNifBinary sql, tag;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
     if (enif_compare(argv[1], ATOM_TRUE) == 0)
         scrollable = 1;
     else if (enif_compare(argv[1], ATOM_FALSE) == 0)
         scrollable = 0;
     else
-        return BADARG_EXCEPTION(1, "bool/atom scrollable");
+        BADARG_EXCEPTION(1, "bool/atom scrollable");
 
     if (!enif_inspect_binary(env, argv[2], &sql))
-        return BADARG_EXCEPTION(2, "binary/string sql");
+        BADARG_EXCEPTION(2, "binary/string sql");
     if (!enif_inspect_binary(env, argv[3], &tag))
-        return BADARG_EXCEPTION(3, "binary/string tag");
+        BADARG_EXCEPTION(3, "binary/string tag");
 
-    dpiStmt_res *stmtRes =
-        enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
+    dpiStmt_res *stmtRes;
+    ALLOC_RESOURCE(stmtRes, dpiStmt);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         connRes->context,
         dpiConn_prepareStmt(
-            connRes->conn, scrollable, sql.data, sql.size,
-            tag.size > 0 ? tag.data : NULL, tag.size, &stmtRes->stmt),
-        stmtRes);
+            connRes->conn, scrollable, (const char *)sql.data, sql.size,
+            tag.size > 0 ? (const char *)tag.data : NULL, tag.size,
+            &stmtRes->stmt),
+        stmtRes, dpiStmt);
 
     stmtRes->context = connRes->context;
 
     ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);
 
+    RETURNED_TRACE;
     return stmtResTerm;
 }
 
@@ -141,46 +144,46 @@ DPI_NIF_FUN(conn_newVar)
     dpiNativeTypeNum nativeTypeNum = 0;
     uint32_t maxArraySize = 0;
     uint32_t size = 0;
-    char sizeIsBytesBuf[32];
     int sizeIsBytes = 0, isArray = 0;
     dpiData *data;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+
     DPI_ORACLE_TYPE_NUM_FROM_ATOM(argv[1], oracleTypeNum);
     DPI_NATIVE_TYPE_NUM_FROM_ATOM(argv[2], nativeTypeNum);
     if (!enif_get_uint(env, argv[3], &maxArraySize))
-        return BADARG_EXCEPTION(3, "uint size");
+        BADARG_EXCEPTION(3, "uint size");
     if (!enif_get_uint(env, argv[4], &size))
-        return BADARG_EXCEPTION(4, "uint size");
+        BADARG_EXCEPTION(4, "uint size");
 
     if (enif_compare(argv[5], ATOM_TRUE) == 0)
         sizeIsBytes = 1;
     else if (enif_compare(argv[5], ATOM_FALSE) == 0)
         sizeIsBytes = 0;
     else
-        return BADARG_EXCEPTION(5, "atom sizeIsBytes");
+        BADARG_EXCEPTION(5, "atom sizeIsBytes");
 
     if (enif_compare(argv[6], ATOM_TRUE) == 0)
         isArray = 1;
     else if (enif_compare(argv[6], ATOM_FALSE) == 0)
         isArray = 0;
     else
-        return BADARG_EXCEPTION(6, "atom isArray");
+        BADARG_EXCEPTION(6, "atom isArray");
 
     if (enif_compare(argv[7], ATOM_NULL))
-        return BADARG_EXCEPTION(7, "atom objType");
+        BADARG_EXCEPTION(7, "atom objType");
 
-    dpiVar_res *varRes =
-        enif_alloc_resource(dpiVar_type, sizeof(dpiVar_res));
+    dpiVar_res *varRes;
+    ALLOC_RESOURCE(varRes, dpiVar);
 
-    RAISE_EXCEPTION_ON_DPI_ERROR(
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
         connRes->context,
         dpiConn_newVar(
             connRes->conn, oracleTypeNum, nativeTypeNum, maxArraySize, size,
             sizeIsBytes, isArray,
             NULL, &varRes->var, &data),
-        varRes);
+        varRes, dpiVar);
 
     varRes->context = connRes->context;
 
@@ -192,10 +195,11 @@ DPI_NIF_FUN(conn_newVar)
     varRes->head = NULL;
     for (int i = maxArraySize - 1; i >= 0; i--)
     {
-        dataRes = enif_alloc_resource(dpiDataPtr_type, sizeof(dpiDataPtr_res));
+        ALLOC_RESOURCE(dataRes, dpiDataPtr);
         dataRes->stmtRes = NULL;
         dataRes->next = NULL;
         dataRes->isQueryValue = 0;
+        dataRes->context = connRes->context;
         if (varRes->head == NULL)
         {
             varRes->head = dataRes;
@@ -215,6 +219,7 @@ DPI_NIF_FUN(conn_newVar)
     enif_make_map_put(env, ret, enif_make_atom(env, "var"), varResTerm, &ret);
     enif_make_map_put(env, ret, enif_make_atom(env, "data"), dataList, &ret);
 
+    RETURNED_TRACE;
     return ret;
 }
 
@@ -224,14 +229,13 @@ DPI_NIF_FUN(conn_commit)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_commit(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_commit(connRes->conn));
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -241,14 +245,13 @@ DPI_NIF_FUN(conn_rollback)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_rollback(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_rollback(connRes->conn));
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -258,32 +261,13 @@ DPI_NIF_FUN(conn_ping)
 
     dpiConn_res *connRes;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_ping(connRes->conn),
-        NULL);
+        connRes->context, dpiConn_ping(connRes->conn));
 
-    return ATOM_OK;
-}
-
-DPI_NIF_FUN(conn_release)
-{
-    CHECK_ARGCOUNT(1);
-
-    dpiConn_res *connRes;
-
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
-
-    RAISE_EXCEPTION_ON_DPI_ERROR(
-        connRes->context,
-        dpiConn_release(connRes->conn),
-        NULL);
-
-    enif_release_resource(connRes);
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -295,23 +279,25 @@ DPI_NIF_FUN(conn_close)
     ErlNifBinary tag;
     ERL_NIF_TERM head, tail;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
-    if (!enif_is_list(env, argv[1]) &&
-        !enif_get_list_cell(env, argv[1], &head, &tail))
-        return BADARG_EXCEPTION(1, "atom list modes");
-    if (!enif_inspect_binary(env, argv[2], &tag))
-        return BADARG_EXCEPTION(2, "binary/string tag");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
-    dpiConnCloseMode m;
-    dpiConnCloseMode mode = 0;
-    unsigned int len;
-    enif_get_list_length(env, argv[1], &len);
+    unsigned len;
+    if (!enif_get_list_length(env, argv[1], &len))
+        BADARG_EXCEPTION(1, "atom list modes, not a list");
+    if (len > 0)
+        enif_get_list_cell(env, argv[1], &head, &tail);
+
+    if (!enif_inspect_binary(env, argv[2], &tag))
+        BADARG_EXCEPTION(2, "binary/string tag");
+
+    dpiConnCloseMode m = 0, mode = 0;
+
     if (len > 0)
         do
         {
             if (!enif_is_atom(env, head))
-                return BADARG_EXCEPTION(1, "mode list value");
+                BADARG_EXCEPTION(1, "mode list value");
             DPI_CLOSE_MODE_FROM_ATOM(head, m);
             mode |= m;
         } while (enif_get_list_cell(env, tail, &head, &tail));
@@ -320,10 +306,12 @@ DPI_NIF_FUN(conn_close)
         connRes->context,
         dpiConn_close(
             connRes->conn, mode,
-            tag.size > 0 ? tag.data : NULL,
-            tag.size),
-        NULL);
+            tag.size > 0 ? (const char *)tag.data : NULL,
+            tag.size));
 
+    RELEASE_RESOURCE(connRes, dpiConn);
+
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -333,13 +321,13 @@ DPI_NIF_FUN(conn_getServerVersion)
 
     dpiConn_res *connRes = NULL;
 
-    if (!enif_get_resource(env, argv[0], dpiConn_type, &connRes))
-        return BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
 
     dpiVersionInfo version;
     char *releaseString;
-    int releaseStringLength;
-    dpiConn_getServerVersion(connRes->conn, &releaseString,
+    uint32_t releaseStringLength;
+    dpiConn_getServerVersion(connRes->conn, (const char **)&releaseString,
                              &releaseStringLength, &version);
     ERL_NIF_TERM map = enif_make_new_map(env);
 
@@ -376,5 +364,26 @@ DPI_NIF_FUN(conn_getServerVersion)
     /* #{versionNum => integer, releaseNum => integer, updateNum => integer,
          portReleaseNum => integer, portUpdateNum => integer,
          fullVersionNum => integer} */
+    RETURNED_TRACE;
     return map;
+}
+
+DPI_NIF_FUN(conn_setClientIdentifier)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiConn_res *connRes = NULL;
+    ErlNifBinary value;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+    if (!enif_inspect_binary(env, argv[1], &value))
+        BADARG_EXCEPTION(1, "string/binary value");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        connRes->context,
+        dpiConn_setClientIdentifier(
+            connRes->conn, (const char *)value.data, value.size));
+
+    return ATOM_OK;
 }

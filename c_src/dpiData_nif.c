@@ -1,49 +1,49 @@
 #include "dpiData_nif.h"
 #include "dpiStmt_nif.h"
 
+#ifndef __WIN32__
+#include <string.h>
+#endif
+
 ErlNifResourceType *dpiData_type;
 ErlNifResourceType *dpiDataPtr_type;
 
 void dpiData_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
+    CALL_TRACE;
 
     dpiData_res *data = (dpiData_res *)resource;
     if (data->env)
     {
+        TRACE;
         enif_free_env(data->env);
         data->env = NULL;
     }
 
-    L("dpiData destroyed\r\n");
+    RETURNED_TRACE;
 }
 
 void dpiDataPtr_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
-
-    dpiDataPtr_res *data = (dpiDataPtr_res *)resource;
-    if (data->stmtRes)
-    {
-        enif_release_resource(data->stmtRes);
-        data->stmtRes = NULL;
-    }
-
-    L("dpiDataPtr destroyed\r\n");
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 DPI_NIF_FUN(data_ctor)
 {
     CHECK_ARGCOUNT(0);
 
-    dpiData_res *data = enif_alloc_resource(dpiData_type, sizeof(dpiData_res));
+    dpiData_res *data;
+    ALLOC_RESOURCE(data, dpiData);
+
     data->dpiData.isNull = 1; // starts out being null
 
-    // erlang process independent invironment to persist data between NIF calls
+    // erlang process independent environment to persist data between NIF calls
     data->env = enif_alloc_env();
 
     ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
 
+    RETURNED_TRACE;
     return dpiDataRes;
 }
 
@@ -57,36 +57,37 @@ DPI_NIF_FUN(data_setTimestamp)
     int year, month, day, hour, minute, second, fsecond, tzHourOffset,
         tzMinuteOffset;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (!enif_get_int(env, argv[1], &year))
-        return BADARG_EXCEPTION(1, "int year");
+        BADARG_EXCEPTION(1, "int year");
     if (!enif_get_int(env, argv[2], &month))
-        return BADARG_EXCEPTION(2, "int month");
+        BADARG_EXCEPTION(2, "int month");
     if (!enif_get_int(env, argv[3], &day))
-        return BADARG_EXCEPTION(3, "int day");
+        BADARG_EXCEPTION(3, "int day");
     if (!enif_get_int(env, argv[4], &hour))
-        return BADARG_EXCEPTION(4, "int hour");
+        BADARG_EXCEPTION(4, "int hour");
     if (!enif_get_int(env, argv[5], &minute))
-        return BADARG_EXCEPTION(5, "int minute");
+        BADARG_EXCEPTION(5, "int minute");
     if (!enif_get_int(env, argv[6], &second))
-        return BADARG_EXCEPTION(6, "int second");
+        BADARG_EXCEPTION(6, "int second");
     if (!enif_get_int(env, argv[7], &fsecond))
-        return BADARG_EXCEPTION(7, "int fsecond");
+        BADARG_EXCEPTION(7, "int fsecond");
     if (!enif_get_int(env, argv[8], &tzHourOffset))
-        return BADARG_EXCEPTION(8, "int tzHourOffset");
+        BADARG_EXCEPTION(8, "int tzHourOffset");
     if (!enif_get_int(env, argv[9], &tzMinuteOffset))
-        return BADARG_EXCEPTION(9, "int tzMinuteOffset");
+        BADARG_EXCEPTION(9, "int tzMinuteOffset");
 
     dpiData_setTimestamp(
         data, year, month, day, hour, minute,
         second, fsecond, tzHourOffset, tzMinuteOffset);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -100,31 +101,28 @@ DPI_NIF_FUN(data_setIntervalDS)
 
     int days, hours, minutes, seconds, fseconds;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (!enif_get_int(env, argv[1], &days))
-        return BADARG_EXCEPTION(1, "int days");
+        BADARG_EXCEPTION(1, "int days");
     if (!enif_get_int(env, argv[2], &hours))
-        return BADARG_EXCEPTION(2, "int hours");
+        BADARG_EXCEPTION(2, "int hours");
     if (!enif_get_int(env, argv[3], &minutes))
-        return BADARG_EXCEPTION(3, "int minutes");
+        BADARG_EXCEPTION(3, "int minutes");
     if (!enif_get_int(env, argv[4], &seconds))
-        return BADARG_EXCEPTION(4, "int seconds");
+        BADARG_EXCEPTION(4, "int seconds");
     if (!enif_get_int(env, argv[5], &fseconds))
-        return BADARG_EXCEPTION(5, "int fseconds");
+        BADARG_EXCEPTION(5, "int fseconds");
 
     dpiData_setIntervalDS(
         data, days, hours, minutes, seconds, fseconds);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -138,24 +136,21 @@ DPI_NIF_FUN(data_setIntervalYM)
 
     int years, months;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (!enif_get_int(env, argv[1], &years))
-        return BADARG_EXCEPTION(1, "int years");
+        BADARG_EXCEPTION(1, "int years");
     if (!enif_get_int(env, argv[2], &months))
-        return BADARG_EXCEPTION(2, "int months");
+        BADARG_EXCEPTION(2, "int months");
 
     dpiData_setIntervalYM(data, years, months);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -169,22 +164,19 @@ DPI_NIF_FUN(data_setInt64)
 
     int64_t amount;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (!enif_get_int64(env, argv[1], &amount))
-        return BADARG_EXCEPTION(1, "int amount");
+        BADARG_EXCEPTION(1, "int amount");
 
     dpiData_setInt64(data, amount);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -192,29 +184,23 @@ DPI_NIF_FUN(data_setBytes)
 {
     CHECK_ARGCOUNT(2);
 
-    dpiData_res *dataRes;
-    dpiDataPtr_res *dataPtr;
-    dpiData *data;
+    dpiData_res *dataRes = NULL;
+    dpiData *data = NULL;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
-        data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     // binary is copied to process independent env for NIF calls persistance
     ERL_NIF_TERM binData = enif_make_copy(dataRes->env, argv[1]);
     ErlNifBinary ptr;
     if (!enif_inspect_binary(dataRes->env, binData, &ptr))
-        return BADARG_EXCEPTION(1, "binary data");
+        BADARG_EXCEPTION(1, "binary data");
 
-    dpiData_setBytes(data, ptr.data, ptr.size);
+    dpiData_setBytes(data, (char *)ptr.data, ptr.size);
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -226,24 +212,21 @@ DPI_NIF_FUN(data_setIsNull)
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (enif_compare(argv[1], ATOM_TRUE) == 0)
         data->isNull = 1;
     else if (enif_compare(argv[1], ATOM_FALSE) == 0)
         data->isNull = 0;
     else
-        return BADARG_EXCEPTION(1, "bool/atom isNull");
+        BADARG_EXCEPTION(1, "bool/atom isNull");
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -253,15 +236,18 @@ DPI_NIF_FUN(data_get)
 
     dpiDataPtr_res *dataRes;
 
-    if (!enif_get_resource(env, argv[0], dpiDataPtr_type, &dataRes))
-        return BADARG_EXCEPTION(0, "resource data");
+    if (!enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataRes))
+        BADARG_EXCEPTION(0, "resource data");
 
     ERL_NIF_TERM dataRet;
     dpiData *data = dataRes->dpiDataPtr;
 
     // if NULL, no further processing of data is necessary
     if (data->isNull)
+    {
+        RETURNED_TRACE;
         return ATOM_NULL;
+    }
 
     switch (dataRes->type)
     {
@@ -355,34 +341,35 @@ DPI_NIF_FUN(data_get)
         break;
     case DPI_NATIVE_TYPE_STMT:
     {
-        dpiStmt_res *stmtRes = NULL;
-        if (!dataRes->stmtRes)
+        dpiStmt_res *stmtRes = (dpiStmt_res *)dataRes->stmtRes;
+        if (!stmtRes)
         {
             // first time
-            stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
-            stmtRes->stmt = data->value.asStmt;
+            ALLOC_RESOURCE(stmtRes, dpiStmt);
             dataRes->stmtRes = stmtRes;
         }
-        else
-        {
-            // possible reuse attempt
-            stmtRes = (dpiStmt_res *)dataRes->stmtRes;
-            if (stmtRes->stmt != data->value.asStmt)
-            {
-                // ref cursor changed
-                enif_release_resource(stmtRes);
-                stmtRes = enif_alloc_resource(dpiStmt_type, sizeof(dpiStmt_res));
-                stmtRes->stmt = data->value.asStmt;
-                dataRes->stmtRes = stmtRes;
-            }
-        }
+        stmtRes->stmt = data->value.asStmt;
         dataRet = enif_make_resource(env, stmtRes);
     }
     break;
+    case DPI_NATIVE_TYPE_ROWID:
+    {
+        const char *string;
+        uint32_t stringlen;
+        RAISE_EXCEPTION_ON_DPI_ERROR(
+            dataRes->context,
+            dpiRowid_getStringValue(data->value.asRowid, &string, &stringlen));
+        ErlNifBinary bin;
+        enif_alloc_binary(stringlen, &bin);
+        memcpy(bin.data, string, stringlen);
+        dataRet = enif_make_binary(env, &bin);
+    }
+    break;
     default:
-        return RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
+        RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
     }
 
+    RETURNED_TRACE;
     return dataRet;
 }
 
@@ -394,21 +381,21 @@ DPI_NIF_FUN(data_getInt64) // TODO: unit test
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
-    {
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    }
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
-    {
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
-    }
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
 
     if (data->isNull)
+    {
+        RETURNED_TRACE;
         return ATOM_NULL;
+    }
     int64_t result = dpiData_getInt64(data);
 
+    RETURNED_TRACE;
     return enif_make_int64(env, result);
 }
 
@@ -420,20 +407,25 @@ DPI_NIF_FUN(data_getBytes) // TODO: unit test
     dpiDataPtr_res *dataPtr;
     dpiData *data;
 
-    if (enif_get_resource(env, argv[0], dpiDataPtr_type, &dataPtr))
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
         data = dataPtr->dpiDataPtr;
-    else if (enif_get_resource(env, argv[0], dpiData_type, &dataRes))
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
         data = &dataRes->dpiData;
     else
-        return BADARG_EXCEPTION(0, "resource data/ptr");
+        BADARG_EXCEPTION(0, "resource data/ptr");
+
     if (data->isNull)
+    {
+        RETURNED_TRACE;
         return ATOM_NULL;
+    }
     dpiBytes *bytes = dpiData_getBytes(data);
     ErlNifBinary bin;
 
     enif_alloc_binary(bytes->length, &bin);
     memcpy(bin.data, bytes->ptr, bytes->length);
 
+    RETURNED_TRACE;
     return enif_make_binary(env, &bin);
 }
 
@@ -446,19 +438,26 @@ DPI_NIF_FUN(data_release)
         dpiDataPtr_res *dataPtrRes;
     } res;
 
-    if (enif_get_resource(env, argv[0], dpiData_type, &res.dataRes))
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&res.dataRes))
     {
         // nothing to set to NULL
-        enif_release_resource(res.dataRes);
+        RELEASE_RESOURCE(res.dataRes, dpiData);
     }
-    else if (enif_get_resource(env, argv[0], dpiDataPtr_type, &res.dataPtrRes))
+    else if (enif_get_resource(
+                 env, argv[0], dpiDataPtr_type, (void **)&res.dataPtrRes))
     {
+        if (res.dataPtrRes->stmtRes)
+        {
+            RELEASE_RESOURCE(res.dataPtrRes->stmtRes, dpiStmt);
+            res.dataPtrRes->stmtRes = NULL;
+        }
         res.dataPtrRes->dpiDataPtr = NULL;
         if (res.dataPtrRes->isQueryValue == 1)
-            enif_release_resource(res.dataPtrRes);
+            RELEASE_RESOURCE(res.dataPtrRes, dpiDataPtr);
     }
     else
-        return BADARG_EXCEPTION(0, "resource data");
+        BADARG_EXCEPTION(0, "resource data");
 
+    RETURNED_TRACE;
     return ATOM_OK;
 }

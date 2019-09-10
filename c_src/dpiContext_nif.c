@@ -4,24 +4,24 @@ ErlNifResourceType *dpiContext_type;
 
 void dpiContext_res_dtor(ErlNifEnv *env, void *resource)
 {
-    TRACE;
-    L("dpiContext destroyed\r\n");
+    CALL_TRACE;
+    RETURNED_TRACE;
 }
 
 DPI_NIF_FUN(context_create)
 {
     CHECK_ARGCOUNT(2);
 
-    int major, minor;
+    unsigned int major, minor;
     dpiErrorInfo error;
 
     if (!enif_get_uint(env, argv[0], &major))
-        return BADARG_EXCEPTION(0, "uint major");
+        BADARG_EXCEPTION(0, "uint major");
     if (!enif_get_uint(env, argv[1], &minor))
-        return BADARG_EXCEPTION(1, "uint minor");
+        BADARG_EXCEPTION(1, "uint minor");
 
-    dpiContext_res *contextRes =
-        enif_alloc_resource(dpiContext_type, sizeof(dpiContext_res));
+    dpiContext_res *contextRes;
+    ALLOC_RESOURCE(contextRes, dpiContext);
 
     // RAISE_EXCEPTION_ON_DPI_ERROR macro can't be used since we need to return
     // the error details too
@@ -29,32 +29,21 @@ DPI_NIF_FUN(context_create)
     if (DPI_FAILURE ==
         dpiContext_create(major, minor, &contextRes->context, &error))
     {
-        enif_release_resource(contextRes);
+        RELEASE_RESOURCE(contextRes, dpiContext);
+
+        RETURNED_TRACE;
         return enif_raise_exception(
             env,
-            enif_make_tuple2(
+            enif_make_tuple4(
                 env, ATOM_ERROR,
-                dpiErrorInfoMap(env, error)));
+                enif_make_string(env, __FILE__, ERL_NIF_LATIN1),
+                enif_make_int(env, __LINE__), dpiErrorInfoMap(env, error)));
     }
 
     ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);
 
+    RETURNED_TRACE;
     return contextResTerm;
-}
-
-DPI_NIF_FUN(context_getError)
-{
-    CHECK_ARGCOUNT(1);
-
-    dpiErrorInfo error;
-    dpiContext_res *contextRes;
-
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
-        return BADARG_EXCEPTION(0, "resource context");
-
-    dpiContext_getError(contextRes->context, &error);
-
-    return dpiErrorInfoMap(env, error);
 }
 
 DPI_NIF_FUN(context_destroy)
@@ -63,15 +52,15 @@ DPI_NIF_FUN(context_destroy)
 
     dpiContext_res *contextRes;
 
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
-        return BADARG_EXCEPTION(0, "resource context");
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
+        BADARG_EXCEPTION(0, "resource context");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
-        contextRes->context,
-        dpiContext_destroy(contextRes->context),
-        NULL);
+        contextRes->context, dpiContext_destroy(contextRes->context));
 
-    enif_release_resource(contextRes);
+    RELEASE_RESOURCE(contextRes, dpiContext);
+
+    RETURNED_TRACE;
     return ATOM_OK;
 }
 
@@ -81,15 +70,14 @@ DPI_NIF_FUN(context_getClientVersion)
 
     dpiContext_res *contextRes;
 
-    if (!enif_get_resource(env, argv[0], dpiContext_type, &contextRes))
-        return BADARG_EXCEPTION(0, "resource context");
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
+        BADARG_EXCEPTION(0, "resource context");
 
     dpiVersionInfo version;
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         contextRes->context,
-        dpiContext_getClientVersion(contextRes->context, &version),
-        NULL);
+        dpiContext_getClientVersion(contextRes->context, &version));
 
     ERL_NIF_TERM map = enif_make_new_map(env);
 
@@ -120,5 +108,6 @@ DPI_NIF_FUN(context_getClientVersion)
     /* #{versionNum => integer, releaseNum => integer, updateNum => integer,
          portReleaseNum => integer, portUpdateNum => integer,
          fullVersionNum => integer} */
+    RETURNED_TRACE;
     return map;
 }

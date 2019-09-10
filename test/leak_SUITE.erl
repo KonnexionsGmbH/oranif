@@ -1,40 +1,52 @@
--module(mec_oc).
+-module(leak_SUITE).
 
--ifdef(CONSOLE).
+% rebar3 ct --readable=false --suite=test/leak_SUITE
 
-werl.exe -name a@127.0.0.1 -setcookie a -pa _build/default/lib/oranif/ebin &
+-export([
+    all/0, suite/0%,
+    %init_per_suite/1, end_per_suite/1, init_per_testcase/2,
+    %end_per_testcase/2
+]).
+-export([
+    leak/1, connect_internal/3, close_internal/2, get_mem_internal/0,
+    test_ref_cursor_internal/4
+]).
 
-f().
-Tns = <<"(DESCRIPTION=(CONNECT_TIMEOUT=4)(TRANSPORT_CONNECT_TIMEOUT=3)(ENABLE=BROKEN)(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=XE)))">>.
-User = <<"scott">>.
-Password = <<"regit">>.
-SlaveName = dpi_test_slave.
-TestSql = <<"begin TESTNEWPROC(:SQLT_INT_PERSID, :SQLT_OUT_CURSOR); end;">>.
-BindVars = [
-    {<<":SQLT_INT_PERSID">>,in,'DPI_ORACLE_TYPE_NUMBER'},
-    {<<":SQLT_OUT_CURSOR">>,out,'DPI_ORACLE_TYPE_STMT'}
-].
-BindValues = [4].
-
-nodes(hidden).
-slave:stop(hd(nodes(hidden))).
-
-c(mec_oc).
-f(Conn).
-Conn = mec_oc:connect(User, Password, Tns, SlaveName).
-mec_oc:test_ref_cursor(Conn, TestSql, 1000, BindVars, BindValues).
--endif.
-
+-define(TNS,
+	<<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS="
+	"(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))"
+	"(CONNECT_DATA=(SERVICE_NAME=XE)))">>
+).
 -define(DPI_MAJOR_VERSION, 3).
 -define(DPI_MINOR_VERSION, 0).
+-define(TEST_SQL,
+    <<"begin TESTNEWPROC(:SQLT_INT_PERSID, :SQLT_OUT_CURSOR); end;">>
+).
 
-% public safe apis (when NIF is loaded in slave)
--export([connect/4, connect_internal/3, test_ref_cursor/5, test_ref_cursor_internal/4, get_mem_internal/0, close/1, close_internal/2]).
+all() ->
+    [leak].
 
-connect(User, Password, ConStr, SlaveName)
-    when is_binary(User), is_binary(Password), is_binary(ConStr)
-->
-    Node = dpi:load(SlaveName),
+suite() ->
+    [
+        {timetrap, infinity},
+        {require, tns},
+        {require, user},
+        {require, password}
+    ].
+
+leak(_Config) ->
+    SlaveNode = dpi:load(oranif_test_slave),
+    Conn = connect(<<"scott">>, <<"regit">>, ?TNS, SlaveNode),
+    BindVars = [
+        {<<":SQLT_INT_PERSID">>,in,'DPI_ORACLE_TYPE_NUMBER'},
+        {<<":SQLT_OUT_CURSOR">>,out,'DPI_ORACLE_TYPE_STMT'}
+    ],
+    BindValues = [4],
+    test_ref_cursor(Conn, ?TEST_SQL, 1000, BindVars, BindValues),
+    close(Conn),
+    dpi:unload(SlaveNode).
+
+connect(User, Password, ConStr, Node) ->
     Conn = dpi:safe(Node, fun ?MODULE:connect_internal/3, [User, Password, ConStr]),
 	Conn#{node => Node}.
 connect_internal(User, Password, ConStr) ->
@@ -49,8 +61,14 @@ connect_internal(User, Password, ConStr) ->
             _Class:Exception -> {error, Exception}
         end
     catch
-        Class1:Exception1 -> {error, #{class => Class1, exception => Exception1,
-            message => "Bad Context"}
+        Class1:Exception1 ->
+            {
+                error,
+                #{
+                    class => Class1,
+                    exception => Exception1,
+                    message => "Bad Context"
+                }
         }
     end.
 

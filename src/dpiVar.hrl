@@ -8,7 +8,8 @@
 -nifs({dpiVar, [
     {var_release, [reference]},
     {var_setFromBytes, [reference, integer, binary]},
-    {var_setNumElementsInArray, [reference, integer]}
+    {var_setNumElementsInArray, [reference, integer]},
+    {var_getReturnedData, [reference, integer]}
 ]}).
 
 -endif. % _DPI_VAR_HRL_

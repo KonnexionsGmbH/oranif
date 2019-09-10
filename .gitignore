@@ -29,3 +29,6 @@ c_src/odpi
 priv/
 ebin/
 \.*/
+*.gc*
+*.info
+cov_html/

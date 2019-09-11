@@ -492,10 +492,12 @@ DPI_NIF_FUN(data_release_n)
         dpiData_res *dataRes;
         dpiDataPtr_res *dataPtrRes;
     } res;
+    
     ErlNifBinary resName;
+
     if (!enif_inspect_binary(env, argv[1], &resName))
         BADARG_EXCEPTION(4, "res name");
-        
+
     if (enif_get_resource(env, argv[0], dpiData_type, (void **)&res.dataRes))
     {
         // nothing to set to NULL

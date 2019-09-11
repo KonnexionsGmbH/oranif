@@ -46,6 +46,47 @@ DPI_NIF_FUN(context_create)
     return contextResTerm;
 }
 
+DPI_NIF_FUN(context_create_n)
+{
+    CHECK_ARGCOUNT(3);
+
+    unsigned int major, minor;
+    dpiErrorInfo error;
+    ErlNifBinary resName;
+
+    if (!enif_get_uint(env, argv[0], &major))
+        BADARG_EXCEPTION(0, "uint major");
+    if (!enif_get_uint(env, argv[1], &minor))
+        BADARG_EXCEPTION(1, "uint minor");
+    if (!enif_inspect_binary(env, argv[2], &resName))
+        BADARG_EXCEPTION(2, "res name");
+
+    dpiContext_res *contextRes;
+    ALLOC_RESOURCE_N(contextRes, dpiContext, resName.data, resName.size);
+
+    // RAISE_EXCEPTION_ON_DPI_ERROR macro can't be used since we need to return
+    // the error details too
+    // RAISE_EXCEPTION can't be used since we want to throw the error map
+    if (DPI_FAILURE ==
+        dpiContext_create(major, minor, &contextRes->context, &error))
+    {
+        RELEASE_RESOURCE_N(contextRes, dpiContext, resName.data, resName.size);
+
+        RETURNED_TRACE;
+        return enif_raise_exception(
+            env,
+            enif_make_tuple4(
+                env, ATOM_ERROR,
+                enif_make_string(env, __FILE__, ERL_NIF_LATIN1),
+                enif_make_int(env, __LINE__), dpiErrorInfoMap(env, error)));
+    }
+
+    ERL_NIF_TERM contextResTerm = enif_make_resource(env, contextRes);
+
+    RETURNED_TRACE;
+    return contextResTerm;
+}
+
 DPI_NIF_FUN(context_destroy)
 {
     CHECK_ARGCOUNT(1);
@@ -59,6 +100,27 @@ DPI_NIF_FUN(context_destroy)
         contextRes->context, dpiContext_destroy(contextRes->context));
 
     RELEASE_RESOURCE(contextRes, dpiContext);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
+DPI_NIF_FUN(context_destroy_n)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiContext_res *contextRes;
+    ErlNifBinary resName;
+
+    if (!enif_get_resource(env, argv[0], dpiContext_type, (void **)&contextRes))
+        BADARG_EXCEPTION(0, "resource context");
+    if (!enif_inspect_binary(env, argv[1], &resName))
+        BADARG_EXCEPTION(1, "res name");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        contextRes->context, dpiContext_destroy(contextRes->context));
+
+    RELEASE_RESOURCE_N(contextRes, dpiContext, resName.data, resName.size);
 
     RETURNED_TRACE;
     return ATOM_OK;

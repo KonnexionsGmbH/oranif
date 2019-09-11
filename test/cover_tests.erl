@@ -1474,7 +1474,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     } = InitialRC = dpiCall(TestCtx, resource_count, []),
     Resources = [{
         dpiCall(
-            TestCtx, context_create, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION]
+            TestCtx, context_create_n, [?DPI_MAJOR_VERSION, ?DPI_MINOR_VERSION, <<"foobar">>]
         ),
         dpiCall(
             TestCtx, conn_create_n, [
@@ -1509,14 +1509,14 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     ?assertEqual(5, Stmts - IStmts),
     ?assertEqual(5, Datas - IDatas),
     ?assertEqual(5, DataPtrs - IDataPtrs),
-    ?assertEqual(20, length(ResList) - length(IResList)),
+    ?assertEqual(25, length(ResList) - length(IResList)),
 
     lists:foreach(
         fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
             ok = dpiCall(TestCtx, var_release_n, [Var, <<"kek">>]),
             ok = dpiCall(TestCtx, stmt_close_n, [Stmt, <<>>, <<"myStatement">>]),
             ok = dpiCall(TestCtx, conn_close_n, [LConn, [], <<>>, <<"qwertzuiop">>]),
-            ok = dpiCall(TestCtx, context_destroy, [Ctx]),
+            ok = dpiCall(TestCtx, context_destroy_n, [Ctx, <<"foobar">>]),
             ok = dpiCall(TestCtx, data_release_n, [Data, <<"miau">>])
         end,
         Resources

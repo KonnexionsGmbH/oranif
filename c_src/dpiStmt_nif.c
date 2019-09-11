@@ -384,6 +384,31 @@ DPI_NIF_FUN(stmt_close)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(stmt_close_n)
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiStmt_res *stmtRes;
+    ErlNifBinary tag, resName;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+    if (!enif_inspect_binary(env, argv[1], &tag))
+        BADARG_EXCEPTION(1, "string tag");
+        if (!enif_inspect_binary(env, argv[2], &resName))
+        BADARG_EXCEPTION(2, "res name");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        stmtRes->context,
+        dpiStmt_close(stmtRes->stmt, (const char *)tag.data, tag.size),
+        stmtRes, dpiStmt);
+
+    RELEASE_RESOURCE_N(stmtRes, dpiStmt, resName.data, resName.size);
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(stmt_getInfo)
 {
     CHECK_ARGCOUNT(1);

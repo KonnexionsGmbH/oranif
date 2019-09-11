@@ -1469,7 +1469,8 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
         connection  := IConns,
         data        := IDatas,
         statement   := IStmts,
-        datapointer := IDataPtrs
+        datapointer := IDataPtrs,
+        resList     := IResList
     } = InitialRC = dpiCall(TestCtx, resource_count, []),
     Resources = [{
         dpiCall(
@@ -1482,8 +1483,8 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
             ]
         ),
         dpiCall(
-            TestCtx, conn_prepareStmt,
-            [Conn, false, <<"select * from dual">>, <<>>]
+            TestCtx, conn_prepareStmt_n,
+            [Conn, false, <<"select * from dual">>, <<>>, <<"myStatement">>]
         ),
         dpiCall(
             TestCtx, conn_newVar_n, 
@@ -1499,7 +1500,8 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
         connection  := Conns,
         data        := Datas,
         statement   := Stmts,
-        datapointer := DataPtrs
+        datapointer := DataPtrs,
+        resList     := ResList
     } = dpiCall(TestCtx, resource_count, []),
     ?assertEqual(5, Ctxs - ICtxs),
     ?assertEqual(5, Vars - IVars),
@@ -1507,11 +1509,12 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     ?assertEqual(5, Stmts - IStmts),
     ?assertEqual(5, Datas - IDatas),
     ?assertEqual(5, DataPtrs - IDataPtrs),
+    ?assertEqual(15, length(ResList) - length(IResList)),
 
     lists:foreach(
         fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
             ok = dpiCall(TestCtx, var_release_n, [Var, <<"kek">>]),
-            ok = dpiCall(TestCtx, stmt_close, [Stmt, <<>>]),
+            ok = dpiCall(TestCtx, stmt_close_n, [Stmt, <<>>, <<"myStatement">>]),
             ok = dpiCall(TestCtx, conn_close_n, [LConn, [], <<>>, <<"qwertzuiop">>]),
             ok = dpiCall(TestCtx, context_destroy, [Ctx]),
             ok = dpiCall(TestCtx, data_release, [Data])

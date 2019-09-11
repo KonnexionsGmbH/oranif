@@ -212,6 +212,50 @@ DPI_NIF_FUN(conn_prepareStmt)
     return stmtResTerm;
 }
 
+DPI_NIF_FUN(conn_prepareStmt_n)
+{
+    CHECK_ARGCOUNT(5);
+
+    int scrollable = 0;
+    dpiConn_res *connRes;
+    ErlNifBinary sql, tag, resName;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+
+    if (enif_compare(argv[1], ATOM_TRUE) == 0)
+        scrollable = 1;
+    else if (enif_compare(argv[1], ATOM_FALSE) == 0)
+        scrollable = 0;
+    else
+        BADARG_EXCEPTION(1, "bool/atom scrollable");
+
+    if (!enif_inspect_binary(env, argv[2], &sql))
+        BADARG_EXCEPTION(2, "binary/string sql");
+    if (!enif_inspect_binary(env, argv[3], &tag))
+        BADARG_EXCEPTION(3, "binary/string tag");
+        if (!enif_inspect_binary(env, argv[4], &resName))
+        BADARG_EXCEPTION(4, "res name");
+
+    dpiStmt_res *stmtRes;
+    ALLOC_RESOURCE_N(stmtRes, dpiStmt, resName.data, resName.size);
+
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        connRes->context,
+        dpiConn_prepareStmt(
+            connRes->conn, scrollable, (const char *)sql.data, sql.size,
+            tag.size > 0 ? (const char *)tag.data : NULL, tag.size,
+            &stmtRes->stmt),
+        stmtRes, dpiStmt);
+
+    stmtRes->context = connRes->context;
+
+    ERL_NIF_TERM stmtResTerm = enif_make_resource(env, stmtRes);
+
+    RETURNED_TRACE;
+    return stmtResTerm;
+}
+
 DPI_NIF_FUN(conn_newVar)
 {
     CHECK_ARGCOUNT(8);

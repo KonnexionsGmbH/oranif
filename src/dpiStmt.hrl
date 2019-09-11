@@ -18,6 +18,7 @@
     {stmt_getQueryInfo, [reference, integer]},
     {stmt_getQueryValue, [reference, integer]},
     {stmt_close, [reference, binary]},
+    {stmt_close_n, [reference, binary, binary]},
     {stmt_getNumQueryColumns, [reference]},
     {stmt_getInfo, [reference]}
 ]}).

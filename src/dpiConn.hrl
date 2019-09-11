@@ -16,6 +16,7 @@
     {conn_newVar_n, [reference, atom, atom, integer, integer, atom, atom, atom, binary]}, %% bools are to be checked if atom true|false in NIF-C code
     {conn_ping, [reference]},
     {conn_prepareStmt, [reference, atom, binary, binary]}, %% bool to be checked if atom true|false in NIF-C code
+    {conn_prepareStmt_n, [reference, atom, binary, binary, binary]}, %% bool to be checked if atom true|false in NIF-C code
     {conn_rollback, [reference]},
     {conn_setClientIdentifier, [reference, binary]}
 ]}).

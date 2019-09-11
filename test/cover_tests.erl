@@ -1491,7 +1491,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
             [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE',
             1, 0, false, false, null, <<"kek">>]
         ),
-        dpiCall(TestCtx, data_ctor, [])
+        dpiCall(TestCtx, data_ctor_n, [<<"miau">>])
     } || _ <- Indices],
 
     #{
@@ -1509,7 +1509,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     ?assertEqual(5, Stmts - IStmts),
     ?assertEqual(5, Datas - IDatas),
     ?assertEqual(5, DataPtrs - IDataPtrs),
-    ?assertEqual(15, length(ResList) - length(IResList)),
+    ?assertEqual(20, length(ResList) - length(IResList)),
 
     lists:foreach(
         fun({Ctx, LConn, Stmt, #{var := Var}, Data}) ->
@@ -1517,7 +1517,7 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
             ok = dpiCall(TestCtx, stmt_close_n, [Stmt, <<>>, <<"myStatement">>]),
             ok = dpiCall(TestCtx, conn_close_n, [LConn, [], <<>>, <<"qwertzuiop">>]),
             ok = dpiCall(TestCtx, context_destroy, [Ctx]),
-            ok = dpiCall(TestCtx, data_release, [Data])
+            ok = dpiCall(TestCtx, data_release_n, [Data, <<"miau">>])
         end,
         Resources
     ),

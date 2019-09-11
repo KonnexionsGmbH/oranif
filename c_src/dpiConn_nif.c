@@ -234,7 +234,7 @@ DPI_NIF_FUN(conn_prepareStmt_n)
         BADARG_EXCEPTION(2, "binary/string sql");
     if (!enif_inspect_binary(env, argv[3], &tag))
         BADARG_EXCEPTION(3, "binary/string tag");
-        if (!enif_inspect_binary(env, argv[4], &resName))
+    if (!enif_inspect_binary(env, argv[4], &resName))
         BADARG_EXCEPTION(4, "res name");
 
     dpiStmt_res *stmtRes;

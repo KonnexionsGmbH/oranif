@@ -47,6 +47,28 @@ DPI_NIF_FUN(data_ctor)
     return dpiDataRes;
 }
 
+DPI_NIF_FUN(data_ctor_n)
+{
+    CHECK_ARGCOUNT(1);
+
+    ErlNifBinary resName;
+    if (!enif_inspect_binary(env, argv[0], &resName))
+        BADARG_EXCEPTION(0, "res name");
+
+    dpiData_res *data;
+    ALLOC_RESOURCE_N(data, dpiData, resName.data, resName.size);
+
+    data->dpiData.isNull = 1; // starts out being null
+
+    // erlang process independent environment to persist data between NIF calls
+    data->env = enif_alloc_env();
+
+    ERL_NIF_TERM dpiDataRes = enif_make_resource(env, data);
+
+    RETURNED_TRACE;
+    return dpiDataRes;
+}
+
 DPI_NIF_FUN(data_setTimestamp)
 {
     CHECK_ARGCOUNT(10);
@@ -454,6 +476,42 @@ DPI_NIF_FUN(data_release)
         res.dataPtrRes->dpiDataPtr = NULL;
         if (res.dataPtrRes->isQueryValue == 1)
             RELEASE_RESOURCE(res.dataPtrRes, dpiDataPtr);
+    }
+    else
+        BADARG_EXCEPTION(0, "resource data");
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
+DPI_NIF_FUN(data_release_n)
+{
+    CHECK_ARGCOUNT(2);
+
+    union {
+        dpiData_res *dataRes;
+        dpiDataPtr_res *dataPtrRes;
+    } res;
+    ErlNifBinary resName;
+    if (!enif_inspect_binary(env, argv[1], &resName))
+        BADARG_EXCEPTION(4, "res name");
+        
+    if (enif_get_resource(env, argv[0], dpiData_type, (void **)&res.dataRes))
+    {
+        // nothing to set to NULL
+        RELEASE_RESOURCE_N(res.dataRes, dpiData, resName.data, resName.size);
+    }
+    else if (enif_get_resource(
+                 env, argv[0], dpiDataPtr_type, (void **)&res.dataPtrRes))
+    {
+        if (res.dataPtrRes->stmtRes)
+        {
+            RELEASE_RESOURCE_N(res.dataPtrRes->stmtRes, dpiStmt, resName.data, resName.size);
+            res.dataPtrRes->stmtRes = NULL;
+        }
+        res.dataPtrRes->dpiDataPtr = NULL;
+        if (res.dataPtrRes->isQueryValue == 1)
+            RELEASE_RESOURCE_N(res.dataPtrRes, dpiDataPtr, resName.data, resName.size);
     }
     else
         BADARG_EXCEPTION(0, "resource data");

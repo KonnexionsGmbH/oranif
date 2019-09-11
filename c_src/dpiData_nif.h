@@ -34,9 +34,11 @@ extern DPI_NIF_FUN(data_setIntervalDS);
 extern DPI_NIF_FUN(data_setIntervalYM);
 extern DPI_NIF_FUN(data_setTimestamp);
 extern DPI_NIF_FUN(data_ctor);
+extern DPI_NIF_FUN(data_ctor_n);
 extern DPI_NIF_FUN(data_get);
 extern DPI_NIF_FUN(data_setIsNull);
 extern DPI_NIF_FUN(data_release);
+extern DPI_NIF_FUN(data_release_n);
 
 #define DPIDATA_NIFS                    \
     DEF_NIF(data_getBytes, 1),          \
@@ -47,9 +49,11 @@ extern DPI_NIF_FUN(data_release);
         DEF_NIF(data_setIntervalYM, 3), \
         DEF_NIF(data_setTimestamp, 10), \
         DEF_NIF(data_ctor, 0),          \
+        DEF_NIF(data_ctor_n, 1),          \
         DEF_NIF(data_get, 1),           \
         DEF_NIF(data_setIsNull, 2),     \
-        DEF_NIF(data_release, 1)
+        DEF_NIF(data_release, 1),       \
+        DEF_NIF(data_release_n, 2)
 
 #define DPI_NATIVE_TYPE_NUM_FROM_ATOM(_atom, _assign)      \
     A2M(DPI_NATIVE_TYPE_INT64, _atom, _assign);            \

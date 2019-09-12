@@ -227,39 +227,43 @@ typedef struct
         enif_mutex_unlock(st->lock);                      \
     }
 
-#define ALLOC_RESOURCE_N(_var, _dpiType, _string, len)                            \
+// binary: a string that is NOT null terminated (gotten right out of erl binary)
+// len: the length of said binary. The null-terminated string is made inside
+#define ALLOC_RESOURCE_N(_var, _dpiType, _binary, _len)                      \
     {                                                                        \
         oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
         enif_mutex_lock(st->lock);                                           \
         _var = enif_alloc_resource(_dpiType##_type, sizeof(_dpiType##_res)); \
         st->_dpiType##_count++;                                              \
-        char* sd = malloc(len+1);\
-        memcpy(sd, _string, len);\
-        sd[len] = 0;     \
-        addNode(&st->resList, sd);\
-        free(sd); \
-        llist* head = st->resList;\
-        while (head){\
-            head = head->next;\
-        }\
+        char *sd = malloc(_len + 1); /*alloc space for 0-terminated string*/ \
+        memcpy(sd, _binary, _len);                                           \
+        sd[_len] = 0; /* add null terminator*/                               \
+        addNode(&st->resList, sd);                                           \
+        free(sd);                                                            \
+        llist *head = st->resList;                                           \
+        while (head)                                                         \
+        {                                                                    \
+            head = head->next;                                               \
+        }                                                                    \
         enif_mutex_unlock(st->lock);                                         \
     }
-    
-#define RELEASE_RESOURCE_N(_var, _dpiType, _string, len)                \
-    {                                                     \
-        oranif_st *st = (oranif_st *)enif_priv_data(env); \
-        enif_mutex_lock(st->lock);                        \
-        enif_release_resource(_var);                      \
-        st->_dpiType##_count--;                           \
-        char* sd = malloc(len+1);\
-        memcpy(sd, _string, len);\
-        sd[len] = 0; \
-        removeNode(&st->resList, sd);\
-        free(sd);                     \
-        llist* head = st->resList;\
-        while (head){\
-            head = head->next;\
-        }\
+
+#define RELEASE_RESOURCE_N(_var, _dpiType, _binary, _len)                    \
+    {                                                                        \
+        oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
+        enif_mutex_lock(st->lock);                                           \
+        enif_release_resource(_var);                                         \
+        st->_dpiType##_count--;                                              \
+        char *sd = malloc(_len + 1); /*alloc space for 0-terminated string*/ \
+        memcpy(sd, _binary, _len);                                           \
+        sd[_len] = 0; /* add null terminator*/                               \
+        removeNode(&st->resList, sd);                                        \
+        free(sd);                                                            \
+        llist *head = st->resList;                                           \
+        while (head)                                                         \
+        {                                                                    \
+            head = head->next;                                               \
+        }                                                                    \
         enif_mutex_unlock(st->lock);                                         \
     }
 

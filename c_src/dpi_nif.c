@@ -231,14 +231,19 @@ char *strdup(const char *s1)
   return str;
 }
 
+// creates a new node and initializes it with the string given
 llist* createNode(char* data){
-    llist* temp; // declare a node
-    temp = malloc(sizeof(llist)); // allocate memory using malloc()
-    temp->next = NULL;// make next point to NULL
+    llist* temp;
+    temp = malloc(sizeof(llist));
+    temp->next = NULL;
     temp->string = strdup(data);
-    return temp;//return the new node
+    return temp;
 }
 
+// deletes a node and re-links the previous/next elements (if any)
+// if the erased node is the first element of the list, then the pointer is
+// changed to point to the next element instead. This way, the list always
+// stays valid, except if all elements got deleted, then it will point to NULL
 void eraseNode(llist* previous, llist** current, llist* nextElement){
     free((*current)->string);
     free(*current);
@@ -248,44 +253,49 @@ void eraseNode(llist* previous, llist** current, llist* nextElement){
         *current = nextElement;
 }
 
+// given a pointer to a list and a value, it deletes the first node that
+// contains the value in question.
 void removeNode(llist** head, char* value){
-    llist *previous = 0, *current = *head;
+    llist *previous = NULL, *current = *head;
     llist *nextElement = current->next;
     while(current != NULL){
-        if (!strcmp(value, current->string)){
-            eraseNode(previous, &current, nextElement);
-            if ((current == *head) && (!current->next))
-                *head = 0;
-            else if (!previous) *head = current; 
-            return;
+        if (!strcmp(value, current->string)){ // found the node
+            eraseNode(previous, &current, nextElement); // delete it
+            if (!previous) *head = current; // deleted first element
+            return; // the element was deleted, so stop now
         }
-        previous = current;
+        previous = current; // advance the previous/current/next elements
         current = current->next;
         if (current)
             nextElement = current->next;
         else
-            nextElement = 0;    
+            nextElement = NULL;    
     }
-    #define OVR "Error! Released unallocated Ref: "
-    char* errorString = malloc(strlen(OVR)+1+strlen(value));
-    strcpy(errorString, OVR);
+    // if this point is reached, then the element was not found
+    // an error message is assembled and added to the list
+    #define ERR_MSG "Error! Released unallocated Ref: "
+    char* errorString = malloc(strlen(ERR_MSG)+1+strlen(value));
+    strcpy(errorString, ERR_MSG);
     strcat(errorString, value);
-    #undef OVR
+    #undef ERR_MSG
     addNode(head, errorString);
     free(errorString);
     return;
 }
 
+// given a list and a value, a new node is created with the value and added to
+// the list. Can also take a pointer pointing to a null pointer.
+// Afterwards, the double pointer points to a valid list
 void addNode(llist** head, char* value){
-    llist* temp, *p;// declare two nodes temp and p
-    temp = createNode(value);//createNode will return a new node with data = value and next pointing to NULL.
+    llist* temp, *p;
+    temp = createNode(value);
     if(*head == NULL)
-        *head = temp;     //when linked list is empty
+        *head = temp;
     else{
-        p  = *head;//assign head to p 
+        p  = *head;
         while(p->next != NULL){
-            p = p->next;//traverse the list until p is the last node.The last node always points to NULL.
+            p = p->next;
         }
-        p->next = temp;//Point the previous last node to the new node created.
+        p->next = temp;
     }
 }

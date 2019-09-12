@@ -49,7 +49,7 @@ extern DPI_NIF_FUN(data_release_n);
         DEF_NIF(data_setIntervalYM, 3), \
         DEF_NIF(data_setTimestamp, 10), \
         DEF_NIF(data_ctor, 0),          \
-        DEF_NIF(data_ctor_n, 1),          \
+        DEF_NIF(data_ctor_n, 1),        \
         DEF_NIF(data_get, 1),           \
         DEF_NIF(data_setIsNull, 2),     \
         DEF_NIF(data_release, 1),       \

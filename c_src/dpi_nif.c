@@ -248,9 +248,9 @@ void eraseNode(llist* previous, llist** current, llist* nextElement){
     free((*current)->string);
     free(*current);
     if (previous)
-        previous->next = nextElement;
+        previous->next = nextElement; // re-link
     else
-        *current = nextElement;
+        *current = nextElement; // make pointer point to next element instead
 }
 
 // given a pointer to a list and a value, it deletes the first node that

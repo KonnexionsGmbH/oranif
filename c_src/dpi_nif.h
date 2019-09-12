@@ -187,16 +187,14 @@ extern ERL_NIF_TERM dpiErrorInfoMap(ErlNifEnv *, dpiErrorInfo);
 
 
 char *strdup(const char *s1);
-
+#define STRING_SIZE 128
 typedef struct linkedList{
-    char* string;
+    char string[STRING_SIZE];
     struct linkedList *next;
  } llist;
 
-llist* createNode(char* data);
-void eraseNode(llist* previous, llist** current, llist* nextElement);
-void removeNode(llist** head, char* value);
-void addNode(llist** head, char* value);
+void removeNode(llist** head, char* value, unsigned length);
+void addNode(llist** head, char* value, unsigned length);
 typedef struct
 {
     ErlNifMutex *lock;
@@ -230,16 +228,12 @@ typedef struct
 // binary: a string that is NOT null terminated (gotten right out of erl binary)
 // len: the length of said binary. The null-terminated string is made inside
 #define ALLOC_RESOURCE_N(_var, _dpiType, _binary, _len)                      \
-    {                                                                        \
+    {                                                                           \
         oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
         enif_mutex_lock(st->lock);                                           \
         _var = enif_alloc_resource(_dpiType##_type, sizeof(_dpiType##_res)); \
         st->_dpiType##_count++;                                              \
-        char *sd = malloc(_len + 1); /*alloc space for 0-terminated string*/ \
-        memcpy(sd, _binary, _len);                                           \
-        sd[_len] = 0; /* add null terminator*/                               \
-        addNode(&st->resList, sd);                                           \
-        free(sd);                                                            \
+        addNode(&st->resList, _binary, _len);                                                   \
         llist *head = st->resList;                                           \
         while (head)                                                         \
         {                                                                    \
@@ -253,12 +247,8 @@ typedef struct
         oranif_st *st = (oranif_st *)enif_priv_data(env);                    \
         enif_mutex_lock(st->lock);                                           \
         enif_release_resource(_var);                                         \
-        st->_dpiType##_count--;                                              \
-        char *sd = malloc(_len + 1); /*alloc space for 0-terminated string*/ \
-        memcpy(sd, _binary, _len);                                           \
-        sd[_len] = 0; /* add null terminator*/                               \
-        removeNode(&st->resList, sd);                                        \
-        free(sd);                                                            \
+        st->_dpiType##_count--;                                                             \
+        removeNode(&st->resList, _binary, _len);                                        \
         llist *head = st->resList;                                           \
         while (head)                                                         \
         {                                                                    \

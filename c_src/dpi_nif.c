@@ -219,24 +219,13 @@ static void unload(ErlNifEnv *env, void *priv_data)
 
 ERL_NIF_INIT(dpi, nif_funcs, load, NULL, upgrade, unload)
 
-char *strdup(const char *s1)
-{
-  char *str;
-  size_t size = strlen(s1) + 1;
-
-  str = malloc(size);
-  if (str) {
-    memcpy(str, s1, size);
-  }
-  return str;
-}
-
 // creates a new node and initializes it with the string given
-llist* createNode(char* data){
-    llist* temp;
-    temp = malloc(sizeof(llist));
+llist* createNode(char* data, unsigned length){
+    length = length > (STRING_SIZE-1)? (STRING_SIZE-1) : length;
+    llist* temp = malloc(sizeof(llist));
     temp->next = NULL;
-    temp->string = strdup(data);
+    memcpy(temp->string, data, length); // copy binary
+    temp->string[length] = 0;   // null terminator
     return temp;
 }
 
@@ -244,8 +233,9 @@ llist* createNode(char* data){
 // if the erased node is the first element of the list, then the pointer is
 // changed to point to the next element instead. This way, the list always
 // stays valid, except if all elements got deleted, then it will point to NULL
-void eraseNode(llist* previous, llist** current, llist* nextElement){
-    free((*current)->string);
+void eraseNode(llist* previous, llist** current, llist* nextElement,
+        unsigned length
+        ){
     free(*current);
     if (previous)
         previous->next = nextElement; // re-link
@@ -255,12 +245,16 @@ void eraseNode(llist* previous, llist** current, llist* nextElement){
 
 // given a pointer to a list and a value, it deletes the first node that
 // contains the value in question.
-void removeNode(llist** head, char* value){
+void removeNode(llist** head, char* value, unsigned length){
+    length = length > (STRING_SIZE-1)? (STRING_SIZE-1) : length;
+    char cmp[STRING_SIZE];
+    memcpy(cmp, value, length); // copy binary
+    cmp[length] = 0;   // null terminator
     llist *previous = NULL, *current = *head;
     llist *nextElement = current->next;
     while(current != NULL){
-        if (!strcmp(value, current->string)){ // found the node
-            eraseNode(previous, &current, nextElement); // delete it
+        if (!strcmp(cmp, current->string)){ // found the node
+            eraseNode(previous, &current, nextElement, length); // delete it
             if (!previous) *head = current; // deleted first element
             return; // the element was deleted, so stop now
         }
@@ -273,22 +267,19 @@ void removeNode(llist** head, char* value){
     }
     // if this point is reached, then the element was not found
     // an error message is assembled and added to the list
-    #define ERR_MSG "Error! Released unallocated Ref: "
-    char* errorString = malloc(strlen(ERR_MSG)+1+strlen(value));
-    strcpy(errorString, ERR_MSG);
-    strcat(errorString, value);
-    #undef ERR_MSG
-    addNode(head, errorString);
-    free(errorString);
+    char err[STRING_SIZE];
+    strcpy(err, "Error! Released unallocated Ref: ");
+    strcat(err, cmp);
+    addNode(head, err, strlen(err));
     return;
 }
 
 // given a list and a value, a new node is created with the value and added to
 // the list. Can also take a pointer pointing to a null pointer.
 // Afterwards, the double pointer points to a valid list
-void addNode(llist** head, char* value){
+void addNode(llist** head, char* value, unsigned length){
     llist* temp, *p;
-    temp = createNode(value);
+    temp = createNode(value, length);
     if(*head == NULL)
         *head = temp;
     else{

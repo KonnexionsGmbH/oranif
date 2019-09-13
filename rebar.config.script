@@ -1,22 +1,28 @@
-case os:getenv("ORANIF_DEBUG") of
+CONFIG1 = case os:getenv("ORANIF_DEBUG") of
     false -> CONFIG; % env var not defined
     []    -> CONFIG; % env var set to empty string
     DebugLevelStr ->
-		DebugLevel = list_to_integer(DebugLevelStr),
-		ErlOpts = proplists:get_value(erl_opts, CONFIG, []),
-		{CheckErlOpts, Replaced} =
-			lists:foldl(
-				fun
-					({d, 'ORANIF_DEBUG', _}, {Acc, false}) ->
-						{[{d, 'ORANIF_DEBUG', DebugLevel} | Acc], true};
-					(Member, {Acc, R}) ->
-						{[Member | Acc], R}
-				end, {[], false}, ErlOpts
-			),
-		NewErlOpts =
-			if
-				Replaced -> CheckErlOpts;
-				true -> [{d, 'ORANIF_DEBUG', DebugLevel} | CheckErlOpts]
-			end,
-		lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts, NewErlOpts})
+        DebugLevel = list_to_integer(DebugLevelStr),
+        ErlOpts = proplists:get_value(erl_opts, CONFIG, []),
+        {CheckErlOpts, Replaced} = lists:foldl(
+            fun
+                ({d, 'ORANIF_DEBUG', _}, {Acc, false}) ->
+                    {[{d, 'ORANIF_DEBUG', DebugLevel} | Acc], true};
+                (Member, {Acc, R}) ->
+                    {[Member | Acc], R}
+            end, {[], false}, ErlOpts
+        ),
+        NewErlOpts = if
+            Replaced -> CheckErlOpts;
+            true -> [{d, 'ORANIF_DEBUG', DebugLevel} | CheckErlOpts]
+        end,
+        lists:keyreplace(erl_opts, 1, CONFIG, {erl_opts, NewErlOpts})
+end,
+
+case os:getenv("TRAVIS") of
+    "true" ->
+        JobId = os:getenv("TRAVIS_JOB_ID"),
+        lists:keystore(coveralls_service_job_id, 1, CONFIG1,
+                      {coveralls_service_job_id, JobId});
+    _ -> CONFIG1
 end.

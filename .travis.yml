@@ -1,68 +1,40 @@
-sudo: required
-group: edge
-dist: trusty
-
-services:
- - docker
-
-before_install:
- - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
- - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
- - sudo apt-get update
- - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-
-install:
- - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
- - wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
- - tar xf lcov_1.11.orig.tar.gz
- - sudo make -C lcov-1.11/ install
- - gem install coveralls-lcov
-
-env:
- - DOCKER_MACHINE_STATUS="Running" DOCKER_MACHINE_IP="0.0.0.0"
-
+sudo: true
 language: erlang
 otp_release:
-  - 20.2
-
+  - 20.3
+env:
+  - ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe ORACLE_SID=XE
+before_install:
+  - export PATH=$PATH:$ORACLE_HOME/bin/
+  - wget https://raw.githubusercontent.com/Vincit/travis-oracledb-xe/master/accept_the_license_agreement_for_oracledb_xe_11g_and_install.sh
+  - bash ./accept_the_license_agreement_for_oracledb_xe_11g_and_install.sh
+  - export LD_LIBRARY_PATH=$ORACLE_HOME/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+install:
+  - wget https://s3.amazonaws.com/rebar3/rebar3
+  - chmod +x rebar3
+  - wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+  - tar xf lcov_1.11.orig.tar.gz
+  - sudo make -C lcov-1.11/ install
+  - gem install coveralls-lcov
 before_script:
- - docker version
- - docker info
- - kerl list installations
- - lcov --directory . --zerocounters
+  - kerl list installations
+  - lcov --directory . --zerocounters
 
 script:
- - docker pull konnexionsgmbh/db_11_2_xe
- - docker images
- - docker create --shm-size 1G --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_11_2_xe
- - docker start oranif_db
- - wget -q -P /tmp https://github.com/K2InformaticsGmbH/oranif/wiki/travis/oracle-instantclient19.3-basic_19.3.0.0.0-2_amd64.deb
- - wget -q -P /tmp https://github.com/K2InformaticsGmbH/oranif/wiki/travis/oracle-instantclient19.3-sqlplus_19.3.0.0.0-2_amd64.deb
- - sudo apt install /tmp/oracle-instantclient19.3-basic_19.3.0.0.0-2_amd64.deb
- - sudo apt install /tmp/oracle-instantclient19.3-sqlplus_19.3.0.0.0-2_amd64.deb
- - export LD_LIBRARY_PATH=/usr/lib/oracle/19.3/client64/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - echo $LD_LIBRARY_PATH
- - ERL_INTERFACE_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/lib/erl_interface*/)"
- - OTP_ERTS_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/erts*/)"
- - export ERL_INTERFACE_DIR="${ERL_INTERFACE_DIR:0:$((${#ERL_INTERFACE_DIR} - 1))}"
- - export OTP_ERTS_DIR="${OTP_ERTS_DIR:0:$((${#OTP_ERTS_DIR} - 1))}"
- - ./rebar3 version
- - LINKODPI=true ./rebar3 as test compile
- - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - export LD_LIBRARY_PATH=./c_src/odpi/lib/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
- - while [ "`docker inspect -f {{.State.Health.Status}} oranif_db`" != "healthy" ]; do docker ps -a; sleep 60; done
- - sudo ldconfig
- - sleep 60
- - docker ps -a
- - cd test/
- - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/XE as sysdba @travis $(pwd)/log/
- - cd -
- - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
- - $OTP_ERTS_DIR/bin/epmd &
- - LINKODPI=true ./rebar3 eunit
+  - echo exit | sqlplus sys/travis@127.0.0.1:1521/XE as sysdba @test/travis.sql $(pwd)/log/
+  - OTP_ERTS_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/erts*/)"
+  - export OTP_ERTS_DIR="${OTP_ERTS_DIR:0:$((${#OTP_ERTS_DIR} - 1))}"
+  - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+  - ./rebar3 as test compile
+  - cd test/
+  - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/XE as sysdba @travis $(pwd)/log/
+  - cd -
+  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
+  - $OTP_ERTS_DIR/bin/epmd &
+  - ./rebar3 eunit
 
 after_success:
- - lcov --directory . --capture --output-file coverage.info # capture coverage info
- - lcov -r coverage.info "*.h" -o coverage_stripped.info # header files are not covered
- - lcov --list coverage_stripped.info # log coverage result
- - coveralls-lcov coverage_stripped.info # uploads to coveralls
+  - lcov --directory . --capture --output-file coverage.info # capture coverage info
+  - lcov -r coverage.info "*.h" -o coverage_stripped.info # header files are not covered
+  - lcov --list coverage_stripped.info # log coverage result
+  - coveralls-lcov coverage_stripped.info # uploads to coveralls

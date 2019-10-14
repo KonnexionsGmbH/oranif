@@ -32,8 +32,8 @@ script:
   - $OTP_ERTS_DIR/bin/epmd &
   - ./rebar3 eunit
 after_success:
-  - rm -rf c_src/odpi
   - lcov --directory . --capture --output-file coverage.info # capture coverage info
-  - lcov -r coverage.info "*.h" -o coverage_stripped.info # header files are not covered
+  - lcov -r coverage.info "*.h" -o coverage.info # header files are not covered
+  - lcov -r coverage.info "c_src/odpi" -o coverage.info # all odpi files are not covered
   - lcov --list coverage_stripped.info # log coverage result
   - coveralls-lcov coverage_stripped.info # uploads to coveralls

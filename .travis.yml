@@ -1,6 +1,6 @@
 sudo: required
-
 group: edge
+dist: trusty
 
 services:
  - docker

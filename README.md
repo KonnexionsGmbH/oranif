@@ -1,7 +1,5 @@
 # oranif
-[![Build Status](https://travis-ci.org/c-bik/oranif.svg?branch=master)](https://travis-ci.org/c-bik/oranif)
-
-[![Coverage Status](https://coveralls.io/repos/github/c-bik/oranif/badge.svg?branch=master)](https://coveralls.io/github/c-bik/oranif?branch=master)
+[![Build Status](https://travis-ci.org/c-bik/oranif.svg?branch=master)](https://travis-ci.org/c-bik/oranif)[![Coverage Status](https://coveralls.io/repos/github/c-bik/oranif/badge.svg?branch=master)](https://coveralls.io/github/c-bik/oranif?branch=master)
 ![GitHub](https://img.shields.io/github/license/c-bik/oranif.svg)
 
 Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later with full dirty nif support.

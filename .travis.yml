@@ -5,6 +5,8 @@ otp_release:
 env:
   - ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe ORACLE_SID=XE
 before_install:
+  - eval sudo chmod +x "$(dirname `which erl`)/../erts-*/bin/epmd"
+  - eval "$(dirname `which erl`)/../erts-*/bin/epmd" -daemon
   - export PATH=$PATH:$ORACLE_HOME/bin/
   - wget https://raw.githubusercontent.com/Vincit/travis-oracledb-xe/master/accept_the_license_agreement_for_oracledb_xe_11g_and_install.sh
   - bash ./accept_the_license_agreement_for_oracledb_xe_11g_and_install.sh
@@ -21,15 +23,7 @@ before_script:
   - lcov --directory . --zerocounters
 script:
   - echo exit | sqlplus sys/travis@127.0.0.1:1521/XE as sysdba @test/travis.sql $(pwd)/log/
-  - OTP_ERTS_DIR="$(ls -d ~/otp/$TRAVIS_OTP_RELEASE/erts*/)"
-  - export OTP_ERTS_DIR="${OTP_ERTS_DIR:0:$((${#OTP_ERTS_DIR} - 1))}"
   - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-  - ./rebar3 as test compile
-  - cd test/
-  - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/XE as sysdba @travis $(pwd)/log/
-  - cd -
-  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
-  - $OTP_ERTS_DIR/bin/epmd &
   - ./rebar3 eunit
 after_success:
   - lcov --directory . --capture --output-file coverage.info # capture coverage info

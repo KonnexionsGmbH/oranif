@@ -583,6 +583,31 @@ stmtFetchRows(#{session := Conn} = TestCtx) ->
     ?assert(is_integer(NumRowsFetched)),
     dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
 
+stmtSetFetchArraySize(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource statement from arg0",
+        dpiCall(TestCtx, stmt_setFetchArraySize, [?BAD_REF, 1])
+    ),
+    % fails due to the reference being of the wrong type
+    ?ASSERT_EX(
+        "Unable to retrieve resource statement from arg0",
+        dpiCall(TestCtx, stmt_setFetchArraySize, [Conn, 1])
+    ),
+
+    Stmt = dpiCall(
+        TestCtx, conn_prepareStmt,
+        [Conn, false, <<"select 1337 from dual">>, <<>>]
+    ),
+
+    ?ASSERT_EX(
+        "Unable to retrieve uint arraySize from arg1",
+        dpiCall(TestCtx, stmt_setFetchArraySize, [Stmt, ?BAD_INT])
+    ),
+
+    Ok = dpiCall(TestCtx, stmt_setFetchArraySize, [Stmt, 1]),
+    ?assert(is_atom(Ok)),
+    dpiCall(TestCtx, stmt_close, [Stmt, <<>>]).
+
 stmtGetQueryValue(#{session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource statement from arg0",
@@ -1689,6 +1714,7 @@ getConfig() ->
     ?F(stmtExecuteMany_varGetReturnedData),
     ?F(stmtFetch),
     ?F(stmtFetchRows),
+    ?F(stmtSetFetchArraySize),
     ?F(stmtGetQueryValue),
     ?F(stmtGetQueryInfo),
     ?F(stmtGetInfo),

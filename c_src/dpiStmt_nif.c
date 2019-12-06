@@ -137,7 +137,7 @@ DPI_NIF_FUN(stmt_fetchRows)
         stmtRes->context,
         dpiStmt_fetchRows(
             stmtRes->stmt, maxRows, &bufferRowIndex, &numRowsFetched, &moreRows
-            ));
+    ));
     
     ERL_NIF_TERM map = enif_make_new_map(env);
     enif_make_map_put(
@@ -155,6 +155,28 @@ DPI_NIF_FUN(stmt_fetchRows)
     // #{bufferRowIndex => integer, numRowsFetched => integer, moreRows => atom}
     RETURNED_TRACE;
     return map;
+}
+
+DPI_NIF_FUN(stmt_setFetchArraySize)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiStmt_res *stmtRes;
+    uint32_t arraySize;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    if (!enif_get_uint(env, argv[1], &arraySize))
+        BADARG_EXCEPTION(1, "uint arraySize");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context,
+        dpiStmt_setFetchArraySize( stmtRes->stmt, arraySize)
+    );
+    
+    RETURNED_TRACE;
+    return ATOM_OK;
 }
 
 DPI_NIF_FUN(stmt_getQueryValue)

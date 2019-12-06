@@ -117,6 +117,46 @@ DPI_NIF_FUN(stmt_fetch)
     return map;
 }
 
+DPI_NIF_FUN(stmt_fetchRows)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiStmt_res *stmtRes;
+    uint32_t moreRows;
+    uint32_t maxRows;
+    uint32_t bufferRowIndex;
+    uint32_t numRowsFetched;
+
+    if (!enif_get_resource(env, argv[0], dpiStmt_type, (void **)&stmtRes))
+        BADARG_EXCEPTION(0, "resource statement");
+
+    if (!enif_get_uint(env, argv[1], &maxRows))
+        BADARG_EXCEPTION(1, "uint maxRows");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        stmtRes->context,
+        dpiStmt_fetchRows(
+            stmtRes->stmt, maxRows, &bufferRowIndex, &numRowsFetched, &moreRows
+            ));
+    
+    ERL_NIF_TERM map = enif_make_new_map(env);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "moreRows"),
+        enif_make_atom(
+            env, moreRows ? "true" : "false"),
+        &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "bufferRowIndex"),
+        enif_make_uint(env, bufferRowIndex), &map);
+    enif_make_map_put(
+        env, map, enif_make_atom(env, "numRowsFetched"),
+        enif_make_uint(env, numRowsFetched), &map);
+
+    // #{bufferRowIndex => integer, numRowsFetched => integer, moreRows => atom}
+    RETURNED_TRACE;
+    return map;
+}
+
 DPI_NIF_FUN(stmt_getQueryValue)
 {
     CHECK_ARGCOUNT(2);

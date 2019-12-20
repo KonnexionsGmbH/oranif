@@ -102,7 +102,9 @@ find_nif() ->
 find_nif(PrivDir) ->
     case filelib:wildcard("dpi_nif.*", PrivDir) of
         [] ->
-            Source = filename:dirname(proplists:get_value(source, dpi:module_info(?MODULE))),
+            Source = filename:dirname(
+                proplists:get_value(source, dpi:module_info(compile))
+            ),
             find_nif(filename:join([Source, "..", "priv"]));
         _ -> filename:join(PrivDir, "dpi_nif")
     end.

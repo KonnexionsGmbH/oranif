@@ -80,7 +80,14 @@ unload(SlaveNode) when is_atom(SlaveNode) ->
 %===============================================================================
 
 load_unsafe() ->
-    PrivDir = case code:priv_dir(oranif) of
+    case erlang:load_nif(find_nif(), 0) of
+        ok -> ok;
+        {error, {reload, _}} -> ok;
+        {error, Error} -> {error, Error}
+    end.
+
+find_nif() ->
+    find_nif(case code:priv_dir(oranif) of
         Path when is_list(Path) -> Path;
         {error, _} ->
             EbinDir = filename:dirname(code:which(?MODULE)),
@@ -91,11 +98,13 @@ load_unsafe() ->
                 [?MODULE, ?FUNCTION_NAME, ?LINE, Path]
             ),
             Path
-    end,
-    case erlang:load_nif(filename:join(PrivDir, "dpi_nif"), 0) of
-        ok -> ok;
-        {error, {reload, _}} -> ok;
-        {error, Error} -> {error, Error, PrivDir}
+    end).
+find_nif(PrivDir) ->
+    case filelib:wildcard("dpi_nif.*", PrivDir) of
+        [] ->
+            Source = filename:dirname(proplists:get_value(source, dpi:module_info(?MODULE))),
+            find_nif(filename:join([Source, "..", "priv"]));
+        _ -> filename:join(PrivDir, "dpi_nif")
     end.
 
 %===============================================================================

@@ -19,7 +19,8 @@
     {stmt_getQueryValue, [reference, integer]},
     {stmt_close, [reference, binary]},
     {stmt_getNumQueryColumns, [reference]},
-    {stmt_getInfo, [reference]}
+    {stmt_getInfo, [reference]},
+    {stmt_setFetchArraySize, [reference, integer]}
 ]}).
 
 -endif. % _DPI_STMT_HRL_

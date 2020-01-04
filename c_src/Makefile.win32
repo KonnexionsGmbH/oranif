@@ -39,7 +39,7 @@ $(OBJS) :
 
 odpi:
 !IF !EXISTS($S\odpi)
-    cd c_src && git clone -b v3.0.0 --single-branch https://github.com/K2InformaticsGmbH/odpi
+    cd c_src && git clone -b v3.0.0 --single-branch https://github.com/oracle/odpi
     @RD /S /Q c_src\odpi\.git 2>nul || rem
 !ENDIF
 !IF DEFINED(LINKODPI) && !EXISTS($L)

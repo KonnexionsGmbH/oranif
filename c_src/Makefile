@@ -1,6 +1,6 @@
 O = priv
 S = c_src
-ODPI_REPO = https://github.com/K2InformaticsGmbH/odpi
+ODPI_REPO = https://github.com/oracle/odpi
 ERTS_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~ts/erts-~ts/\", [code:root_dir(), erlang:system_info(version)]).")
 
 SRCS = $(wildcard $(S)/*.c)

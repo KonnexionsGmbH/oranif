@@ -8,8 +8,10 @@
 -nifs({dpiData, [
     {data_getBytes, [reference]},
     {data_getInt64, [reference]},
+    {data_getDouble, [reference]},
     {data_setBytes, [reference, binary]},
     {data_setInt64, [reference, integer]},
+    {data_setDouble, [reference, float]},
     {data_setIntervalDS,
         [reference, integer, integer, integer, integer, integer]},
     {data_setIntervalYM, [reference, integer, integer]},

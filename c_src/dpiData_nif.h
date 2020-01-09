@@ -28,8 +28,10 @@ extern void dpiDataPtr_res_dtor(ErlNifEnv *env, void *resource);
 
 extern DPI_NIF_FUN(data_getBytes);
 extern DPI_NIF_FUN(data_getInt64);
+extern DPI_NIF_FUN(data_getDouble);
 extern DPI_NIF_FUN(data_setBytes);
 extern DPI_NIF_FUN(data_setInt64);
+extern DPI_NIF_FUN(data_setDouble);
 extern DPI_NIF_FUN(data_setIntervalDS);
 extern DPI_NIF_FUN(data_setIntervalYM);
 extern DPI_NIF_FUN(data_setTimestamp);
@@ -41,8 +43,10 @@ extern DPI_NIF_FUN(data_release);
 #define DPIDATA_NIFS                    \
     DEF_NIF(data_getBytes, 1),          \
         DEF_NIF(data_getInt64, 1),      \
+        DEF_NIF(data_getDouble, 1),      \
         DEF_NIF(data_setBytes, 2),      \
         DEF_NIF(data_setInt64, 2),      \
+        DEF_NIF(data_setDouble, 2),      \
         DEF_NIF(data_setIntervalDS, 6), \
         DEF_NIF(data_setIntervalYM, 3), \
         DEF_NIF(data_setTimestamp, 10), \

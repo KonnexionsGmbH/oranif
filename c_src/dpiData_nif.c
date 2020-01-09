@@ -180,6 +180,31 @@ DPI_NIF_FUN(data_setInt64)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(data_setDouble)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiData_res *dataRes;
+    dpiDataPtr_res *dataPtr;
+    dpiData *data;
+
+    double amount;
+
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
+        data = dataPtr->dpiDataPtr;
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
+        data = &dataRes->dpiData;
+    else
+        BADARG_EXCEPTION(0, "resource data/ptr");
+
+    if (!enif_get_double(env, argv[1], &amount))
+        BADARG_EXCEPTION(1, "double amount");
+
+    dpiData_setDouble(data, amount);
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
 DPI_NIF_FUN(data_setBytes)
 {
     CHECK_ARGCOUNT(2);
@@ -397,6 +422,32 @@ DPI_NIF_FUN(data_getInt64) // TODO: unit test
 
     RETURNED_TRACE;
     return enif_make_int64(env, result);
+}
+
+DPI_NIF_FUN(data_getDouble) // TODO: unit test
+{
+    CHECK_ARGCOUNT(1);
+
+    dpiData_res *dataRes;
+    dpiDataPtr_res *dataPtr;
+    dpiData *data;
+
+    if (enif_get_resource(env, argv[0], dpiDataPtr_type, (void **)&dataPtr))
+        data = dataPtr->dpiDataPtr;
+    else if (enif_get_resource(env, argv[0], dpiData_type, (void **)&dataRes))
+        data = &dataRes->dpiData;
+    else
+        BADARG_EXCEPTION(0, "resource data/ptr");
+
+    if (data->isNull)
+    {
+        RETURNED_TRACE;
+        return ATOM_NULL;
+    }
+    double result = dpiData_getDouble(data);
+
+    RETURNED_TRACE;
+    return enif_make_double(env, result);
 }
 
 DPI_NIF_FUN(data_getBytes) // TODO: unit test

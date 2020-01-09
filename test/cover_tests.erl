@@ -20,6 +20,7 @@
 ).
 
 -define(BAD_INT, -16#FFFFFFFFFFFFFFFF1).
+-define(BAD_FLOAT, notEvenAFloatAtAll).
 -define(BAD_REF, make_ref()).
 -define(W(_Tests), fun(__Ctx) -> _Tests end).
 -define(F(__Fn), {??__Fn, fun() -> __Fn(__Ctx) end}).
@@ -1215,6 +1216,28 @@ dataSetInt64(#{session := Conn} = TestCtx) ->
     dpiCall(TestCtx, data_release, [Data1]),
     dpiCall(TestCtx, var_release, [Var]).
 
+dataSetDouble(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource data/ptr from arg0",
+        dpiCall(TestCtx, data_setDouble, [?BAD_REF, 1])
+    ),
+    Data = dpiCall(TestCtx, data_ctor, []),
+    ?ASSERT_EX(
+        "Unable to retrieve double amount from arg1",
+        dpiCall(TestCtx, data_setDouble, [Data, ?BAD_FLOAT])
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, data_setDouble, [Data, 1.0])),
+    dpiCall(TestCtx, data_release, [Data]),
+    #{var := Var, data := [Data1]} = dpiCall(
+        TestCtx, conn_newVar, [
+            Conn, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM',
+            1, 1, true, true, null
+        ]
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, data_setDouble, [Data1, 1.0])),
+    dpiCall(TestCtx, data_release, [Data1]),
+    dpiCall(TestCtx, var_release, [Var]).
+
 dataSetBytes(TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource data/ptr from arg0",
@@ -1263,6 +1286,8 @@ dataGet(#{session := Conn} = TestCtx) ->
         {int, 'DPI_ORACLE_TYPE_NATIVE_UINT', 'DPI_NATIVE_TYPE_UINT64'},
         {float, 'DPI_ORACLE_TYPE_NATIVE_FLOAT', 'DPI_NATIVE_TYPE_FLOAT'},
         {float, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE'},
+        {double, 'DPI_ORACLE_TYPE_NATIVE_FLOAT', 'DPI_NATIVE_TYPE_FLOAT'},
+        {double, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE'},
         {ts, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP'},
         {intvlds, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS'},
         {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'},
@@ -1285,6 +1310,10 @@ dataGet(#{session := Conn} = TestCtx) ->
                     ),
                     ?assert(is_integer(dpiCall(TestCtx, data_get, [Data])));
                 float -> ?assert(is_float(dpiCall(TestCtx, data_get, [Data])));
+                double ->
+                    ?assert(
+                        is_float(dpiCall(TestCtx, data_getDouble, [Data]))
+                    );
                 ts ->
                     #{
                         year := Year, month := Month, day := Day, hour := Hour,
@@ -1415,6 +1444,18 @@ dataGetInt64(TestCtx) ->
     ?assertEqual(null, dpiCall(TestCtx, data_getInt64, [Data])),
     dpiCall(TestCtx, data_setIsNull, [Data, false]),
     ?assert(is_integer(dpiCall(TestCtx, data_getInt64, [Data]))),
+    dpiCall(TestCtx, data_release, [Data]).
+
+dataGetDouble(TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource data/ptr from arg0",
+        dpiCall(TestCtx, data_getDouble, [?BAD_REF])
+    ),
+    Data = dpiCall(TestCtx, data_ctor, []),
+    dpiCall(TestCtx, data_setIsNull, [Data, true]),
+    ?assertEqual(null, dpiCall(TestCtx, data_getDouble, [Data])),
+    dpiCall(TestCtx, data_setIsNull, [Data, false]),
+    ?assert(is_float(dpiCall(TestCtx, data_getDouble, [Data]))),
     dpiCall(TestCtx, data_release, [Data]).
 
 % no non-pointer test for this one
@@ -1674,6 +1715,7 @@ getConfig() ->
     ?F(dataSetIntervalDS),
     ?F(dataSetIntervalYM),
     ?F(dataSetInt64),
+    ?F(dataSetDouble),
     ?F(dataSetBytes),
     ?F(dataSetIsNull),
     ?F(dataGet),
@@ -1681,6 +1723,7 @@ getConfig() ->
     ?F(dataGetRowid),
     ?F(dataGetStmt),
     ?F(dataGetInt64),
+    ?F(dataGetDouble),
     ?F(dataGetBytes),
     ?F(dataRelease),
     ?F(resourceCounting)

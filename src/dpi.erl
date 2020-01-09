@@ -13,6 +13,7 @@
 -include("dpiStmt.hrl").
 -include("dpiData.hrl").
 -include("dpiVar.hrl").
+-include("dpiLob.hrl").
 
 %===============================================================================
 %   Slave Node APIs

@@ -15,6 +15,7 @@
     {stmt_execute, [reference, list]},
     {stmt_executeMany, [reference, list, integer]},
     {stmt_fetch, [reference]},
+    {stmt_fetchRows, [reference, integer]},
     {stmt_getQueryInfo, [reference, integer]},
     {stmt_getQueryValue, [reference, integer]},
     {stmt_close, [reference, binary]},

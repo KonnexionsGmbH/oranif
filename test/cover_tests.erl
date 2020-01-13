@@ -1583,6 +1583,29 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     ?assertEqual(InitialRC, dpiCall(TestCtx, resource_count, [])).
 
 %-------------------------------------------------------------------------------
+% LOB APIs
+%-------------------------------------------------------------------------------
+lobSetFromBytes(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_setFromBytes, [?BAD_REF, <<"abc">>])
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    ?ASSERT_EX(
+        "Unable to retrieve binary value from arg1",
+        dpiCall(TestCtx, lob_setFromBytes, [Lob, badBinary])
+    ),
+    %?ASSERT_EX(
+    %    #{message :=
+    %        "Unable to retrieve resource lob from arg0"
+    %    },
+    %    dpiCall(TestCtx, lob_setFromBytes, [Conn, <<"abc">>])
+    %),
+    ?assertEqual(ok, dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>])),
+    dpiCall(TestCtx, lob_release, [Lob]).
+
+
+%-------------------------------------------------------------------------------
 % eunit infrastructure callbacks
 %-------------------------------------------------------------------------------
 -define(SLAVE, oranif_slave).
@@ -1748,7 +1771,8 @@ getConfig() ->
     ?F(dataGetDouble),
     ?F(dataGetBytes),
     ?F(dataRelease),
-    ?F(resourceCounting)
+    ?F(resourceCounting),
+    ?F(lobSetFromBytes)
 ]).
 
 unsafe_no_context_test_() ->

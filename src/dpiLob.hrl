@@ -6,7 +6,8 @@
 % see: https://oracle.github.io/odpi/doc/public_functions/dpiLob.html
 
 -nifs({dpiLob, [
-    {lob_release, [reference]}
+    {lob_release, [reference]},
+    {lob_setFromBytes, [reference, binary]}
 ]}).
 
 -endif. % _DPI_LOB_HRL_

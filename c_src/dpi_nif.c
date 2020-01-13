@@ -26,7 +26,7 @@ static ErlNifFunc nif_funcs[] = {
     DPISTMT_NIFS,
     DPIDATA_NIFS,
     DPIVAR_NIFS,
-    DPILOB_NIFS/*,*/
+    DPILOB_NIFS,
     {"resource_count", 0, resource_count}};
 
 /*******************************************************************************
@@ -151,6 +151,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     DEF_RES(dpiData);
     DEF_RES(dpiDataPtr);
     DEF_RES(dpiVar);
+    DEF_RES(dpiLob);
 
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_NULL = enif_make_atom(env, "null");

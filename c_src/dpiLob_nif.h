@@ -11,12 +11,11 @@ typedef struct
 } dpiLob_res;
 
 extern ErlNifResourceType *dpiLob_type;
-
 extern void dpiLob_res_dtor(ErlNifEnv *env, void *resource);
 
-//extern DPI_NIF_FUN(var_release);
+extern DPI_NIF_FUN(lob_release);
 
 #define DPILOB_NIFS                            \
-    //DEF_NIF(var_release, 1),                   
+    IOB_NIF(lob_release, 1)                   
 
 #endif // _DPILOB_NIF_H_

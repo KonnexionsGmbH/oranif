@@ -138,7 +138,7 @@ DPI_NIF_FUN(conn_prepareStmt)
 
 DPI_NIF_FUN(conn_newTempLob)
 {
-    CHECK_ARGCOUNT(3);
+    CHECK_ARGCOUNT(2);
 
     dpiConn_res *connRes = NULL;
     dpiOracleTypeNum type;
@@ -158,8 +158,6 @@ DPI_NIF_FUN(conn_newTempLob)
         lobRes, dpiLob);
 
     lobRes->context = connRes->context;
-
-    ERL_NIF_TERM lobResTerm = enif_make_resource(env, lobRes);
 
     RETURNED_TRACE;
     return enif_make_resource(env, lobRes);

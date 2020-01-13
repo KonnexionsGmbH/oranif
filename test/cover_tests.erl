@@ -290,6 +290,27 @@ connNewVar(#{session := Conn} = TestCtx) ->
     [dpiCall(TestCtx, data_release, [X]) || X <- Data],
     dpiCall(TestCtx, var_release, [Var]).
 
+connNewTempLob(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource connection from arg0",
+        dpiCall(TestCtx, conn_newTempLob, [?BAD_REF, 'DPI_ORACLE_TYPE_CLOB'])
+    ),
+    ?ASSERT_EX(
+        "wrong or unsupported dpiOracleType type",
+        dpiCall(TestCtx, conn_newTempLob, [Conn, 'BAD_DPI_ORACLE_TYPE'])
+    ),
+    % fails due to the type being wrong
+    ?ASSERT_EX(
+        #{message := "DPI-1021: Oracle type 2008 is invalid"},
+        dpiCall(
+            TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE']
+        )
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    ?assert(is_reference(Lob)),
+    dpiCall(TestCtx, lob_release, [Lob]),
+    ok.
+
 connCommit(#{context := Context, session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource connection from arg0",
@@ -1688,6 +1709,7 @@ getConfig() ->
 -define(AFTER_CONNECTION_TESTS, [
     ?F(connPrepareStmt),
     ?F(connNewVar),
+    ?F(connNewTempLob),
     ?F(connCommit),
     ?F(connRollback),
     ?F(connPing),

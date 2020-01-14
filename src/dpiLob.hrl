@@ -7,7 +7,9 @@
 
 -nifs({dpiLob, [
     {lob_release, [reference]},
-    {lob_setFromBytes, [reference, binary]}
+    {lob_setFromBytes, [reference, binary]},
+    {lob_readBytes, [reference, integer, integer]}
+    
 ]}).
 
 -endif. % _DPI_LOB_HRL_

@@ -1585,23 +1585,42 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
 %-------------------------------------------------------------------------------
 % LOB APIs
 %-------------------------------------------------------------------------------
-lobSetFromBytes(#{session := Conn} = TestCtx) ->
+lobSetReadFromBytes(#{session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource lob from arg0",
         dpiCall(TestCtx, lob_setFromBytes, [?BAD_REF, <<"abc">>])
     ),
-    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_BLOB']),
     ?ASSERT_EX(
         "Unable to retrieve binary value from arg1",
         dpiCall(TestCtx, lob_setFromBytes, [Lob, badBinary])
     ),
-    %?ASSERT_EX(
-    %    #{message :=
-    %        "Unable to retrieve resource lob from arg0"
-    %    },
-    %    dpiCall(TestCtx, lob_setFromBytes, [Conn, <<"abc">>])
-    %),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_setFromBytes, [Conn, <<"abc">>])
+    ),
     ?assertEqual(ok, dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>])),
+
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_readBytes, [?BAD_REF, 1, 3])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve uint64 offset from arg1",
+        dpiCall(TestCtx, lob_readBytes, [Lob, ?BAD_INT, 3])
+    ),
+
+    ?ASSERT_EX(
+        "Unable to retrieve uint64 length from arg2",
+        dpiCall(TestCtx, lob_readBytes, [Lob, 1, ?BAD_INT])
+    ),
+
+    ?ASSERT_EX(
+        #{message := "ORA-24801: illegal parameter value in OCI lob function"},
+        dpiCall(TestCtx, lob_readBytes, [Lob, 0, 3])
+    ),
+
+    ?assertEqual(<<"abc">>, dpiCall(TestCtx, lob_readBytes, [Lob, 1, 3])),
     dpiCall(TestCtx, lob_release, [Lob]).
 
 
@@ -1772,7 +1791,7 @@ getConfig() ->
     ?F(dataGetBytes),
     ?F(dataRelease),
     ?F(resourceCounting),
-    ?F(lobSetFromBytes)
+    ?F(lobSetReadFromBytes)
 ]).
 
 unsafe_no_context_test_() ->

@@ -28,6 +28,37 @@ DPI_NIF_FUN(lob_setFromBytes)
     return ATOM_OK;
 }
 
+DPI_NIF_FUN(lob_readBytes)
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiLob_res *lRes = NULL;
+    uint64_t offset;
+    uint64_t size;
+    uint64_t length;
+    if ((!enif_get_resource(env, argv[0], dpiLob_type, (void **)&lRes)))
+        BADARG_EXCEPTION(0, "resource lob");
+    if (!enif_get_uint64(env, argv[1], &offset))
+        BADARG_EXCEPTION(1, "uint64 offset");
+        if (!enif_get_uint64(env, argv[2], &length))
+        BADARG_EXCEPTION(2, "uint64 length");
+    
+    size = length;
+    ErlNifBinary bin;
+    enif_alloc_binary(length, &bin);
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        lRes->context,
+        dpiLob_readBytes(lRes->lob, offset, size, bin.data, &length));
+
+    if (size == length){
+        RETURNED_TRACE;
+        return enif_make_binary(env, &bin);
+    }
+    ErlNifBinary bin2;
+    enif_alloc_binary(length, &bin2);
+    memcpy(bin2.data, bin.data, length);
+}
 
 DPI_NIF_FUN(lob_release)
 {

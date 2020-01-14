@@ -58,6 +58,7 @@ DPI_NIF_FUN(lob_readBytes)
     ErlNifBinary bin2;
     enif_alloc_binary(length, &bin2);
     memcpy(bin2.data, bin.data, length);
+    return enif_make_binary(env, &bin2);
 }
 
 DPI_NIF_FUN(lob_release)

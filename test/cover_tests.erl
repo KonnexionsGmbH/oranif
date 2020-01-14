@@ -1618,6 +1618,7 @@ lobSetReadFromBytes(#{session := Conn} = TestCtx) ->
     ),
 
     ?assertEqual(<<"abc">>, dpiCall(TestCtx, lob_readBytes, [Lob, 1, 3])),
+    ?assertEqual(<<"abc">>, dpiCall(TestCtx, lob_readBytes, [Lob, 1, 5])),
     dpiCall(TestCtx, lob_release, [Lob]).
 
 

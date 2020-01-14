@@ -1600,7 +1600,6 @@ lobSetReadFromBytes(#{session := Conn} = TestCtx) ->
         dpiCall(TestCtx, lob_setFromBytes, [Conn, <<"abc">>])
     ),
     ?assertEqual(ok, dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>])),
-
     ?ASSERT_EX(
         "Unable to retrieve resource lob from arg0",
         dpiCall(TestCtx, lob_readBytes, [?BAD_REF, 1, 3])
@@ -1609,12 +1608,10 @@ lobSetReadFromBytes(#{session := Conn} = TestCtx) ->
         "Unable to retrieve uint64 offset from arg1",
         dpiCall(TestCtx, lob_readBytes, [Lob, ?BAD_INT, 3])
     ),
-
     ?ASSERT_EX(
         "Unable to retrieve uint64 length from arg2",
         dpiCall(TestCtx, lob_readBytes, [Lob, 1, ?BAD_INT])
     ),
-
     ?ASSERT_EX(
         #{message := "ORA-24801: illegal parameter value in OCI lob function"},
         dpiCall(TestCtx, lob_readBytes, [Lob, 0, 3])

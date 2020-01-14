@@ -34,8 +34,8 @@ DPI_NIF_FUN(lob_readBytes)
 
     dpiLob_res *lRes = NULL;
     uint64_t offset;
-    uint64_t size;
-    uint64_t length;
+    uint64_t size;  // size of the binary that will be created
+    uint64_t length; // maximum length that is told to ODPI
     if ((!enif_get_resource(env, argv[0], dpiLob_type, (void **)&lRes)))
         BADARG_EXCEPTION(0, "resource lob");
     if (!enif_get_uint64(env, argv[1], &offset))
@@ -43,7 +43,7 @@ DPI_NIF_FUN(lob_readBytes)
         if (!enif_get_uint64(env, argv[2], &length))
         BADARG_EXCEPTION(2, "uint64 length");
     
-    size = length;
+    size = length; // buffer size and max length have to be the same
     ErlNifBinary bin;
     enif_alloc_binary(length, &bin);
 
@@ -53,12 +53,12 @@ DPI_NIF_FUN(lob_readBytes)
 
     if (size == length){
         RETURNED_TRACE;
-        return enif_make_binary(env, &bin);
-    }
-    ErlNifBinary bin2;
-    enif_alloc_binary(length, &bin2);
+        return enif_make_binary(env, &bin); // just return the binary
+    } // if those are still the same, then the binary wan't too big
+    ErlNifBinary bin2; // binary was too big, so make a new, smaller one
+    enif_alloc_binary(length, &bin2); // length now contains the right size
     memcpy(bin2.data, bin.data, length);
-    return enif_make_binary(env, &bin2);
+    return enif_make_binary(env, &bin2); // return the smallr binary
 }
 
 DPI_NIF_FUN(lob_release)

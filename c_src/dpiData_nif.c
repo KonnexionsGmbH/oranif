@@ -390,8 +390,27 @@ DPI_NIF_FUN(data_get)
         dataRet = enif_make_binary(env, &bin);
     }
     break;
+    case DPI_NATIVE_TYPE_LOB:
+    {
+        uint64_t size;
+        uint64_t length;
+        size = length = 256;
+        ErlNifBinary bin;
+        enif_alloc_binary(length, &bin);
+        dpiLob_readBytes(data->value.asLOB, 1, size, bin.data, &length);
+
+        if (size == length)
+            dataRet = enif_make_binary(env, &bin); // just return the binary
+        else{
+            ErlNifBinary bin2; // binary was too big, so make a new, smaller one
+            enif_alloc_binary(length, &bin2); // length now contains the right size
+            memcpy(bin2.data, bin.data, length);
+            dataRet = enif_make_binary(env, &bin2); // return the smaller binary
+        }
+        break;
+    }
     default:
-        RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
+        RAISE_STR_EXCEPTION("Unsupported nativeTypeNum in data_get");
     }
 
     RETURNED_TRACE;

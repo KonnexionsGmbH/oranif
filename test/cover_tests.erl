@@ -1312,7 +1312,8 @@ dataGet(#{session := Conn} = TestCtx) ->
         {ts, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP'},
         {intvlds, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS'},
         {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'},
-        {unsupported, 'DPI_ORACLE_TYPE_CLOB', 'DPI_NATIVE_TYPE_LOB'}
+        {lob, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB'},
+        {unsupported, 'DPI_ORACLE_TYPE_BOOLEAN', 'DPI_NATIVE_TYPE_BOOLEAN'}
     ],
     lists:foreach(
         fun({Test, OraType, NativeType}) ->
@@ -1368,9 +1369,12 @@ dataGet(#{session := Conn} = TestCtx) ->
                     } = dpiCall(TestCtx, data_get, [Data]),
                     ?assert(is_integer(Years)),
                     ?assert(is_integer(Months));
+                lob ->
+                    Bin = dpiCall(TestCtx, data_get, [Data]),
+                    ?assert(is_binary(Bin));
                 unsupported ->
                     ?ASSERT_EX(
-                        "Unsupported nativeTypeNum",
+                        "Unsupported nativeTypeNum in data_get",
                         dpiCall(TestCtx, data_get, [Data])
                     )
             end,

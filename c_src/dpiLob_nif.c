@@ -58,7 +58,7 @@ DPI_NIF_FUN(lob_readBytes)
     ErlNifBinary bin2; // binary was too big, so make a new, smaller one
     enif_alloc_binary(length, &bin2); // length now contains the right size
     memcpy(bin2.data, bin.data, length);
-    return enif_make_binary(env, &bin2); // return the smallr binary
+    return enif_make_binary(env, &bin2); // return the smaller binary
 }
 
 DPI_NIF_FUN(lob_release)

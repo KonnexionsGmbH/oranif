@@ -34,9 +34,9 @@ before_script:
  - lcov --directory . --zerocounters
 
 script:
- - docker pull konnexionsgmbh/db_18_4_xe
+ - docker pull konnexionsgmbh/db_19_3_ee
  - docker images
- - docker create --shm-size 1G --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_18_4_xe
+ - docker create --shm-size 1G --name oranif_db -p 1521:1521/tcp -e ORACLE_PWD=oracle konnexionsgmbh/db_19_3_ee
  - docker start oranif_db
  - wget -q -P /tmp https://github.com/K2InformaticsGmbH/oranif/wiki/travis/oracle-instantclient19.3-basic_19.3.0.0.0-2_amd64.deb
  - wget -q -P /tmp https://github.com/K2InformaticsGmbH/oranif/wiki/travis/oracle-instantclient19.3-sqlplus_19.3.0.0.0-2_amd64.deb

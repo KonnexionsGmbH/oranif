@@ -57,7 +57,7 @@ script:
  - sleep 60
  - docker ps -a
  - cd test/
- - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/XE as sysdba @travis $(pwd)/log/
+ - echo exit | sqlplus sys/oracle@$DOCKER_MACHINE_IP:1521/orclpdb1 as sysdba @travis $(pwd)/log/
  - cd -
  - sudo chmod +x $OTP_ERTS_DIR/bin/epmd
  - $OTP_ERTS_DIR/bin/epmd &

@@ -421,7 +421,7 @@ DPI_NIF_FUN(stmt_getInfo)
         info.isReturning ? ATOM_TRUE : ATOM_FALSE,
         &map);
 
-    ERL_NIF_TERM type;
+    ERL_NIF_TERM type = enif_make_atom(env, "DPI_STMT_TYPE_UNKNOWN");
 
     switch (info.statementType)
     {

@@ -1056,6 +1056,7 @@ varSetFromLob(#{session := Conn} = TestCtx) ->
         ]
     ),
     Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>]),
     ?ASSERT_EX(
         "Unable to retrieve uint pos from arg1",
         dpiCall(TestCtx, var_setFromLob, [Var, ?BAD_INT, Lob])
@@ -1072,6 +1073,7 @@ varSetFromLob(#{session := Conn} = TestCtx) ->
         dpiCall(TestCtx, var_setFromLob, [Var, 1000, Lob])
     ),
     ?assertEqual(ok, dpiCall(TestCtx, var_setFromLob, [Var, 0, Lob])),
+    ?assertEqual(<<"abc">>, dpiCall(TestCtx, data_get, [lists:nth(1, Data)])),
     [dpiCall(TestCtx, data_release, [X]) || X <- Data],
     dpiCall(TestCtx, var_release, [Var]),
     dpiCall(TestCtx, lob_release, [Lob]).

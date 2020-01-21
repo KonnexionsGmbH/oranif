@@ -1043,6 +1043,39 @@ varSetFromBytes(#{session := Conn} = TestCtx) ->
     [dpiCall(TestCtx, data_release, [X]) || X <- Data],
     dpiCall(TestCtx, var_release, [Var]).
 
+varSetFromLob(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource var from arg0",
+        dpiCall(TestCtx, var_setFromLob, [?BAD_REF, 0, <<"abc">>])
+    ),
+    #{var := Var, data := Data} = dpiCall(
+        TestCtx, conn_newVar,
+        [
+            Conn, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB', 100, 100,
+            true, false, null
+        ]
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    ?ASSERT_EX(
+        "Unable to retrieve uint pos from arg1",
+        dpiCall(TestCtx, var_setFromLob, [Var, ?BAD_INT, Lob])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg2",
+        dpiCall(TestCtx, var_setFromLob, [Var, 0, ?BAD_REF])
+    ),
+    ?ASSERT_EX(
+        #{message :=
+            "DPI-1009: zero-based position 1000 is not valid with max array"
+            " size of 100"
+        },
+        dpiCall(TestCtx, var_setFromLob, [Var, 1000, Lob])
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, var_setFromLob, [Var, 0, Lob])),
+    [dpiCall(TestCtx, data_release, [X]) || X <- Data],
+    dpiCall(TestCtx, var_release, [Var]),
+    dpiCall(TestCtx, lob_release, [Lob]).
+
 varRelease(#{session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource var from arg0",
@@ -1780,6 +1813,7 @@ getConfig() ->
     ?F(stmtClose),
     ?F(varSetNumElementsInArray),
     ?F(varSetFromBytes),
+    ?F(varSetFromLob),
     ?F(varRelease),
     ?F(dataSetTimestamp),
     ?F(dataSetIntervalDS),

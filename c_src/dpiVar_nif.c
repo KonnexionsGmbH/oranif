@@ -1,5 +1,6 @@
 #include "dpiVar_nif.h"
 #include "dpiData_nif.h"
+#include "dpiLob_nif.h"
 
 ErlNifResourceType *dpiVar_type;
 
@@ -49,6 +50,30 @@ DPI_NIF_FUN(var_setFromBytes)
         vRes->context,
         dpiVar_setFromBytes(
             vRes->var, pos, (const char *)value.data, value.size));
+
+    RETURNED_TRACE;
+    return ATOM_OK;
+}
+
+DPI_NIF_FUN(var_setFromLob)
+{
+    CHECK_ARGCOUNT(3);
+
+    dpiVar_res *vRes = NULL;
+    dpiLob_res *lRes = NULL;
+    ErlNifBinary value;
+    uint32_t pos;
+
+    if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
+        BADARG_EXCEPTION(0, "resource var");
+    if (!enif_get_uint(env, argv[1], &pos))
+        BADARG_EXCEPTION(1, "uint pos");
+    if ((!enif_get_resource(env, argv[2], dpiLob_type, (void **)&lRes)))
+        BADARG_EXCEPTION(2, "resource lob");
+
+    RAISE_EXCEPTION_ON_DPI_ERROR(
+        vRes->context,
+        dpiVar_setFromLob(vRes->var, pos, lRes->lob));
 
     RETURNED_TRACE;
     return ATOM_OK;

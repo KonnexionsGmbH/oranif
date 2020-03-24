@@ -7,7 +7,24 @@
 -define(USER, <<"foo">>).
 -define(PSWD, <<"bar">>).
 
--define(TEST_SQL, <<"select * from foo a, foo b, foo c, foo d">>). %selects 10000 rows
+% comment below line to run the second example instead of the first one
+-define(EXAMPLE_1, defined).
+
+-ifdef(EXAMPLE_1).
+
+% example 1:
+% demonstrates fetching a large amount. Takes about a minute
+-define(TEST_SQL, <<"select * from foo a, foo b, foo c, foo d, foo e">>). %selects 100000 rows
+-define(FETCHSIZE, 99999999).
+-else.
+
+% example 2:
+% fetches 100 rows from a gigantic result set with a not-so-obvious where clause
+-define(TEST_SQL, <<"select * from foo a, foo b, foo c, foo d, foo e, foo f, foo g, foo h, foo i, foo j, foo k"
+ " where to_char(e.bar) like '%5%'">>).
+-define(FETCHSIZE, 100).
+
+-endif.
 
 % this function executes SQL, fire-and-forget
 % it can be used for setup purposes.
@@ -129,7 +146,7 @@ main(_) ->
 
     Stmt = dpi:conn_prepareStmt(Conn, false, ?TEST_SQL, <<>>),
     Ret = dpi:stmt_execute(Stmt, []),
-    R = dpi_fetch_rows( Conn, Stmt, 99999999),
+    R = dpi_fetch_rows( Conn, Stmt, ?FETCHSIZE),
     io:format("Fetched ~p Ret ~p~n", [R, Ret]),
     halt(1).
 

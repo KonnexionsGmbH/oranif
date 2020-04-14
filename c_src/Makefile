@@ -1,7 +1,6 @@
 O = priv
 S = c_src
 ODPI_REPO = https://github.com/oracle/odpi
-ERTS_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~ts/erts-~ts/\", [code:root_dir(), erlang:system_info(version)]).")
 
 SRCS = $(wildcard $(S)/*.c)
 ODPIROOT = $(S)/odpi
@@ -9,7 +8,7 @@ ODPI_LIB_DIR = $(S)/odpi/lib
 
 TARGET = $(O)/dpi_nif.so
 
-INCLUDEDIRS = -I$(S) -I"$(ERTS_DIR)/include" -I"$(S)/odpi/include"
+INCLUDEDIRS = -I$(S) -I"$(ERTS_INCLUDE)" -I"$(S)/odpi/include"
 CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11
 LDFLAGS = -shared
 

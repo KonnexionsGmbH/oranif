@@ -7,7 +7,7 @@ TARGETS = $O\dpi_nif.dll
 
 CFLAGS = /nologo /c /MT
 # CFLAGS = $(CFLAGS) /Wall /WX
-INCLUDE_PATHS = /I$S /I"$(OTPROOT)\erts-9.2\include" /I"$S\odpi\include"
+INCLUDE_PATHS = /I$S /I"$(ERTS_INCLUDE)" /I"$S\odpi\include"
 LDFLAGS = /nologo 
 
 !IFDEF LINKODPI

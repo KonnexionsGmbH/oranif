@@ -46,6 +46,7 @@ $ sudo make -C lcov-1.11/ install
 lcov --directory . --capture --output-file coverage.info
 lcov --list coverage.info
 ```
+_A `cover.sh [target_percentage]` script is also provided for coverage check after `rebar3 eunit`._
 
 ## Testing
 There are some eunit tests which can be executed through `rebar3 do clean, compile, eunit` (Oracle Server connect info **MUST** be supplied through `tests/connect.config` first).

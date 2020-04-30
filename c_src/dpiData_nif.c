@@ -409,9 +409,6 @@ DPI_NIF_FUN(data_get)
         }
         break;
     }
-    default:
-        RAISE_STR_EXCEPTION("Unsupported nativeTypeNum in data_get");
-    }
 
     RETURNED_TRACE;
     return dataRet;

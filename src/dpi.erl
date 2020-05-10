@@ -121,8 +121,8 @@ reg(SlaveNode) ->
         no -> {error, "failed to register process globally"}
     end.
 
-start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
-    [_,SlaveHost] = string:tokens(atom_to_list(node()), "@"),
+start_slave(Name) when is_atom(Name) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
     ExtraArgs =
         case {init:get_argument(pa), init:get_argument(boot)} of
             {error, error} -> {error, bad_config};
@@ -141,14 +141,12 @@ start_slave(SlaveNodeName) when is_atom(SlaveNodeName) ->
     case ExtraArgs of
         {error, _} = Error -> Error;
         ExtraArgs ->
-            slave:start(
-                SlaveHost, SlaveNodeName,
-                lists:concat([
-                    " -hidden ",
-                    "-setcookie ", erlang:get_cookie(),
-                    ExtraArgs
-                ])
-            )
+            Args = lists:concat([
+                " -hidden ",
+                "-setcookie ", erlang:get_cookie(),
+                ExtraArgs
+            ]),
+            slave:start(Host, Name, Args, no_link, "erl")
     end.
 
 slave_call(SlaveNode, Mod, Fun, Args) ->

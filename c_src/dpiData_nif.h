@@ -17,6 +17,7 @@ typedef struct
     dpiNativeTypeNum type;
     void *next;
     void *stmtRes;
+    void *lobRes;
     unsigned char isQueryValue;
 } dpiDataPtr_res;
 

@@ -1,3 +1,12 @@
+true = os:putenv(
+    "ERTS_INCLUDE",
+    filename:join([
+        code:root_dir(),
+        io_lib:format("erts-~ts", [erlang:system_info(version)]),
+        "include"
+    ])
+),
+
 CONFIG1 = case os:getenv("ORANIF_DEBUG") of
     false -> CONFIG; % env var not defined
     []    -> CONFIG; % env var set to empty string

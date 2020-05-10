@@ -7,17 +7,6 @@ Oracle Call Interface driver using dirty NIFs. Requires Erlang/OTP 20 or later w
 ## Development
 Currently builds in Window, Linux and OS X
 
-#### Create Environment variables (Windows Only)
-```
-OTP_ERTS_DIR       = path to erlang run time system
-```
-Example `.bashrc` snippet:
-```sh
-...
-export OTP_ERTS_DIR=$(find /usr/lib/erlang/ -maxdepth 1 -type d -name erts-*)
-...
-```
-
 ## Compile (all OSs)
 ```sh
 # embed odpic source (default)
@@ -43,7 +32,6 @@ gcov -o ./ c_src/*.c
 $ uname -a
 Linux WKS006 4.4.0-17763-Microsoft #379-Microsoft Wed Mar 06 19:16:00 PST 2019 x86_64 x86_64 x86_64 GNU/Linux
 $ sudo apt-get install libaio1
-$ export OTP_ERTS_DIR=/usr/lib/erlang/erts-10.4.4/
 $ export LD_LIBRARY_PATH=$ROOT/oranif/c_src/odpi/lib/
 $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/oracle/19.3/client64/lib/ # or `sudo ldconfig`
 ```

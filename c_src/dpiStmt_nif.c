@@ -122,7 +122,7 @@ DPI_NIF_FUN(stmt_fetchRows)
     CHECK_ARGCOUNT(2);
 
     dpiStmt_res *stmtRes;
-    uint32_t moreRows;
+    int moreRows;
     uint32_t maxRows;
     uint32_t bufferRowIndex;
     uint32_t numRowsFetched;
@@ -461,7 +461,7 @@ DPI_NIF_FUN(stmt_getInfo)
         info.isReturning ? ATOM_TRUE : ATOM_FALSE,
         &map);
 
-    ERL_NIF_TERM type;
+    ERL_NIF_TERM type = ATOM_ERROR;
 
     switch (info.statementType)
     {

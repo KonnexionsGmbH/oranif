@@ -1,5 +1,6 @@
 #include "dpiData_nif.h"
 #include "dpiStmt_nif.h"
+#include "dpiLob_nif.h"
 
 #ifndef __WIN32__
 #include <string.h>
@@ -399,11 +400,11 @@ DPI_NIF_FUN(data_get)
             ALLOC_RESOURCE(lobRes, dpiLob);
             dataRes->lobRes = lobRes;
         }
-        lobRes->stmt = data->value.asLOB;
+        lobRes->lob = data->value.asLOB;
         dataRet = enif_make_resource(env, lobRes);
         break;
     }
-
+    }
     RETURNED_TRACE;
     return dataRet;
 }

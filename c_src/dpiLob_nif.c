@@ -55,7 +55,7 @@ DPI_NIF_FUN(lob_readBytes)
         ErlNifBinary smaller_value;
         enif_alloc_binary(valueLength, &smaller_value);
         memcpy(smaller_value.data, value.data, valueLength);
-        enif_release_binary(value);
+        enif_release_binary(&value);
         RETURNED_TRACE;
         return enif_make_binary(env, &smaller_value);
     }

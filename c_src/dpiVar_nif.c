@@ -60,20 +60,19 @@ DPI_NIF_FUN(var_setFromLob)
     CHECK_ARGCOUNT(3);
 
     dpiVar_res *vRes = NULL;
-    dpiLob_res *lRes = NULL;
-    ErlNifBinary value;
+    dpiLob_res *lobRes = NULL;
     uint32_t pos;
 
     if ((!enif_get_resource(env, argv[0], dpiVar_type, (void **)&vRes)))
         BADARG_EXCEPTION(0, "resource var");
     if (!enif_get_uint(env, argv[1], &pos))
         BADARG_EXCEPTION(1, "uint pos");
-    if ((!enif_get_resource(env, argv[2], dpiLob_type, (void **)&lRes)))
+    if ((!enif_get_resource(env, argv[2], dpiLob_type, (void **)&lobRes)))
         BADARG_EXCEPTION(2, "resource lob");
 
     RAISE_EXCEPTION_ON_DPI_ERROR(
         vRes->context,
-        dpiVar_setFromLob(vRes->var, pos, lRes->lob));
+        dpiVar_setFromLob(vRes->var, pos, lobRes->lob));
 
     RETURNED_TRACE;
     return ATOM_OK;

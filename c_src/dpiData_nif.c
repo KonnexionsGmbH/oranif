@@ -401,15 +401,16 @@ DPI_NIF_FUN(data_get)
 
         if (size == length)
             dataRet = enif_make_binary(env, &bin); // just return the binary
-        else{
-            ErlNifBinary bin2; // binary was too big, so make a new, smaller one
+        else
+        {
+            ErlNifBinary bin2;                // binary was too big, so make a new, smaller one
             enif_alloc_binary(length, &bin2); // length now contains the right size
             memcpy(bin2.data, bin.data, length);
             dataRet = enif_make_binary(env, &bin2); // return the smaller binary
         }
         break;
     }
-
+    }
     RETURNED_TRACE;
     return dataRet;
 }

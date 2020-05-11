@@ -9,7 +9,7 @@ ODPI_LIB_DIR = $(S)/odpi/lib
 TARGET = $(O)/dpi_nif.so
 
 INCLUDEDIRS = -I$(S) -I"$(ERTS_INCLUDE)" -I"$(S)/odpi/include"
-CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11
+CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11 -D _GNU_SOURCE
 LDFLAGS = -shared
 
 ifdef LINKODPI

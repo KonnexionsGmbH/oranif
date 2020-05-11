@@ -1,5 +1,9 @@
 #include "dpiLob_nif.h"
 
+#ifndef __WIN32__
+#include <string.h>
+#endif
+
 ErlNifResourceType *dpiLob_type;
 
 void dpiLob_res_dtor(ErlNifEnv *env, void *resource)

@@ -17,10 +17,9 @@ extern DPI_NIF_FUN(lob_setFromBytes);
 extern DPI_NIF_FUN(lob_readBytes);
 extern DPI_NIF_FUN(lob_release);
 
-#define DPILOB_NIFS                            \
-    IOB_NIF(lob_setFromBytes, 2),              \
-    IOB_NIF(lob_readBytes, 3),                 \
-    IOB_NIF(lob_release, 1)                  
-     
+#define DPILOB_NIFS                \
+    IOB_NIF(lob_setFromBytes, 2),  \
+        IOB_NIF(lob_readBytes, 3), \
+        IOB_NIF(lob_release, 1)
 
 #endif // _DPILOB_NIF_H_

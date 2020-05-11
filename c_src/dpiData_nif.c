@@ -402,7 +402,8 @@ DPI_NIF_FUN(data_get)
         }
         lobRes->lob = data->value.asLOB;
         dataRet = enif_make_resource(env, lobRes);
-        break;
+    }
+    break;
     }
     }
     RETURNED_TRACE;

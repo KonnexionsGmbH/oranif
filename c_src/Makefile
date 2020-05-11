@@ -33,7 +33,7 @@ priv:
 
 odpi:
 	@if [ ! -d "$(ODPIROOT)" ]; then \
-		cd $(S) && (git clone -b v3.0.0 --single-branch $(ODPI_REPO)) \
+		cd $(S) && (git clone -b v3.0.0 --single-branch -c advice.detachedHead=false $(ODPI_REPO)) \
 	fi
 	@if [ ! -z "${LINKODPI}" -a ! -d "$(ODPI_LIB_DIR)" ]; then \
 		cd $(ODPIROOT) && (make) \

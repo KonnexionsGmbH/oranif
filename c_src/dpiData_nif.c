@@ -392,14 +392,14 @@ DPI_NIF_FUN(data_get)
     break;
     case DPI_NATIVE_TYPE_LOB:
     {
-        uint64_t size;
-        uint64_t length;
+        uint64_t size;  // amount to read from the LOB
+        uint64_t length; // buffer size and actually read amount
         size = length = 256;
         ErlNifBinary bin;
         enif_alloc_binary(length, &bin);
         dpiLob_readBytes(data->value.asLOB, 1, size, bin.data, &length);
 
-        if (size == length)
+        if (size == length) // 256 bytes were read
             dataRet = enif_make_binary(env, &bin); // just return the binary
         else
         {

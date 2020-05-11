@@ -1,5 +1,6 @@
-sudo: true
 language: erlang
+dist: xenial
+os: linux
 otp_release:
   - 22.3
 env:

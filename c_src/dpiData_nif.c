@@ -405,7 +405,7 @@ DPI_NIF_FUN(data_get)
     }
     break;
     }
-    }
+
     RETURNED_TRACE;
     return dataRet;
 }

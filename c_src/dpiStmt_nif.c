@@ -461,7 +461,6 @@ DPI_NIF_FUN(stmt_getInfo)
         &map);
 
     ERL_NIF_TERM type = enif_make_atom(env, "DPI_STMT_TYPE_UNKNOWN");
-
     switch (info.statementType)
     {
     case DPI_STMT_TYPE_UNKNOWN:

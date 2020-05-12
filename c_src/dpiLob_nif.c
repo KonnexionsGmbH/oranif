@@ -44,7 +44,9 @@ DPI_NIF_FUN(lob_readBytes)
     if (!enif_get_uint64(env, argv[1], &offset))
         BADARG_EXCEPTION(1, "uint64 offset");
     if (!enif_get_uint64(env, argv[2], &amount))
-        BADARG_EXCEPTION(2, "uint64 amount");
+        BADARG_EXCEPTION(2, "uint64 length");
+
+    valueLength = amount; // must contain buffer size prior to lob fn call
 
     ErlNifBinary value;
     enif_alloc_binary(amount, &value);

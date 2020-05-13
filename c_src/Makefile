@@ -9,7 +9,7 @@ ODPI_LIB_DIR = $(S)/odpi/lib
 TARGET = $(O)/dpi_nif.so
 
 INCLUDEDIRS = -I$(S) -I"$(ERTS_INCLUDE)" -I"$(S)/odpi/include"
-CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11
+CFLAGS = $(INCLUDEDIRS) -O2 -ggdb -Wall -fPIC -std=c11 -D _GNU_SOURCE
 LDFLAGS = -shared
 
 ifdef LINKODPI
@@ -33,7 +33,7 @@ priv:
 
 odpi:
 	@if [ ! -d "$(ODPIROOT)" ]; then \
-		cd $(S) && (git clone -b v3.0.0 --single-branch $(ODPI_REPO)) \
+		cd $(S) && (git clone -b v3.0.0 --single-branch -c advice.detachedHead=false $(ODPI_REPO)) \
 	fi
 	@if [ ! -z "${LINKODPI}" -a ! -d "$(ODPI_LIB_DIR)" ]; then \
 		cd $(ODPIROOT) && (make) \

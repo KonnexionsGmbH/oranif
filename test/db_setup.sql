@@ -16,7 +16,6 @@ SET VERIFY OFF
 DEFINE logfile_dir = &1
 
 host mkdir &&logfile_dir
-CONNECT system/travis@0.0.0.0:1521/xe
 SET SHOWMODE OFF
 
 DEFINE spool_file = &&logfile_dir.hr_main.log
@@ -29,3 +28,4 @@ GRANT CREATE SESSION TO scott;
 GRANT UNLIMITED TABLESPACE TO scott;
 GRANT CREATE TABLE TO scott;
 GRANT CREATE PROCEDURE TO scott;
+COMMIT;

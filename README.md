@@ -52,8 +52,8 @@ _A `cover.sh [target_percentage]` script is also provided for coverage check aft
 ## Setting up docker container
 ```sh
 [HOST] docker create --shm-size 1G -p 1521:1521/t cp -e ORACLE_PWD=oracle konnexionsgmbh/db_19_3_ee
-Change 0.0.0.0 to a system interface IP (ipconfig / ifconfig) at test/db_setup.sql CONNECT line and the command below
-[CONTAINER/HOST] sqlplus sys/oracle@0.0.0.0:1521/orclpdb1 as sysdba @test/travis.sql $(pwd)/log/
+Change 0.0.0.0 to a system interface IP (ipconfig / ifconfig) below
+[CONTAINER/HOST] sqlplus sys/oracle@0.0.0.0:1521/orclpdb1 as sysdba @test/db_setup.sql $(pwd)/log/
 ```
 
 `rebar3 eunit` (with `tests/connect.config` configuration). And for testing with code coverage using lcov `rebar3 as lcov eunit`

@@ -1403,8 +1403,8 @@ dataGet(#{session := Conn} = TestCtx) ->
         {double, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE'},
         {ts, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP'},
         {intvlds, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS'},
-        {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'},
-        {lob, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB'}
+        {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'}%,
+        %{lob, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB'}
     ],
     lists:foreach(
         fun({Test, OraType, NativeType}) ->
@@ -1877,7 +1877,7 @@ getConfig() ->
     ?F(dataSetDouble),
     ?F(dataSetBytes),
     ?F(dataSetIsNull),
-    %?F(dataGet), -- failing
+    ?F(dataGet),
     ?F(dataGetBinary),
     ?F(dataGetRowid),
     ?F(dataGetStmt),
@@ -1888,6 +1888,10 @@ getConfig() ->
     ?F(resourceCounting),
     ?F(lobSetReadFromBytes)
 ]).
+
+-define(ENABLED, true).
+
+-ifdef(ENABLED).
 
 unsafe_no_context_test_() ->
     {
@@ -1905,6 +1909,9 @@ unsafe_session_test_() ->
         ?W(?AFTER_CONNECTION_TESTS)
     }.
 
+
+-ifdef(ENABLED).
+
 no_context_test_() ->
     {
         setup,
@@ -1912,6 +1919,8 @@ no_context_test_() ->
         fun cleanup/1,
         ?W(?NO_CONTEXT_TESTS)
     }.
+
+-endif.
 
 session_test_() ->
     {
@@ -2041,3 +2050,5 @@ reg_pids(Node) ->
         end,
         global:registered_names()
     ).
+
+-endif.

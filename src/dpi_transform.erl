@@ -25,7 +25,7 @@
 
 -module(dpi_transform).
 
--export([parse_transform/2]).
+-export([parse_transform/2, parse_transform_info/0]).
 
 -ifdef('ORANIF_DEBUG').
 -define(L(_F, _A), io:format("[~p:~p] "_F, [?MODULE, ?LINE | _A])).
@@ -36,6 +36,9 @@
 -define(L(_S), ?L(_S, [])).
 -define(N(_F, _A), ?L("[~p] "_F, [get(nif_class) | _A])).
 -define(N(_S), ?N(_S, [])).
+
+parse_transform_info() ->
+  #{error_location => line}.
 
 parse_transform(Forms, Options) ->
     % Look for nif definition : {attribute,_,nifs,[...]}

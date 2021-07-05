@@ -1,5 +1,6 @@
 #include "dpiData_nif.h"
 #include "dpiStmt_nif.h"
+#include "dpiLob_nif.h"
 
 #ifndef __WIN32__
 #include <string.h>
@@ -390,8 +391,19 @@ DPI_NIF_FUN(data_get)
         dataRet = enif_make_binary(env, &bin);
     }
     break;
-    default:
-        RAISE_STR_EXCEPTION("Unsupported nativeTypeNum");
+    case DPI_NATIVE_TYPE_LOB:
+    {
+        dpiLob_res *lobRes = (dpiLob_res *)dataRes->lobRes;
+        if (!lobRes)
+        {
+            // first time
+            ALLOC_RESOURCE(lobRes, dpiLob);
+            dataRes->lobRes = lobRes;
+        }
+        lobRes->lob = data->value.asLOB;
+        dataRet = enif_make_resource(env, lobRes);
+    }
+    break;
     }
 
     RETURNED_TRACE;

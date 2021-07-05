@@ -136,8 +136,7 @@ DPI_NIF_FUN(stmt_fetchRows)
     RAISE_EXCEPTION_ON_DPI_ERROR(
         stmtRes->context,
         dpiStmt_fetchRows(
-            stmtRes->stmt, maxRows, &bufferRowIndex, &numRowsFetched, &moreRows
-    ));
+            stmtRes->stmt, maxRows, &bufferRowIndex, &numRowsFetched, &moreRows));
 
     ERL_NIF_TERM map = enif_make_new_map(env);
     enif_make_map_put(
@@ -461,12 +460,10 @@ DPI_NIF_FUN(stmt_getInfo)
         info.isReturning ? ATOM_TRUE : ATOM_FALSE,
         &map);
 
-    ERL_NIF_TERM type = ATOM_ERROR;
-
+    ERL_NIF_TERM type = enif_make_atom(env, "DPI_STMT_TYPE_UNKNOWN");
     switch (info.statementType)
     {
     case DPI_STMT_TYPE_UNKNOWN:
-        type = enif_make_atom(env, "DPI_STMT_TYPE_UNKNOWN");
         break;
     case DPI_STMT_TYPE_SELECT:
         type = enif_make_atom(env, "DPI_STMT_TYPE_SELECT");

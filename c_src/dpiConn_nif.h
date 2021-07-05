@@ -18,6 +18,7 @@ extern DPI_NIF_FUN(conn_commit);
 extern DPI_NIF_FUN(conn_create);
 extern DPI_NIF_FUN(conn_getServerVersion);
 extern DPI_NIF_FUN(conn_newVar);
+extern DPI_NIF_FUN(conn_newTempLob);
 extern DPI_NIF_FUN(conn_ping);
 extern DPI_NIF_FUN(conn_prepareStmt);
 extern DPI_NIF_FUN(conn_rollback);
@@ -29,6 +30,7 @@ extern DPI_NIF_FUN(conn_setClientIdentifier);
         IOB_NIF(conn_create, 6),           \
         DEF_NIF(conn_getServerVersion, 1), \
         DEF_NIF(conn_newVar, 8),           \
+        IOB_NIF(conn_newTempLob, 2),       \
         DEF_NIF(conn_ping, 1),             \
         IOB_NIF(conn_prepareStmt, 4),      \
         DEF_NIF(conn_rollback, 1),         \

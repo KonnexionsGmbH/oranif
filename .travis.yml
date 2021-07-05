@@ -23,11 +23,8 @@ before_script:
   - kerl list installations
   - lcov --directory . --zerocounters
 script:
-  - echo exit | sqlplus sys/travis@127.0.0.1:1521/XE as sysdba @test/travis.sql $(pwd)/log/
+  - echo exit | sqlplus sys/travis@127.0.0.1:1521/XE as sysdba @test/db_setup.sql $(pwd)/log/
   - export LD_LIBRARY_PATH=./priv/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-  - ./rebar3 eunit
+  - ./rebar3 as lcov eunit
 after_success:
-  - lcov --directory . --capture --output-file coverage.info # capture coverage info
-  - lcov -r coverage.info "c_src/odpi/src/*.c" "*.h" -o coverage.info # header files are not covered
-  - lcov --list coverage.info --list-full-path # log coverage result
   - coveralls-lcov coverage.info # uploads to coveralls

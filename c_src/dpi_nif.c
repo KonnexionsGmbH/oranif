@@ -9,6 +9,7 @@
 #include "dpiQueryInfo_nif.h"
 #include "dpiData_nif.h"
 #include "dpiVar_nif.h"
+#include "dpiLob_nif.h"
 
 ERL_NIF_TERM ATOM_OK;
 ERL_NIF_TERM ATOM_NULL;
@@ -25,6 +26,7 @@ static ErlNifFunc nif_funcs[] = {
     DPISTMT_NIFS,
     DPIDATA_NIFS,
     DPIVAR_NIFS,
+    DPILOB_NIFS,
     {"resource_count", 0, resource_count}};
 
 /*******************************************************************************
@@ -50,6 +52,9 @@ DPI_NIF_FUN(resource_count)
     enif_make_map_put(
         env, ret, enif_make_atom(env, "variable"),
         enif_make_ulong(env, st->dpiVar_count), &ret);
+    enif_make_map_put(
+        env, ret, enif_make_atom(env, "lob"),
+        enif_make_ulong(env, st->dpiLob_count), &ret);
     enif_make_map_put(
         env, ret, enif_make_atom(env, "data"),
         enif_make_ulong(env, st->dpiData_count), &ret);
@@ -133,6 +138,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     }
 
     st->dpiVar_count = 0;
+    st->dpiLob_count = 0;
     st->dpiData_count = 0;
     st->dpiStmt_count = 0;
     st->dpiConn_count = 0;
@@ -145,6 +151,7 @@ static int load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info)
     DEF_RES(dpiData);
     DEF_RES(dpiDataPtr);
     DEF_RES(dpiVar);
+    DEF_RES(dpiLob);
 
     ATOM_OK = enif_make_atom(env, "ok");
     ATOM_NULL = enif_make_atom(env, "null");
@@ -181,6 +188,7 @@ static int upgrade(
 
     oranif_st *old_st = (oranif_st *)*old_priv_data;
     st->dpiVar_count = old_st->dpiVar_count;
+    st->dpiLob_count = old_st->dpiLob_count;
     st->dpiData_count = old_st->dpiData_count;
     st->dpiStmt_count = old_st->dpiStmt_count;
     st->dpiConn_count = old_st->dpiConn_count;

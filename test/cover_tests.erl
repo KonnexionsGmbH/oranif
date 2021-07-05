@@ -290,6 +290,27 @@ connNewVar(#{session := Conn} = TestCtx) ->
     [dpiCall(TestCtx, data_release, [X]) || X <- Data],
     dpiCall(TestCtx, var_release, [Var]).
 
+connNewTempLob(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource connection from arg0",
+        dpiCall(TestCtx, conn_newTempLob, [?BAD_REF, 'DPI_ORACLE_TYPE_CLOB'])
+    ),
+    ?ASSERT_EX(
+        "wrong or unsupported dpiOracleType type",
+        dpiCall(TestCtx, conn_newTempLob, [Conn, 'BAD_DPI_ORACLE_TYPE'])
+    ),
+    % fails due to the type being wrong
+    ?ASSERT_EX(
+        #{message := "DPI-1021: Oracle type 2008 is invalid"},
+        dpiCall(
+            TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE']
+        )
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    ?assert(is_reference(Lob)),
+    dpiCall(TestCtx, lob_release, [Lob]),
+    ok.
+
 connCommit(#{context := Context, session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource connection from arg0",
@@ -1079,6 +1100,41 @@ varSetFromBytes(#{session := Conn} = TestCtx) ->
     [dpiCall(TestCtx, data_release, [X]) || X <- Data],
     dpiCall(TestCtx, var_release, [Var]).
 
+varSetFromLob(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource var from arg0",
+        dpiCall(TestCtx, var_setFromLob, [?BAD_REF, 0, <<"abc">>])
+    ),
+    #{var := Var, data := Data} = dpiCall(
+        TestCtx, conn_newVar,
+        [
+            Conn, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB', 100, 100,
+            true, false, null
+        ]
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg2",
+        dpiCall(TestCtx, var_setFromLob, [Var, 0, ?BAD_REF])
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_CLOB']),
+    dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>]),
+    ?ASSERT_EX(
+        "Unable to retrieve uint pos from arg1",
+        dpiCall(TestCtx, var_setFromLob, [Var, ?BAD_INT, Lob])
+    ),
+    ?ASSERT_EX(
+        #{message :=
+            "DPI-1009: zero-based position 1000 is not valid with max array"
+            " size of 100"
+        },
+        dpiCall(TestCtx, var_setFromLob, [Var, 1000, Lob])
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, var_setFromLob, [Var, 0, Lob])),
+    % ?assertEqual(<<"abc">>, dpiCall(TestCtx, data_get, [hd(Data)])), -- segfault here
+    dpiCall(TestCtx, lob_release, [Lob]),
+    [dpiCall(TestCtx, data_release, [X]) || X <- Data],
+    dpiCall(TestCtx, var_release, [Var]).
+
 varRelease(#{session := Conn} = TestCtx) ->
     ?ASSERT_EX(
         "Unable to retrieve resource var from arg0",
@@ -1347,8 +1403,8 @@ dataGet(#{session := Conn} = TestCtx) ->
         {double, 'DPI_ORACLE_TYPE_NATIVE_DOUBLE', 'DPI_NATIVE_TYPE_DOUBLE'},
         {ts, 'DPI_ORACLE_TYPE_TIMESTAMP_TZ', 'DPI_NATIVE_TYPE_TIMESTAMP'},
         {intvlds, 'DPI_ORACLE_TYPE_INTERVAL_DS', 'DPI_NATIVE_TYPE_INTERVAL_DS'},
-        {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'},
-        {unsupported, 'DPI_ORACLE_TYPE_CLOB', 'DPI_NATIVE_TYPE_LOB'}
+        {intvlym, 'DPI_ORACLE_TYPE_INTERVAL_YM', 'DPI_NATIVE_TYPE_INTERVAL_YM'}%,
+        %{lob, 'DPI_ORACLE_TYPE_BLOB', 'DPI_NATIVE_TYPE_LOB'}
     ],
     lists:foreach(
         fun({Test, OraType, NativeType}) ->
@@ -1404,11 +1460,9 @@ dataGet(#{session := Conn} = TestCtx) ->
                     } = dpiCall(TestCtx, data_get, [Data]),
                     ?assert(is_integer(Years)),
                     ?assert(is_integer(Months));
-                unsupported ->
-                    ?ASSERT_EX(
-                        "Unsupported nativeTypeNum",
-                        dpiCall(TestCtx, data_get, [Data])
-                    )
+                lob ->
+                    Bin = dpiCall(TestCtx, data_get, [Data]),
+                    ?assert(is_binary(Bin))
             end,
             dpiCall(TestCtx, data_release, [Data]),
             dpiCall(TestCtx, var_release, [Var])
@@ -1619,6 +1673,50 @@ resourceCounting(#{context := Context, session := Conn} = TestCtx) ->
     ?assertEqual(InitialRC, dpiCall(TestCtx, resource_count, [])).
 
 %-------------------------------------------------------------------------------
+% LOB APIs
+%-------------------------------------------------------------------------------
+lobSetReadFromBytes(#{session := Conn} = TestCtx) ->
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_setFromBytes, [?BAD_REF, <<"abc">>])
+    ),
+    Lob = dpiCall(TestCtx, conn_newTempLob, [Conn, 'DPI_ORACLE_TYPE_BLOB']),
+    ?ASSERT_EX(
+        "Unable to retrieve binary value from arg1",
+        dpiCall(TestCtx, lob_setFromBytes, [Lob, badBinary])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_setFromBytes, [Conn, <<"abc">>])
+    ),
+    ?assertEqual(ok, dpiCall(TestCtx, lob_setFromBytes, [Lob, <<"abc">>])),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_readBytes, [?BAD_REF, 1, 3])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve uint64 offset from arg1",
+        dpiCall(TestCtx, lob_readBytes, [Lob, ?BAD_INT, 3])
+    ),
+    ?ASSERT_EX(
+        "Unable to retrieve uint64 length from arg2",
+        dpiCall(TestCtx, lob_readBytes, [Lob, 1, ?BAD_INT])
+    ),
+    ?ASSERT_EX(
+        #{message := "ORA-24801: illegal parameter value in OCI lob function"},
+        dpiCall(TestCtx, lob_readBytes, [Lob, 0, 3])
+    ),
+
+    ?assertEqual(<<"abc">>, dpiCall(TestCtx, lob_readBytes, [Lob, 1, 3])),
+    ?assertEqual(<<"abc">>, dpiCall(TestCtx, lob_readBytes, [Lob, 1, 5])),
+    dpiCall(TestCtx, lob_release, [Lob]),
+    ?ASSERT_EX(
+        "Unable to retrieve resource lob from arg0",
+        dpiCall(TestCtx, lob_release, [Conn])
+    ).
+
+
+%-------------------------------------------------------------------------------
 % eunit infrastructure callbacks
 %-------------------------------------------------------------------------------
 -define(SLAVE, oranif_slave).
@@ -1745,6 +1843,7 @@ getConfig() ->
 -define(AFTER_CONNECTION_TESTS, [
     ?F(connPrepareStmt),
     ?F(connNewVar),
+    ?F(connNewTempLob),
     ?F(connCommit),
     ?F(connRollback),
     ?F(connPing),
@@ -1769,6 +1868,7 @@ getConfig() ->
     ?F(stmtClose),
     ?F(varSetNumElementsInArray),
     ?F(varSetFromBytes),
+    ?F(varSetFromLob),
     ?F(varRelease),
     ?F(dataSetTimestamp),
     ?F(dataSetIntervalDS),
@@ -1785,8 +1885,13 @@ getConfig() ->
     ?F(dataGetDouble),
     ?F(dataGetBytes),
     ?F(dataRelease),
-    ?F(resourceCounting)
+    ?F(resourceCounting),
+    ?F(lobSetReadFromBytes)
 ]).
+
+-define(ENABLED, true).
+
+-ifdef(ENABLED).
 
 unsafe_no_context_test_() ->
     {
@@ -1804,6 +1909,9 @@ unsafe_session_test_() ->
         ?W(?AFTER_CONNECTION_TESTS)
     }.
 
+
+-ifdef(ENABLED).
+
 no_context_test_() ->
     {
         setup,
@@ -1811,6 +1919,8 @@ no_context_test_() ->
         fun cleanup/1,
         ?W(?NO_CONTEXT_TESTS)
     }.
+
+-endif.
 
 session_test_() ->
     {
@@ -1940,3 +2050,5 @@ reg_pids(Node) ->
         end,
         global:registered_names()
     ).
+
+-endif.

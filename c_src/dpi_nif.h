@@ -194,6 +194,7 @@ typedef struct
     unsigned long dpiData_count;
     unsigned long dpiDataPtr_count;
     unsigned long dpiVar_count;
+    unsigned long dpiLob_count;
 } oranif_st;
 
 #define ALLOC_RESOURCE(_var, _dpiType)                                       \

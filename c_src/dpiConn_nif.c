@@ -2,6 +2,7 @@
 #include "dpiContext_nif.h"
 #include "dpiStmt_nif.h"
 #include "dpiVar_nif.h"
+#include "dpiLob_nif.h"
 #include "dpiData_nif.h"
 #include "dpiQueryInfo_nif.h"
 #include "stdio.h"
@@ -133,6 +134,33 @@ DPI_NIF_FUN(conn_prepareStmt)
 
     RETURNED_TRACE;
     return stmtResTerm;
+}
+
+DPI_NIF_FUN(conn_newTempLob)
+{
+    CHECK_ARGCOUNT(2);
+
+    dpiConn_res *connRes = NULL;
+    dpiOracleTypeNum type;
+
+    if (!enif_get_resource(env, argv[0], dpiConn_type, (void **)&connRes))
+        BADARG_EXCEPTION(0, "resource connection");
+
+    DPI_ORACLE_TYPE_NUM_FROM_ATOM(argv[1], type);
+
+    dpiLob_res *lobRes;
+    ALLOC_RESOURCE(lobRes, dpiLob);
+
+    RAISE_EXCEPTION_ON_DPI_ERROR_RESOURCE(
+        connRes->context,
+        dpiConn_newTempLob(
+            connRes->conn, type, &lobRes->lob),
+        lobRes, dpiLob);
+
+    lobRes->context = connRes->context;
+
+    RETURNED_TRACE;
+    return enif_make_resource(env, lobRes);
 }
 
 DPI_NIF_FUN(conn_newVar)

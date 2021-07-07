@@ -227,6 +227,7 @@ DPI_NIF_FUN(conn_newVar)
         dataRes->stmtRes = NULL;
         dataRes->next = NULL;
         dataRes->isQueryValue = 0;
+        dataRes->lobRes = NULL;
         dataRes->context = connRes->context;
         if (varRes->head == NULL)
         {

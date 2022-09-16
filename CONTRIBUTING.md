@@ -1,4 +1,4 @@
-# oranif
+# oranif - Contributing Guide
 
 [![Build Status](https://travis-ci.org/KonnexionsGmbH/oranif.svg?branch=master)](https://travis-ci.org/KonnexionsGmbH/oranif) [![Coverage Status](https://coveralls.io/repos/github/KonnexionsGmbH/oranif/badge.svg?branch=master)](https://coveralls.io/github/KonnexionsGmbH/oranif?branch=master)
 ![GitHub](https://img.shields.io/github/license/KonnexionsGmbH/oranif.svg)

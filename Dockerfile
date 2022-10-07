@@ -1,6 +1,6 @@
 FROM erlang:24.3.4-slim as base
 
-SHELL ["/bin/bash", "-c"]
+# SHELL ["/bin/bash", "-c"]
 
 ARG VERSION_ORACLE_INSTANT_CLIENT_1=21
 ARG VERSION_ORACLE_INSTANT_CLIENT_2=7

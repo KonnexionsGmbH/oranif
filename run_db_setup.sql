@@ -85,6 +85,10 @@ BEGIN
     l_sql_stmnt := 'GRANT CREATE TRIGGER TO SCOTT';
     EXECUTE IMMEDIATE l_sql_stmnt;
     DBMS_OUTPUT.put_line ('Executed: ' || l_sql_stmnt);
+
+    l_sql_stmnt := 'GRANT ALL PRIVILEGES TO SCOTT';
+    EXECUTE IMMEDIATE l_sql_stmnt;
+    DBMS_OUTPUT.put_line ('Executed: ' || l_sql_stmnt);
 END;
 /
 

@@ -1,4 +1,5 @@
-version: "3.9"
+version: "3.8"
+
 services:
   db:
     container_name: oranif_db
@@ -7,15 +8,12 @@ services:
     image: konnexionsgmbh/db_21_3_xe:latest
     ports:
       - "1521:1521"
-  
+
   oranif:
-    command: /bin/bash -c "
-        while [ `docker inspect -f {{.State.Health.Status}} dderl_db_ora` != 'healthy' ];
-          do docker ps --filter 'name=oranif_db';
-          sleep 30;
-        done
-        && sqlplus sys/oracle@oranif_db:1521/orclpdb1 as sysdba @/usr/opt/dderl/run_db_setup.sql
-        && ./usr/opt/dderl/run_application_setup.sh"
+    command: /bin/bash -c "sqlplus sys/oracle@oranif_db:1521/xe as sysdba @/run_db_setup.sql"
+    container_name: oranif
     build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    tty: true

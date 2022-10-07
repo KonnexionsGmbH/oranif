@@ -37,6 +37,8 @@ COPY --from=base / /
 
 COPY . /
 
+SHELL ["/bin/bash", "-c"]
+
 RUN rebar3 compile
 
 CMD ["/bin/bash"]

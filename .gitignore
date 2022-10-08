@@ -28,7 +28,6 @@ c_src/oci_api/session
 c_src/odpi
 priv/
 ebin/
-\.*/
 *.gc*
 *.info
 cov_html/

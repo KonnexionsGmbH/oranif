@@ -1,0 +1,23 @@
+name: Code Coverage
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: erlang:24.3.4
+
+    steps:
+    - uses: actions/checkout@v3
+    - run: rebar3 compile
+    - run: rebar3 eunit

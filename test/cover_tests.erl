@@ -5,8 +5,8 @@
 % MACROs
 %-------------------------------------------------------------------------------
 
--define(DPI_MAJOR_VERSION, 3).
--define(DPI_MINOR_VERSION, 0).
+-define(DPI_MAJOR_VERSION, 4).
+-define(DPI_MINOR_VERSION, 5).
 
 -define(EXEC_STMT(_Conn, _Sql),
     (fun() ->
@@ -44,8 +44,8 @@ contextCreate(TestCtx) ->
     ),
     % fails due to nonsense major version
     ?ASSERT_EX(
-        #{message := "DPI-1020: version 1337.0 is not supported by ODPI-C"
-                     " library version 3.0"},
+        #{message := "DPI-1020: application requires ODPI-C 1337 (min 1337.5)"
+                     " but is using a shared library at version 4.5"},
         dpiCall(TestCtx, context_create, [1337, ?DPI_MINOR_VERSION])
     ),
     Context = dpiCall(

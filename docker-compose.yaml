@@ -10,10 +10,7 @@ services:
       - "1521:1521"
 
   oranif:
-    command: /bin/bash -c "
-      sqlplus sys/oracle@oranif_db:1521/xe as sysdba @/run_db_setup.sql
-      && tail -F /dev/null
-      "
+    command: /bin/bash -c "rebar3 eunit"
     build: .
     depends_on:
       db:

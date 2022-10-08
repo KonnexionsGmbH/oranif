@@ -1,12 +1,17 @@
 name: Code Coverage
 
 on:
-  workflow_dispatch:
   push:
-  pull_request:
 
 permissions:
   contents: read
+
+env:
+  VERSION_ORACLE_INSTANT_CLIENT_1: 21
+  VERSION_ORACLE_INSTANT_CLIENT_2: 7
+  ORACLE_HOME: /usr/lib/oracle/${VERSION_ORACLE_INSTANT_CLIENT_1}/client64
+  LD_LIBRARY_PATH: "${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}"
+  PATH: "${ORACLE_HOME}:${PATH}"
 
 jobs:
 
@@ -19,5 +24,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install instant client libraries
+      run: |
+        apt-get -y update
+        apt-get -y install \
+             build-essential \
+             alien \
+             git \
+             lcov \
+             libaio-dev \
+             libaio1 \
+             wget
+        eval echo 'export PATH=${PATH}' >> ~/.bashrc
+        /bin/bash -c "source ~/.bashrc"
+        wget --quiet --no-check-certificate -nv https://download.oracle.com/otn_software/linux/instantclient/217000/oracle-instantclient-basic-${VERSION_ORACLE_INSTANT_CLIENT_1}.${VERSION_ORACLE_INSTANT_CLIENT_2}.0.0.0-1.x86_64.rpm
+        wget --quiet --no-check-certificate -nv https://download.oracle.com/otn_software/linux/instantclient/217000/oracle-instantclient-sqlplus-${VERSION_ORACLE_INSTANT_CLIENT_1}.${VERSION_ORACLE_INSTANT_CLIENT_2}.0.0.0-1.x86_64.rpm
+        alien -i --scripts *.rpm
     - run: rebar3 compile
     - run: rebar3 eunit

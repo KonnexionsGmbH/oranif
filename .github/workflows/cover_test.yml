@@ -18,24 +18,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    container:
-      image: erlang:24.3.4
-
     steps:
     - uses: actions/checkout@v3
-    - name: Install instant client libraries
-      run: |
-        apt-get -y update
-        apt-get -y install \
-             build-essential \
-             alien \
-             git \
-             lcov \
-             libaio-dev \
-             libaio1 \
-             wget
-        wget --quiet --no-check-certificate -nv https://download.oracle.com/otn_software/linux/instantclient/217000/oracle-instantclient-basic-${VERSION_ORACLE_INSTANT_CLIENT_1}.${VERSION_ORACLE_INSTANT_CLIENT_2}.0.0.0-1.x86_64.rpm
-        wget --quiet --no-check-certificate -nv https://download.oracle.com/otn_software/linux/instantclient/217000/oracle-instantclient-sqlplus-${VERSION_ORACLE_INSTANT_CLIENT_1}.${VERSION_ORACLE_INSTANT_CLIENT_2}.0.0.0-1.x86_64.rpm
-        alien -i --scripts *.rpm
-    - run: rebar3 compile
-    - run: rebar3 eunit
+    - name: Build and test
+      run: docker-compose up

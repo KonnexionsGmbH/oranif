@@ -6,12 +6,6 @@ on:
 permissions:
   contents: read
 
-env:
-  VERSION_ORACLE_INSTANT_CLIENT_1: 21
-  VERSION_ORACLE_INSTANT_CLIENT_2: 7
-  ORACLE_HOME: /usr/lib/oracle/${VERSION_ORACLE_INSTANT_CLIENT_1}/client64
-  LD_LIBRARY_PATH: "${ORACLE_HOME}/lib:${LD_LIBRARY_PATH}"
-
 jobs:
 
   build:

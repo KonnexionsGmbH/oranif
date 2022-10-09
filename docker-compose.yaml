@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  db:
+    container_name: oranif_db
+    environment:
+      ORACLE_PWD: oracle
+    image: konnexionsgmbh/db_21_3_xe:latest
+    ports:
+      - "1521:1521"
+
+  oranif:
+    command: /bin/bash -c "rebar3 eunit"
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    tty: true

@@ -1,6 +1,7 @@
 O = priv
 S = c_src
 ODPI_REPO = https://github.com/oracle/odpi
+ODPI_VERSION = v4.5.0
 
 SRCS = $(wildcard $(S)/*.c)
 ODPIROOT = $(S)/odpi
@@ -33,7 +34,7 @@ priv:
 
 odpi:
 	@if [ ! -d "$(ODPIROOT)" ]; then \
-		cd $(S) && (git clone -b v3.0.0 --single-branch -c advice.detachedHead=false $(ODPI_REPO)) \
+		cd $(S) && (git clone -b $(ODPI_VERSION) --single-branch -c advice.detachedHead=false $(ODPI_REPO)) \
 	fi
 	@if [ ! -z "${LINKODPI}" -a ! -d "$(ODPI_LIB_DIR)" ]; then \
 		cd $(ODPIROOT) && (make) \
